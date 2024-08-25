@@ -1,0 +1,1 @@
+# nxt-hospital-skeleton-project
