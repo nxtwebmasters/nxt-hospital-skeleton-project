@@ -132,23 +132,6 @@ CREATE TABLE IF NOT EXISTS `nxt_patient` (
   UNIQUE KEY `patient_mrid` (`patient_mrid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-CREATE TABLE IF NOT EXISTS `nxt_permission` (
-  `permission_id` int(11) NOT NULL AUTO_INCREMENT,
-  `permission_name` varchar(100) NOT NULL,
-  `permission_description` text NOT NULL,
-  `component_access` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `read_permission` tinyint(1) NOT NULL DEFAULT 0,
-  `write_permission` tinyint(1) NOT NULL DEFAULT 0,
-  `delete_permission` tinyint(1) NOT NULL DEFAULT 0,
-  `permission_status` int(10) NOT NULL DEFAULT 1,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(100) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`permission_id`),
-  UNIQUE KEY `permission_name` (`permission_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
 CREATE TABLE IF NOT EXISTS `nxt_room` (
   `room_id` int(11) NOT NULL AUTO_INCREMENT,
   `room_name` varchar(100) NOT NULL,
@@ -244,14 +227,34 @@ CREATE TABLE IF NOT EXISTS `nxt_user` (
   `user_username` varchar(50) NOT NULL,
   `user_password` varchar(255) NOT NULL,
   `user_status` int(10) NOT NULL DEFAULT 1,
-  `user_role` varchar(50) NOT NULL,
+  `user_permission` varchar(100) NOT NULL,
   `user_last_login` datetime DEFAULT NULL,
+  `user_photo` varchar(200) DEFAULT NULL,
+  `user_address` VARCHAR(255) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `updated_by` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `user_username` (`user_username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_permission` (
+  `permission_id` int(11) NOT NULL AUTO_INCREMENT,
+  `permission_name` varchar(100) NOT NULL,
+  `permission_alias` varchar(100) NOT NULL,
+  `permission_description` text NOT NULL,
+  `component_access` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `read_permission` tinyint(1) NOT NULL DEFAULT 0,
+  `write_permission` tinyint(1) NOT NULL DEFAULT 0,
+  `delete_permission` tinyint(1) NOT NULL DEFAULT 0,
+  `permission_status` int(10) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`permission_id`),
+  UNIQUE KEY `permission_alias` (`permission_alias`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS `recentactivity` (
@@ -265,3 +268,8 @@ CREATE TABLE IF NOT EXISTS `recentactivity` (
   PRIMARY KEY (`activity_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+
+INSERT INTO `nxt_user` (`user_id`, `user_name`, `user_email`, `user_mobile`, `user_username`, `user_password`, `user_status`, `user_permission`, `user_last_login`, `user_photo`, `user_address`, `created_at`, `created_by`, `updated_at`, `updated_by`) VALUES (
+  1, 'Administrator', NULL, NULL, 'admin', '$2a$10$D3HzBNl77kmSdXxNUCpNqOglNmqjqRlaCKUAkLre8wa/DnTWeaNMi', 1, 'admin', NULL, NULL, NULL, CURRENT_TIMESTAMP(), 'admin', NULL, NULL);
+
+INSERT INTO `nxt_permission` (`permission_id`, `permission_name`, `permission_alias`, `permission_description`, `component_access`, `read_permission`, `write_permission`, `delete_permission`, `permission_status`, `created_at`, `created_by`, `updated_at`, `updated_by`) VALUES (1, 'Administrator', 'admin', 'permission with complete system access', '["nxt_user","nxt_permission"]', 1, 1, 1, 1, CURRENT_TIMESTAMP(), 'admin', NULL, NULL);
