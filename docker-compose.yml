@@ -1,37 +1,35 @@
 version: "3"
 
 services:
-  # HOSPITAL Frontend
-  front-end:
-    image: pandanxt/license-frontend
+
+  # HOSPITAL FRONTEND
+  hms-frontend:
+    image: pandanxt/hospital-frontend:latest
     ports:
       - 6000:80
-    container_name: license-frontend
-    # environment:
-    # - LM_URL=https://resourcevault.expertflow.com/api
-    # - DEFAULT_USER_ICON=https://resourcevault.expertflow.com/images/default-user.webp
+    container_name: nxt-hms-frontend
 
   # HOSPITAL BACKEND APIS
-  hms-backend-apis:
-    image: pandanxt/hms-backend-apis
+  hms-backend:
+    image: pandanxt/hms-backend-apis:latest
     ports:
       - 3000:80
-    container_name: hms-backend-apis
+    container_name: nxt-hms-backend
     volumes:
       - /usr/share/nginx/html/images:/usr/share/nginx/html/images
 
-  # NXT HOSPITAL Database
+  # NXT HOSPITAL DATABASE
   mysql:
     image: mysql:latest
-    container_name: nxt-hospital-mysql
+    container_name: nxt-hms-mysql
     cap_add:
       - SYS_NICE
     restart: always
     environment:
-      - MYSQL_ROOT_PASSWORD=nxtWebMaster464
-      - MYSQL_USER=nxtwebmasters
-      - MYSQL_PASSWORD=nxtWebMaster123
-      - MYSQL_DATABASE=nxt-hospital # Replace with your actual database name
+      - MYSQL_ROOT_PASSWORD=NxtHospital464
+      - MYSQL_USER=nxthospital
+      - MYSQL_PASSWORD=NxtHospital123
+      - MYSQL_DATABASE=nxt-hospital
     ports:
       - 3306:3306
     healthcheck:
