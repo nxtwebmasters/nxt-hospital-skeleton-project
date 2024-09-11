@@ -1,6 +1,6 @@
-CREATE DATABASE IF NOT EXISTS `nxt-hospital-testing`;
+CREATE DATABASE IF NOT EXISTS `nxt-hospital`;
 
-USE `nxt-hospital-testing`;
+USE `nxt-hospital`;
 
 CREATE TABLE IF NOT EXISTS `nxt_appointment` (
   `appointment_id` int(11) NOT NULL AUTO_INCREMENT,
