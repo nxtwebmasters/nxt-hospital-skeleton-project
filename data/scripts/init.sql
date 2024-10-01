@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS `nxt_bill` (
   `patient_mobile` varchar(50) NOT NULL,
   `bill_vitals` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `bill_total` int(11) NOT NULL DEFAULT 0,
+  `bill_payable` int(11) NOT NULL DEFAULT 0,
   `bill_paid` int(11) NOT NULL DEFAULT 0,
   `bill_discount` int(11) NOT NULL DEFAULT 0,
   `bill_balance` int(11) NOT NULL DEFAULT 0,
@@ -309,7 +310,7 @@ CREATE TABLE IF NOT EXISTS `nxt_slip` (
   `updated_by` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`slip_id`),
   UNIQUE KEY `slip_uuid` (`slip_uuid`),
-  KEY `fk_slip_doctor_uuid` (`slip_doctor`),
+  KEY `fk_slip_doctor_uuid` (`slip_doctor`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS `nxt_slip_subtype` (
