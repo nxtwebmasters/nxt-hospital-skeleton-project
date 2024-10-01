@@ -44,8 +44,10 @@ CREATE TABLE IF NOT EXISTS `nxt_appointment_type` (
 CREATE TABLE IF NOT EXISTS `nxt_bill` (
   `bill_id` int(11) NOT NULL AUTO_INCREMENT,
   `bill_uuid` varchar(50) NOT NULL,
-  `bill_slip_uuid` varchar(50) NOT NULL,
-  `bill_patient_mrid` varchar(50) NOT NULL,
+  `slip_uuid` varchar(50) NOT NULL,
+  `patient_mrid` varchar(50) NOT NULL,
+  `patient_name` varchar(50) NOT NULL,
+  `patient_mobile` varchar(50) NOT NULL,
   `bill_vitals` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `bill_total` int(11) NOT NULL DEFAULT 0,
   `bill_paid` int(11) NOT NULL DEFAULT 0,
@@ -75,7 +77,6 @@ CREATE TABLE IF NOT EXISTS `nxt_category` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
-
 CREATE TABLE IF NOT EXISTS `nxt_department` (
   `department_id` int(11) NOT NULL AUTO_INCREMENT,
   `department_name` varchar(100) NOT NULL,
@@ -90,7 +91,6 @@ CREATE TABLE IF NOT EXISTS `nxt_department` (
   UNIQUE KEY `department_name` (`department_name`),
   UNIQUE KEY `department_alias` (`department_alias`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
 
 
 CREATE TABLE IF NOT EXISTS `nxt_doctor` (
@@ -159,6 +159,7 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_invoice` (
   `total` int(11) NOT NULL DEFAULT 0,
   `paid` int(11) NOT NULL DEFAULT 0,
   `discount` int(11) NOT NULL DEFAULT 0,
+  `payable` int(11) NOT NULL DEFAULT 0,
   `balance` int(11) NOT NULL DEFAULT 0,
   `created_by` varchar(50) NOT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -183,13 +184,16 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_invoice_tests` (
 CREATE TABLE IF NOT EXISTS `nxt_lab_report` (
   `report_id` int(11) NOT NULL AUTO_INCREMENT,
   `report_uuid` varchar(50) NOT NULL,
+  `invoice_uuid` varchar(50) NOT NULL,
   `patient_mrid` varchar(50) NOT NULL,
+  `patient_name` varchar(255) NOT NULL,
+  `patient_mobile` varchar(15) NOT NULL,
   `test_results` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `report_delete` int(10) NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(50) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(50) NOT NULL,
+  `updated_by` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`report_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -204,6 +208,7 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
   `category` enum('SPECIAL','ROUTINE') NOT NULL,
   `performed_days` varchar(50) DEFAULT NULL,
   `report_title` varchar(255) DEFAULT NULL,
+  `clinical_interpretation` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `status` tinyint(1) NOT NULL DEFAULT 1,
   `created_by` varchar(100) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
@@ -289,25 +294,22 @@ CREATE TABLE IF NOT EXISTS `nxt_slip` (
   `slip_disposal` varchar(50) NOT NULL,
   `slip_department` varchar(20) DEFAULT NULL,
   `slip_doctor` varchar(20) NOT NULL,
-  `slip_appointment` varchar(20) DEFAULT 'walk_in_patient',
+  `slip_appointment` varchar(20) DEFAULT 'walk_in',
   `slip_fee` int(10) DEFAULT NULL,
   `slip_discount` int(10) DEFAULT NULL,
-  `slip_total` int(10) DEFAULT NULL,
+  `slip_payable` int(10) DEFAULT NULL,
+  `slip_paid` int(10) DEFAULT NULL,
+  `slip_balance` int(10) DEFAULT NULL, 
   `slip_procedure` varchar(255) DEFAULT NULL,
   `slip_type` varchar(20) NOT NULL,
-  `slip_subtype` varchar(20) DEFAULT NULL,
   `slip_delete` int(10) NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) NOT NULL,
+  `updated_by` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`slip_id`),
   UNIQUE KEY `slip_uuid` (`slip_uuid`),
-  KEY `fk_slip_department_uuid` (`slip_department`),
   KEY `fk_slip_doctor_uuid` (`slip_doctor`),
-  KEY `fk_table_slip_type_uuid` (`slip_type`),
-  KEY `fk_table_slip_subtype_uuid` (`slip_subtype`),
-  KEY `fk_slip_appointment_uuid` (`slip_appointment`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS `nxt_slip_subtype` (
@@ -330,6 +332,8 @@ CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
   `slip_type_id` int(11) NOT NULL AUTO_INCREMENT,
   `slip_type_name` varchar(100) NOT NULL,
   `slip_type_alias` varchar(100) NOT NULL,
+  `fields` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `isBill` tinyint(1) NOT NULL,
   `slip_type_status` int(10) NOT NULL DEFAULT 1,
   `slip_type_description` text DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
