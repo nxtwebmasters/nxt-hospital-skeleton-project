@@ -62,7 +62,6 @@ CREATE TABLE IF NOT EXISTS `nxt_bill` (
   PRIMARY KEY (`bill_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-
 CREATE TABLE IF NOT EXISTS `nxt_category` (
   `category_id` int(10) NOT NULL AUTO_INCREMENT,
   `category_name` varchar(100) NOT NULL,
@@ -76,7 +75,6 @@ CREATE TABLE IF NOT EXISTS `nxt_category` (
   PRIMARY KEY (`category_id`),
   UNIQUE KEY `category_alias` (`category_alias`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
 
 CREATE TABLE IF NOT EXISTS `nxt_department` (
   `department_id` int(11) NOT NULL AUTO_INCREMENT,
@@ -101,6 +99,7 @@ CREATE TABLE IF NOT EXISTS `nxt_doctor` (
   `doctor_mobile` varchar(15) DEFAULT NULL,
   `doctor_email` varchar(50) DEFAULT NULL,
   `doctor_title` varchar(255) NOT NULL,
+  `doctor_share` int(11) NOT NULL DEFAULT 0,
   `doctor_address` varchar(255) DEFAULT NULL,
   `doctor_type_alias` varchar(100) NOT NULL,
   `doctor_department_alias` varchar(100) NOT NULL,
@@ -153,7 +152,7 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_invoice` (
   `invoice_uuid` varchar(25) NOT NULL,
   `invoice_tests` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`invoice_tests`)),
   `patient_mrid` varchar(25) NOT NULL,
-  `report_date` date NOT NULL,
+  `report_date` datetime NOT NULL,
   `reference` varchar(100) DEFAULT NULL,
   `consultant` varchar(100) NOT NULL DEFAULT 'self',
   `invoice_delete` int(11) NOT NULL DEFAULT 1,
@@ -293,9 +292,9 @@ CREATE TABLE IF NOT EXISTS `nxt_slip` (
   `slip_patient_name` varchar(100) NOT NULL,
   `slip_patient_mobile` varchar(15) NOT NULL,
   `slip_disposal` varchar(50) NOT NULL,
-  `slip_department` varchar(20) DEFAULT NULL,
-  `slip_doctor` varchar(20) NOT NULL,
-  `slip_appointment` varchar(20) DEFAULT 'walk_in',
+  `slip_department` varchar(100) DEFAULT NULL,
+  `slip_doctor` varchar(100) NOT NULL,
+  `slip_appointment` varchar(100) DEFAULT 'walk_in',
   `slip_fee` int(10) DEFAULT NULL,
   `slip_discount` int(10) DEFAULT NULL,
   `slip_payable` int(10) DEFAULT NULL,
@@ -398,6 +397,18 @@ CREATE TABLE IF NOT EXISTS `nxt_permission` (
   UNIQUE KEY `permission_alias` (`permission_alias`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE IF NOT EXISTS `nxt_db_backup` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `db_name` VARCHAR(255) NOT NULL,
+    `step_message` TEXT NOT NULL,
+    `step_action` VARCHAR(100) NOT NULL,
+    `success` TINYINT(1) NOT NULL,
+    `backup_month` VARCHAR(255) NOT NULL,
+    `excel_file` VARCHAR(255) NULL,
+    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE IF NOT EXISTS `recentactivity` (
   `activity_id` int(11) NOT NULL AUTO_INCREMENT,
   `admin_user` varchar(100) NOT NULL,
@@ -409,9 +420,57 @@ CREATE TABLE IF NOT EXISTS `recentactivity` (
   PRIMARY KEY (`activity_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-
 INSERT INTO `nxt_user` (`user_id`, `user_name`, `user_email`, `user_mobile`, `user_username`, `user_password`, `user_status`, `user_permission`, `user_last_login`, `user_photo`, `user_address`, `created_at`, `created_by`, `updated_at`, `updated_by`) VALUES (
   1, 'Administrator', NULL, NULL, 'admin', '$2a$10$D3HzBNl77kmSdXxNUCpNqOglNmqjqRlaCKUAkLre8wa/DnTWeaNMi', 1, 'admin', NULL, NULL, NULL, CURRENT_TIMESTAMP(), 'admin', NULL, NULL);
 
 INSERT INTO `nxt_permission` (`permission_id`, `permission_name`, `permission_alias`, `permission_description`, `component_access`, `read_permission`, `write_permission`, `delete_permission`, `permission_status`, `created_at`, `created_by`, `updated_at`, `updated_by`) VALUES
 (1, 'Administrator', 'admin', 'permission with complete system access', 'Appointment,Appointment-Type,Category,Department,Doctor,Doctor-Type,Laboratory-Test,Test-Component,Patient,Room,Service,Slip,Slip-Subtype,User,Recent-Activity', 1, 1, 1, 1, CURRENT_TIMESTAMP(), 'admin', NULL, NULL);
+
+INSERT INTO `nxt_slip_type` (`slip_type_id`, `slip_type_name`, `slip_type_alias`, `fields`, `isBill`, `slip_type_status`, `slip_type_description`, `created_at`, `created_by`, `updated_at`, `updated_by`) VALUES 
+(1,'OPD SLIP','opd_slip','[\"uuid\",\"mrid\",\"name\",\"mobile\",\"gender\",\"dob\",\"age\",\"bloodgroup\",\"address\",\"disposal\",\"department\",\"doctor\",\"fee\",\"paid\",\"discount\",\"payable\",\"balance\"]',0,1,'',CURRENT_TIMESTAMP(), 'admin', NULL, NULL);
+
+-- Procedure For Backup And Copy
+DELIMITER //
+
+CREATE PROCEDURE backup_and_copy(IN source_db VARCHAR(255), IN backup_db VARCHAR(255))
+BEGIN
+    DECLARE done INT DEFAULT 0;
+    DECLARE tbl_name VARCHAR(255);
+    DECLARE cur CURSOR FOR
+        SELECT table_name FROM information_schema.tables WHERE table_schema = source_db;
+    
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+    -- Create the backup database dynamically
+    SET @create_db_query = CONCAT('CREATE DATABASE IF NOT EXISTS `', backup_db, '`');
+    PREPARE stmt FROM @create_db_query;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+
+    -- Loop through all tables in the source database
+    OPEN cur;
+    read_loop: LOOP
+        FETCH cur INTO tbl_name;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+
+        -- Copy data from each table to the backup database
+        SET @copy_query = CONCAT('CREATE TABLE `', backup_db, '`.`', tbl_name, '` LIKE `', source_db, '`.`', tbl_name, '`');
+        PREPARE stmt FROM @copy_query;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+
+        SET @insert_query = CONCAT('INSERT INTO `', backup_db, '`.`', tbl_name, '` SELECT * FROM `', source_db, '`.`', tbl_name, '`');
+        PREPARE stmt FROM @insert_query;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+
+    END LOOP;
+    CLOSE cur;
+
+    -- Return the name of the backup database
+    SELECT backup_db AS backup_database_name;
+END//
+
+DELIMITER ;
