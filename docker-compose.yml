@@ -3,25 +3,42 @@ version: "3"
 services:
 
   # HOSPITAL FRONTEND
-  hms-frontend:
-    image: pandanxt/hospital-frontend:latest
+  hms-portal-frontend:
+    image: pandanxt/hospital-frontend:1.0.1
     ports:
-      - 6000:80
-    container_name: nxt-hms-frontend
-
+      - 6001:80
+    container_name: nxt-hms.nxtwebmasters.com
+    restart: always
+  
   # HOSPITAL BACKEND APIS
   hms-backend:
-    image: pandanxt/hms-backend-apis:latest
+    image: pandanxt/hms-backend-apis:1.0.1
     ports:
-      - 3000:80
-    container_name: nxt-hms-backend
+      - 5001:80
+    container_name: api-hms.nxtwebmasters.com
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     volumes:
       - /usr/share/nginx/html/images:/usr/share/nginx/html/images
+    depends_on:
+      - mysql
+
+  # HOSPITAL CUSTOMER PORTAL
+  customer-portal-frontend:
+    image: pandanxt/customer-portal:1.0.1
+    ports:
+      - 8001:80
+    container_name: medeast.nxtwebmasters.com
+    restart: always
 
   # NXT HOSPITAL DATABASE
   mysql:
     image: mysql:latest
-    container_name: nxt-hms-mysql
+    container_name: hospital-mysql
     cap_add:
       - SYS_NICE
     restart: always
