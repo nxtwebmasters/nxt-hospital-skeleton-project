@@ -424,7 +424,7 @@ INSERT INTO `nxt_user` (`user_id`, `user_name`, `user_email`, `user_mobile`, `us
   1, 'Administrator', NULL, NULL, 'admin', '$2a$10$D3HzBNl77kmSdXxNUCpNqOglNmqjqRlaCKUAkLre8wa/DnTWeaNMi', 1, 'admin', NULL, NULL, NULL, CURRENT_TIMESTAMP(), 'admin', NULL, NULL);
 
 INSERT INTO `nxt_permission` (`permission_id`, `permission_name`, `permission_alias`, `permission_description`, `component_access`, `read_permission`, `write_permission`, `delete_permission`, `permission_status`, `created_at`, `created_by`, `updated_at`, `updated_by`) VALUES
-(1, 'Administrator', 'admin', 'permission with complete system access', 'Appointment,Appointment-Type,Category,Department,Doctor,Doctor-Type,Laboratory-Test,Test-Component,Patient,Room,Service,Slip,Slip-Subtype,User,Recent-Activity', 1, 1, 1, 1, CURRENT_TIMESTAMP(), 'admin', NULL, NULL);
+(1, 'Administrator', 'admin', 'permission with complete system access', '["laboratory-slip","laboratory-report","laboratory-test","laboratory-test-component","slip","bill","slip-type","department","doctor","doctor-type","patient","category","room","service","bill-vitals","permission","backup","user"]', 1, 1, 1, 1, CURRENT_TIMESTAMP(), 'admin', NULL, NULL);
 
 INSERT INTO `nxt_slip_type` (`slip_type_id`, `slip_type_name`, `slip_type_alias`, `fields`, `isBill`, `slip_type_status`, `slip_type_description`, `created_at`, `created_by`, `updated_at`, `updated_by`) VALUES 
 (1,'OPD SLIP','opd_slip','[\"uuid\",\"mrid\",\"name\",\"mobile\",\"gender\",\"dob\",\"age\",\"bloodgroup\",\"address\",\"disposal\",\"department\",\"doctor\",\"fee\",\"paid\",\"discount\",\"payable\",\"balance\"]',0,1,'',CURRENT_TIMESTAMP(), 'admin', NULL, NULL);
