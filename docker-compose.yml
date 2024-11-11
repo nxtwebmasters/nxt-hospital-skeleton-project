@@ -1,41 +1,7 @@
-version: "3"
-
+version: "3.8"
 services:
 
-  # HOSPITAL FRONTEND
-  hms-portal-frontend:
-    image: pandanxt/hospital-frontend:1.0.1
-    ports:
-      - 6001:80
-    container_name: nxt-hms.nxtwebmasters.com
-    restart: always
-  
-  # HOSPITAL BACKEND APIS
-  hms-backend:
-    image: pandanxt/hms-backend-apis:1.0.1
-    ports:
-      - 5001:80
-    container_name: api-hms.nxtwebmasters.com
-    restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    volumes:
-      - /usr/share/nginx/html/images:/usr/share/nginx/html/images
-    depends_on:
-      - mysql
-
-  # HOSPITAL CUSTOMER PORTAL
-  customer-portal-frontend:
-    image: pandanxt/customer-portal:1.0.1
-    ports:
-      - 8001:80
-    container_name: medeast.nxtwebmasters.com
-    restart: always
-
-  # NXT HOSPITAL DATABASE
+  # MySQL Database Service
   mysql:
     image: mysql:latest
     container_name: hospital-mysql
@@ -48,10 +14,72 @@ services:
       - MYSQL_PASSWORD=NxtHospital123
       - MYSQL_DATABASE=nxt-hospital
     ports:
-      - 3306:3306
+      - "3306:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 60s
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
       retries: 20
     volumes:
       - ${PWD}/data/scripts:/docker-entrypoint-initdb.d
+
+  # HOSPITAL FRONTEND
+  hms-portal-frontend:
+    image: pandanxt/hospital-frontend:1.0.1
+    ports:
+      - 6001:80
+    container_name: nxt-hms.nxtwebmasters.com
+    restart: always
+    environment:
+      HMS_BACKEND_URL: "https://api-hospital.nxtwebmasters.com"
+      DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com:8089/images/default-user.webp"
+
+      # HOSPITAL CUSTOMER PORTAL
+  customer-portal-frontend:
+    image: pandanxt/customer-portal:1.0.1
+    ports:
+      - 8001:80
+    container_name: medeast.nxtwebmasters.com
+    restart: always
+    environment:
+      HMS_BACKEND_URL: "https://api-hospital.nxtwebmasters.com"
+      DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com:8089/images/default-user.webp"
+
+  # HOSPITAL BACKEND APIS
+  hms-backend:
+    image: pandanxt/hms-backend-apis:1.0.1
+    ports:
+      - 5001:80
+    container_name: api-hms.nxtwebmasters.com
+    restart: always
+    environment:
+      PORT: 80
+      LOG_LEVEL: info
+      DB_HOST: "hospital-mysql"
+      SOURCE_DB_NAME: "nxt-hospital"
+      DB_USERNAME: "root"
+      DB_PASSWORD: "NxtHospital464"
+      DB_CONNECTION_LIMIT: 10
+      DB_MULTIPLE_STATEMENTS: true
+      EMAIL_USER: "knowledge.hub5155@gmail.com"
+      EMAIL_PASSWORD: "xpbq xunw hrvk vajq"
+      EMAIL_IMAGE_PATH: "https://file-hospital.nxtwebmasters.com/images/NxtWebMasters.ico"
+      JWT_SECRET: "94C3AFF3C97E70E644094C1181E8670A"
+      IMAGE_STORAGE_PATH: "/usr/share/nginx/html/images"
+      FILE_SERVER_URL: "https://file-hospital.nxtwebmasters.com/images/"
+      WEBHOOK_URL: "https://chat.googleapis.com/v1/spaces/AAAAk9hYwn4/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=c_DArxbyU1MOxMzzm1P2u0zvdYZy3tw6dzgZWg_ANBo"
+      CUSTOMER_PORTAL_URL: "https://portal-hospital.nxtwebmasters.com/assets/print"
+      BACKEND_URL: "https://api-hospital.nxtwebmasters.com"
+      EMAIL_RECIPIENTS: "pandanxt00@gmail.com,buxaritexh@gmail.com,umerk1371@gmail.com,info@medeast.net"
+      BACKUP_TABLES: "nxt_appointment,nxt_followup_slip,nxt_service_slip,nxt_slip,nxt_bill,nxt_lab_invoice,nxt_lab_report,nxt_patient,recentactivity"
+      ALLOWED_ORIGINS: "http://localhost:4200,http://localhost:4300,https://157.173.109.136:6001,https://157.173.109.136:6000,https://157.173.109.136:8001,https://hospital.nxtwebmasters.com,https://portal-hospital.nxtwebmasters.com"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:80/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - /usr/share/nginx/html/images:/usr/share/nginx/html/images
+    depends_on:
+      mysql:
+        condition: service_healthy

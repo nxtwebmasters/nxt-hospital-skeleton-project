@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS `nxt_appointment_type` (
 CREATE TABLE IF NOT EXISTS `nxt_bill` (
   `bill_id` int(11) NOT NULL AUTO_INCREMENT,
   `bill_uuid` varchar(50) NOT NULL,
-  `slip_uuid` varchar(50) NOT NULL,
+  `slip_uuid` varchar(50) DEFAULT NULL,
   `patient_mrid` varchar(50) NOT NULL,
   `patient_name` varchar(50) NOT NULL,
   `patient_mobile` varchar(50) NOT NULL,
@@ -59,6 +59,9 @@ CREATE TABLE IF NOT EXISTS `nxt_bill` (
   `created_by` varchar(50) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `updated_by` varchar(50) DEFAULT NULL,
+  `bill_type` varchar(100) NOT NULL,
+  `bill_doctor` varchar(200) NOT NULL,
+  `bill_disposal` varchar(100) NOT NULL,
   PRIMARY KEY (`bill_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -403,8 +406,6 @@ CREATE TABLE IF NOT EXISTS `nxt_db_backup` (
     `step_message` TEXT NOT NULL,
     `step_action` VARCHAR(100) NOT NULL,
     `success` TINYINT(1) NOT NULL,
-    `backup_month` VARCHAR(255) NOT NULL,
-    `excel_file` VARCHAR(255) NULL,
     `created_at` datetime NOT NULL DEFAULT current_timestamp(),
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
