@@ -212,6 +212,7 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
   `performed_days` varchar(50) DEFAULT NULL,
   `report_title` varchar(255) DEFAULT NULL,
   `clinical_interpretation` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `note` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `status` tinyint(1) NOT NULL DEFAULT 1,
   `created_by` varchar(100) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
@@ -349,10 +350,8 @@ CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
 
 CREATE TABLE IF NOT EXISTS `nxt_test_component` (
   `component_id` int(10) NOT NULL AUTO_INCREMENT,
-  `component_name` varchar(100) NOT NULL,
-  `component_unit` varchar(255) NOT NULL,
-  `normal_range_male` varchar(50) DEFAULT NULL,
-  `normal_range_female` varchar(50) DEFAULT NULL,
+  `component_title` varchar(100) DEFAULT NULL,
+  `component_ranges` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `test_code` varchar(100) NOT NULL,
   `created_by` varchar(50) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
