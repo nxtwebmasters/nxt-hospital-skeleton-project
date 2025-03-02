@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS `nxt_bill` (
   `patient_name` varchar(50) NOT NULL,
   `patient_mobile` varchar(50) NOT NULL,
   `bill_vitals` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `slip_payment_mode` varchar(50) DEFAULT NULL,
+  `slip_payment_detail` varchar(50) DEFAULT NULL,
   `bill_total` int(11) NOT NULL DEFAULT 0,
   `bill_payable` int(11) NOT NULL DEFAULT 0,
   `bill_paid` int(11) NOT NULL DEFAULT 0,
@@ -104,6 +106,10 @@ CREATE TABLE IF NOT EXISTS `nxt_doctor` (
   `doctor_title` varchar(255) NOT NULL,
   `doctor_share` int(11) NOT NULL DEFAULT 0,
   `doctor_address` varchar(255) DEFAULT NULL,
+  `doctor_cnic` varchar(50) DEFAULT NULL,
+  `doctor_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `doctor_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `doctor_photo` varchar(255) DEFAULT NULL,
   `doctor_type_alias` varchar(100) NOT NULL,
   `doctor_department_alias` varchar(100) NOT NULL,
   `doctor_status` int(10) NOT NULL DEFAULT 1,
@@ -299,6 +305,8 @@ CREATE TABLE IF NOT EXISTS `nxt_slip` (
   `slip_department` varchar(100) DEFAULT NULL,
   `slip_doctor` varchar(100) NOT NULL,
   `slip_appointment` varchar(100) DEFAULT 'walk_in',
+  `slip_payment_mode` varchar(50) DEFAULT NULL,
+  `slip_payment_detail` varchar(50) DEFAULT NULL,
   `slip_fee` int(10) DEFAULT NULL,
   `slip_discount` int(10) DEFAULT NULL,
   `slip_payable` int(10) DEFAULT NULL,
@@ -373,6 +381,11 @@ CREATE TABLE IF NOT EXISTS `nxt_user` (
   `user_last_login` datetime DEFAULT NULL,
   `user_photo` varchar(200) DEFAULT NULL,
   `user_address` VARCHAR(255) DEFAULT NULL,
+  `user_cnic` VARCHAR(50) DEFAULT NULL,
+  `user_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `user_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `user_cnic_front` VARCHAR(255) DEFAULT NULL,
+  `user_cnic_back` VARCHAR(255) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
@@ -526,8 +539,14 @@ CREATE TABLE IF NOT EXISTS `prescription_other` (
      PRIMARY KEY(`id`)  
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-INSERT INTO `nxt_user` (`user_id`, `user_name`, `user_email`, `user_mobile`, `user_username`, `user_password`, `user_status`, `user_permission`, `user_last_login`, `user_photo`, `user_address`, `created_at`, `created_by`, `updated_at`, `updated_by`) VALUES (
-  1, 'Administrator', NULL, NULL, 'admin', '$2a$10$D3HzBNl77kmSdXxNUCpNqOglNmqjqRlaCKUAkLre8wa/DnTWeaNMi', 1, 'admin', NULL, NULL, NULL, CURRENT_TIMESTAMP(), 'admin', NULL, NULL);
+CREATE TABLE IF NOT EXISTS `nxt_medicine ` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `medicine_name` VARCHAR(255) NOT NULL UNIQUE,
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT INTO `nxt_user` (`user_id`, `user_name`, `user_email`, `user_mobile`, `user_username`, `user_password`, `user_status`, `user_permission`, `user_last_login`, `user_photo`, `user_address`, `user_cnic`, `user_experience`, `user_degree`, `user_cnic_front`, `user_cnic_back`, `created_at`, `created_by`, `updated_at`, `updated_by`) VALUES (
+  1, 'Administrator', NULL, NULL, 'admin', '$2a$10$D3HzBNl77kmSdXxNUCpNqOglNmqjqRlaCKUAkLre8wa/DnTWeaNMi', 1, 'admin', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, CURRENT_TIMESTAMP(), 'admin', NULL, NULL);
 
 INSERT INTO `nxt_permission` (`permission_id`, `permission_name`, `permission_alias`, `permission_description`, `component_access`, `read_permission`, `write_permission`, `delete_permission`, `permission_status`, `created_at`, `created_by`, `updated_at`, `updated_by`) VALUES
 (1, 'Administrator', 'admin', 'permission with complete system access', '["laboratory-slip","laboratory-report","laboratory-test","laboratory-test-component","slip","bill","slip-type","department","doctor","doctor-type","patient","category","room","service","bill-vitals","permission","backup","user"]', 1, 1, 1, 1, CURRENT_TIMESTAMP(), 'admin', NULL, NULL);

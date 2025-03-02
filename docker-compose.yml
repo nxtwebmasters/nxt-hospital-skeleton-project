@@ -1,30 +1,8 @@
 version: "3.8"
 services:
 
-  # MySQL Database Service
-  mysql:
-    image: mysql:latest
-    container_name: hospital-mysql
-    cap_add:
-      - SYS_NICE
-    restart: always
-    environment:
-      - MYSQL_ROOT_PASSWORD=NxtHospital464
-      - MYSQL_USER=nxthospital
-      - MYSQL_PASSWORD=NxtHospital123
-      - MYSQL_DATABASE=nxt-hospital
-    ports:
-      - "3306:3306"
-    healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
-      interval: 10s
-      timeout: 5s
-      retries: 20
-    volumes:
-      - ${PWD}/data/scripts:/docker-entrypoint-initdb.d
-
-  # HOSPITAL FRONTEND
-  hms-portal-frontend:
+  # HOSPITAL UNIFIED ADMIN FRONTEND
+  hospital-frontend:
     image: pandanxt/hospital-frontend:1.0.1
     ports:
       - 6001:80
@@ -33,9 +11,9 @@ services:
     environment:
       HMS_BACKEND_URL: "https://api-hospital.nxtwebmasters.com"
       DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com:8089/images/default-user.webp"
-
-      # HOSPITAL CUSTOMER PORTAL
-  customer-portal-frontend:
+  
+  # HOSPITAL PATIENT PORTAL
+  patient-frontend:
     image: pandanxt/customer-portal:1.0.1
     ports:
       - 8001:80
@@ -45,9 +23,9 @@ services:
       HMS_BACKEND_URL: "https://api-hospital.nxtwebmasters.com"
       DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com:8089/images/default-user.webp"
 
-  # HOSPITAL BACKEND APIS
-  hms-backend:
-    image: pandanxt/hms-backend-apis:1.0.1
+  # HOSPITAL BACKEND API
+  hospital-apis:
+    image: pandanxt/hms-backend-apis:1.1.1
     ports:
       - 5001:80
     container_name: api-hms.nxtwebmasters.com
@@ -83,3 +61,25 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+
+  # HOSPITAL DATABASE SERVICE
+  mysql:
+    image: mysql:latest
+    container_name: hospital-mysql
+    cap_add:
+      - SYS_NICE
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=NxtHospital464
+      - MYSQL_USER=nxthospital
+      - MYSQL_PASSWORD=NxtHospital123
+      - MYSQL_DATABASE=nxt-hospital
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - ${PWD}/data/scripts:/docker-entrypoint-initdb.d
