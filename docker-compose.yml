@@ -6,29 +6,32 @@ services:
     image: pandanxt/hospital-frontend:1.0.1
     ports:
       - 6001:80
-    container_name: nxt-hms.nxtwebmasters.com
+    container_name: nxt-hospital.nxtwebmasters.com
     restart: always
     environment:
       HMS_BACKEND_URL: "https://api-hospital.nxtwebmasters.com"
-      DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com:8089/images/default-user.webp"
-  
+      DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com/images/default-user.webp"
+      PATIENT_PORTAL_URL: "https://medeast.nxtwebmasters.com/assets/print"
+      BLOOD_GROUP: "A,B,AB,O"
+      REPORT_OPTION: "Positive,Negative,Reactive,Non-Reactive,Matched,Not-Matched"
+
   # HOSPITAL PATIENT PORTAL
   patient-frontend:
     image: pandanxt/customer-portal:1.0.1
     ports:
       - 8001:80
-    container_name: medeast.nxtwebmasters.com
+    container_name: patient-portal.nxtwebmasters.com
     restart: always
     environment:
       HMS_BACKEND_URL: "https://api-hospital.nxtwebmasters.com"
-      DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com:8089/images/default-user.webp"
+      DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com/images/default-user.webp"
 
   # HOSPITAL BACKEND API
   hospital-apis:
     image: pandanxt/hms-backend-apis:1.1.1
     ports:
       - 5001:80
-    container_name: api-hms.nxtwebmasters.com
+    container_name: api-hospital.nxtwebmasters.com
     restart: always
     environment:
       PORT: 80
