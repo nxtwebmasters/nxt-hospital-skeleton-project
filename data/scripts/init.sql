@@ -49,8 +49,8 @@ CREATE TABLE IF NOT EXISTS `nxt_bill` (
   `bill_doctor` varchar(200) NOT NULL,
   `bill_disposal` varchar(100) NOT NULL,
   `bill_vitals` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `slip_payment_mode` varchar(50) DEFAULT NULL,
-  `slip_payment_detail` varchar(50) DEFAULT NULL,
+  `bill_payment_mode` varchar(50) DEFAULT NULL,
+  `bill_payment_detail` varchar(50) DEFAULT NULL,
   `bill_total` int(11) NOT NULL DEFAULT 0,
   `bill_payable` int(11) NOT NULL DEFAULT 0,
   `bill_paid` int(11) NOT NULL DEFAULT 0,
@@ -114,8 +114,8 @@ CREATE TABLE IF NOT EXISTS `nxt_doctor` (
   `doctor_share` int(11) NOT NULL DEFAULT 0,
   `doctor_address` varchar(255) DEFAULT NULL,
   `doctor_cnic` varchar(50) DEFAULT NULL,
-  `doctor_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `doctor_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `doctor_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `doctor_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `doctor_photo` varchar(255) DEFAULT NULL,
   `doctor_type_alias` varchar(100) NOT NULL,
   `doctor_department_alias` varchar(100) NOT NULL,
@@ -407,8 +407,8 @@ CREATE TABLE IF NOT EXISTS `nxt_user` (
   `user_photo` varchar(200) DEFAULT NULL,
   `user_address` VARCHAR(255) DEFAULT NULL,
   `user_cnic` VARCHAR(50) DEFAULT NULL,
-  `user_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `user_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `user_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `user_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `user_cnic_front` VARCHAR(255) DEFAULT NULL,
   `user_cnic_back` VARCHAR(255) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -538,7 +538,7 @@ CREATE TABLE IF NOT EXISTS `prescription_other` (
      PRIMARY KEY(`id`)  
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-CREATE TABLE IF NOT EXISTS `nxt_medicine ` (
+CREATE TABLE IF NOT EXISTS `nxt_medicine` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
     `medicine_name` VARCHAR(255) NOT NULL UNIQUE,
     PRIMARY KEY (`id`)
