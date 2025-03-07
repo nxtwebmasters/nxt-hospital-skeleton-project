@@ -544,11 +544,11 @@ CREATE TABLE IF NOT EXISTS `nxt_medicine` (
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+INSERT INTO `nxt_permission` (`permission_id`, `permission_name`, `permission_alias`, `permission_description`,`component_access`, `read_permission`, `write_permission`, `delete_permission`,`created_at`, `created_by`) VALUES
+(1, 'Administrator', 'admin', 'Permission with complete system access', '["lab-slip","lab-report","lab-summary","lab-test","lab-test-vital","slip","bill","slip-type","department","doctor","doctor-type","patient","category","room","service","bill-vitals","permission","backup","user","appointment","appointment-type","prescription","dashboard"]', 1, 1, 1, CURRENT_TIMESTAMP(), 'admin');
+
 INSERT INTO `nxt_user` (`user_id`, `user_name`, `user_username`, `user_password`, `user_status`, `user_permission`, `created_at`, `created_by`) VALUES 
 (1, 'Administrator', 'admin', '$2a$10$D3HzBNl77kmSdXxNUCpNqOglNmqjqRlaCKUAkLre8wa/DnTWeaNMi', 1, 'admin', CURRENT_TIMESTAMP(), 'admin');
-
-INSERT INTO `nxt_permission` (`permission_id`, `permission_name`, `permission_alias`, `permission_description`,`component_access`, `read_permission`, `write_permission`, `delete_permission`,`created_at`, `created_by`) VALUES
-(1, 'Administrator', 'admin', 'Permission with complete system access', '["laboratory-slip","laboratory-report","laboratory-test","laboratory-test-component","slip","bill","slip-type","department","doctor","doctor-type","patient","category","room","service","bill-vitals","permission","backup","user", "appointment", "appointment-status"]', 1, 1, 1, CURRENT_TIMESTAMP(), 'admin');
 
 INSERT INTO `nxt_slip_type` (`slip_type_id`, `slip_type_name`, `slip_type_alias`, `fields`, `isBill`, `created_at`, `created_by`) VALUES 
 (1, 'OPD SLIP', 'opd_slip', '["uuid","mrid","name","mobile","gender","dob","age","bloodgroup","address","disposal","department","doctor","paymentmode","paymentdetail","fee","paid","discount","payable","balance"]', 0, CURRENT_TIMESTAMP(), 'admin'), 
