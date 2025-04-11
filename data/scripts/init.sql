@@ -2,6 +2,30 @@ CREATE DATABASE IF NOT EXISTS `nxt-hospital`;
 
 USE `nxt-hospital`;
 
+CREATE TABLE IF NOT EXISTS `ai_feedback` (
+    `feeback_id` INT(11) NOT NULL AUTO_INCREMENT,
+    `doctor_alias` VARCHAR(255) NOT NULL,
+    `ai_suggestion_id` INT(11) NOT NULL,
+    `rating` INT(11) DEFAULT NULL,
+    `comments` TEXT DEFAULT NULL,
+    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+    `created_by` VARCHAR(255) NOT NULL,
+    `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+    `updated_by` VARCHAR(255) NULL,
+    PRIMARY KEY (`feeback_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `ai_suggestions` (
+    `suggestion_id` INT(11) NOT NULL AUTO_INCREMENT,
+    `input` TEXT DEFAULT NULL,
+    `suggestions` TEXT DEFAULT NULL,
+    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+    `created_by` VARCHAR(255) NOT NULL,
+    `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+    `updated_by` VARCHAR(255) NULL,
+     PRIMARY KEY(`suggestion_id`)  
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE IF NOT EXISTS `nxt_appointment` (
   `appointment_id` int(11) NOT NULL AUTO_INCREMENT,
   `appointment_uuid` varchar(20) NOT NULL,
@@ -46,8 +70,8 @@ CREATE TABLE IF NOT EXISTS `nxt_bill` (
   `patient_mrid` varchar(50) NOT NULL,
   `patient_name` varchar(50) NOT NULL,
   `patient_mobile` varchar(50) NOT NULL,
-  `bill_doctor` varchar(200) NOT NULL,
-  `bill_disposal` varchar(100) NOT NULL,
+  `bill_doctor` varchar(200) DEFAULT NULL,
+  `bill_disposal` varchar(100) DEFAULT NULL,
   `bill_vitals` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `bill_payment_mode` varchar(50) DEFAULT NULL,
   `bill_payment_detail` varchar(50) DEFAULT NULL,
@@ -56,563 +80,13 @@ CREATE TABLE IF NOT EXISTS `nxt_bill` (
   `bill_paid` int(11) NOT NULL DEFAULT 0,
   `bill_discount` int(11) NOT NULL DEFAULT 0,
   `bill_balance` int(11) NOT NULL DEFAULT 0,
-  `bill_type` varchar(100) NOT NULL,
+  `bill_type` varchar(100) DEFAULT NULL,
   `bill_delete` int(11) NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(50) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `updated_by` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`bill_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_db_backup` (
-    `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `db_name` VARCHAR(255) NOT NULL,
-    `step_message` TEXT NOT NULL,
-    `step_action` VARCHAR(100) NOT NULL,
-    `success` TINYINT(1) NOT NULL,
-    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-    PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_department` (
-  `department_id` int(11) NOT NULL AUTO_INCREMENT,
-  `department_name` varchar(100) NOT NULL,
-  `department_alias` varchar(100) NOT NULL,
-  `department_description` text NOT NULL,
-  `department_status` int(10) NOT NULL DEFAULT 1,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(20) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(20) DEFAULT NULL,
-  PRIMARY KEY (`department_id`),
-  UNIQUE KEY `department_name` (`department_name`),
-  UNIQUE KEY `department_alias` (`department_alias`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_doctor` (
-  `doctor_id` int(11) NOT NULL AUTO_INCREMENT,
-  `doctor_name` varchar(100) NOT NULL,
-  `doctor_alias` varchar(100) NOT NULL,
-  `doctor_mobile` varchar(15) DEFAULT NULL,
-  `doctor_email` varchar(50) DEFAULT NULL,
-  `doctor_title` varchar(255) NOT NULL,
-  `doctor_share` int(11) NOT NULL DEFAULT 0,
-  `doctor_address` varchar(255) DEFAULT NULL,
-  `doctor_cnic` varchar(50) DEFAULT NULL,
-  `doctor_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `doctor_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `doctor_photo` varchar(255) DEFAULT NULL,
-  `doctor_type_alias` varchar(100) NOT NULL,
-  `doctor_department_alias` varchar(100) NOT NULL,
-  `doctor_status` int(10) NOT NULL DEFAULT 1,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(100) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`doctor_id`),
-  UNIQUE KEY `doctor_alias` (`doctor_alias`),
-  KEY `fk_doctor_department_uuid` (`doctor_department_alias`),
-  KEY `fk_doctor_type_uuid` (`doctor_type_alias`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_doctor_type` (
-  `doctor_type_id` int(11) NOT NULL AUTO_INCREMENT,
-  `doctor_type_name` varchar(100) NOT NULL,
-  `doctor_type_alias` varchar(100) NOT NULL,
-  `doctor_type_description` text DEFAULT NULL,
-  `doctor_type_status` int(10) NOT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(100) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`doctor_type_id`),
-  UNIQUE KEY `doctor_type_alias` (`doctor_type_alias`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_followup_slip` (
-  `slip_id` int(11) NOT NULL AUTO_INCREMENT,
-  `slip_uuid` varchar(50) NOT NULL,
-  `slip_ref_uuid` varchar(50) NOT NULL,
-  `slip_ref_mrid` varchar(50) NOT NULL,
-  `slip_fee` int(11) NOT NULL DEFAULT 0,
-  `slip_discount` int(11) NOT NULL DEFAULT 0,
-  `slip_paid` int(11) NOT NULL DEFAULT 0,
-  `slip_balance` int(11) NOT NULL DEFAULT 0,
-  `slip_delete` int(11) NOT NULL DEFAULT 1,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(50) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`slip_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_lab_invoice` (
-  `invoice_id` int(11) NOT NULL AUTO_INCREMENT,
-  `invoice_uuid` varchar(25) NOT NULL,
-  `invoice_tests` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`invoice_tests`)),
-  `patient_mrid` varchar(25) NOT NULL,
-  `report_date` datetime NOT NULL,
-  `reference` varchar(100) DEFAULT NULL,
-  `consultant` varchar(100) NOT NULL DEFAULT 'self',
-  `invoice_delete` int(11) NOT NULL DEFAULT 1,
-  `report_status` enum('pending','created') NOT NULL DEFAULT 'pending',
-  `total` int(11) NOT NULL DEFAULT 0,
-  `paid` int(11) NOT NULL DEFAULT 0,
-  `discount` int(11) NOT NULL DEFAULT 0,
-  `payable` int(11) NOT NULL DEFAULT 0,
-  `balance` int(11) NOT NULL DEFAULT 0,
-  `created_by` varchar(50) NOT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `updated_by` varchar(50) DEFAULT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  PRIMARY KEY (`invoice_id`),
-  UNIQUE KEY `lab_invoice_uuid` (`invoice_uuid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_lab_invoice_tests` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `test_description` varchar(255) NOT NULL,
-  `report_datetime` datetime NOT NULL,
-  `price` int(11) NOT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(50) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_lab_report` (
-  `report_id` int(11) NOT NULL AUTO_INCREMENT,
-  `report_uuid` varchar(50) NOT NULL,
-  `invoice_uuid` varchar(50) NOT NULL,
-  `patient_mrid` varchar(50) NOT NULL,
-  `patient_name` varchar(255) NOT NULL,
-  `patient_mobile` varchar(15) NOT NULL,
-  `test_results` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `remarks` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `report_delete` int(10) NOT NULL DEFAULT 1,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(50) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`report_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
-  `test_id` int(11) NOT NULL AUTO_INCREMENT,
-  `test_name` varchar(100) NOT NULL,
-  `test_code` varchar(20) NOT NULL,
-  `test_description` text DEFAULT NULL,
-  `test_charges` DECIMAL(10,2) NOT NULL,
-  `sample_require` varchar(255) DEFAULT NULL,
-  `report_completion` varchar(50) DEFAULT NULL,
-  `category` VARCHAR(100) NOT NULL,
-  `performed_days` varchar(50) DEFAULT NULL,
-  `report_title` varchar(255) DEFAULT NULL,
-  `clinical_interpretation` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `note` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `status` tinyint(1) NOT NULL DEFAULT 1,
-  `created_by` varchar(100) NOT NULL,
-  `created_at` datetime DEFAULT current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  PRIMARY KEY (`test_id`),
-  UNIQUE KEY `test_code` (`test_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_patient` (
-  `patient_id` int(10) NOT NULL AUTO_INCREMENT,
-  `patient_mrid` varchar(20) NOT NULL,
-  `patient_name` varchar(100) NOT NULL,
-  `patient_mobile` varchar(15) NOT NULL,
-  `patient_email` varchar(100) DEFAULT NULL,
-  `patient_gender` varchar(20) NOT NULL,
-  `patient_dob` date DEFAULT NULL,
-  `patient_age` varchar(255) NOT NULL,
-  `patient_blood_group` varchar(10) DEFAULT NULL,
-  `patient_address` varchar(255) DEFAULT NULL,
-  `patient_delete` int(10) NOT NULL DEFAULT 0,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(100) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`patient_id`),
-  UNIQUE KEY `patient_mrid` (`patient_mrid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_permission` (
-  `permission_id` int(11) NOT NULL AUTO_INCREMENT,
-  `permission_name` varchar(100) NOT NULL,
-  `permission_alias` varchar(100) NOT NULL,
-  `permission_description` text DEFAULT NULL,
-  `component_access` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `read_permission` tinyint(1) NOT NULL DEFAULT 0,
-  `write_permission` tinyint(1) NOT NULL DEFAULT 0,
-  `delete_permission` tinyint(1) NOT NULL DEFAULT 0,
-  `permission_status` int(10) NOT NULL DEFAULT 1,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(100) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`permission_id`),
-  UNIQUE KEY `permission_alias` (`permission_alias`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_room` (
-  `room_id` int(11) NOT NULL AUTO_INCREMENT,
-  `room_name` varchar(100) NOT NULL,
-  `room_alias` varchar(100) NOT NULL,
-  `room_description` text DEFAULT NULL,
-  `room_rate` int(10) NOT NULL,
-  `room_status` int(10) NOT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(100) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`room_id`),
-  UNIQUE KEY `room_alias` (`room_alias`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_service` (
-  `service_id` int(11) NOT NULL AUTO_INCREMENT,
-  `service_name` varchar(100) NOT NULL,
-  `service_alias` varchar(100) NOT NULL,
-  `service_description` text DEFAULT NULL,
-  `service_rate` int(10) NOT NULL,
-  `service_status` int(10) NOT NULL DEFAULT 1,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(100) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`service_id`),
-  UNIQUE KEY `service_alias` (`service_alias`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_service_slip` (
-  `slip_id` int(11) NOT NULL AUTO_INCREMENT,
-  `slip_uuid` varchar(50) NOT NULL,
-  `slip_ref_slip` varchar(50) NOT NULL,
-  `slip_name` varchar(252) NOT NULL,
-  `slip_rate` int(11) NOT NULL DEFAULT 0,
-  `slip_discount` int(11) NOT NULL DEFAULT 0,
-  `slip_paid` int(11) NOT NULL DEFAULT 0,
-  `slip_balance` int(11) NOT NULL DEFAULT 0,
-  `slip_delete` int(11) NOT NULL DEFAULT 1,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(50) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`slip_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_slip` (
-  `slip_id` int(11) NOT NULL AUTO_INCREMENT,
-  `slip_uuid` varchar(20) NOT NULL,
-  `slip_mrid` varchar(20) NOT NULL,
-  `slip_patient_name` varchar(100) NOT NULL,
-  `slip_patient_mobile` varchar(15) NOT NULL,
-  `slip_disposal` varchar(50) NOT NULL,
-  `slip_department` varchar(100) DEFAULT NULL,
-  `slip_doctor` varchar(100) NOT NULL,
-  `slip_appointment` varchar(100) DEFAULT 'walk_in',
-  `slip_payment_mode` varchar(50) DEFAULT NULL,
-  `slip_payment_detail` varchar(50) DEFAULT NULL,
-  `slip_fee` int(10) DEFAULT NULL,
-  `slip_discount` int(10) DEFAULT NULL,
-  `slip_payable` int(10) DEFAULT NULL,
-  `slip_paid` int(10) DEFAULT NULL,
-  `slip_balance` int(10) DEFAULT NULL, 
-  `slip_procedure` varchar(255) DEFAULT NULL,
-  `slip_type` varchar(20) NOT NULL,
-  `slip_delete` int(10) NOT NULL DEFAULT 1,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(100) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`slip_id`),
-  UNIQUE KEY `slip_uuid` (`slip_uuid`),
-  KEY `fk_slip_doctor_uuid` (`slip_doctor`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_slip_subtype` (
-  `slip_subtype_id` int(11) NOT NULL AUTO_INCREMENT,
-  `slip_type_alias` varchar(100) NOT NULL,
-  `slip_subtype_name` varchar(100) NOT NULL,
-  `slip_subtype_alias` varchar(100) NOT NULL,
-  `slip_subtype_description` text DEFAULT NULL,
-  `slip_subtype_status` int(10) NOT NULL DEFAULT 1,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(100) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`slip_subtype_id`),
-  UNIQUE KEY `slip_subtype_alias` (`slip_subtype_alias`),
-  KEY `fk_slip_type_alias` (`slip_type_alias`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
-  `slip_type_id` int(11) NOT NULL AUTO_INCREMENT,
-  `slip_type_name` varchar(100) NOT NULL,
-  `slip_type_alias` varchar(100) NOT NULL,
-  `fields` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `isBill` tinyint(1) NOT NULL,
-  `slip_type_status` int(10) NOT NULL DEFAULT 1,
-  `slip_type_description` text DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(100) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`slip_type_id`),
-  UNIQUE KEY `slip_type_alias` (`slip_type_alias`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_test_component` (
-  `component_id` int(10) NOT NULL AUTO_INCREMENT,
-  `component_title` varchar(100) DEFAULT NULL,
-  `component_ranges` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `test_code` varchar(100) NOT NULL,
-  `created_by` varchar(50) NOT NULL,
-  `created_at` datetime DEFAULT current_timestamp(),
-  `updated_by` varchar(50) DEFAULT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  PRIMARY KEY (`component_id`),
-  KEY `fk_test_code_from_lab_test` (`test_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_user` (
-  `user_id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_name` varchar(100) NOT NULL,
-  `user_email` varchar(100) DEFAULT NULL,
-  `user_mobile` varchar(15) DEFAULT NULL,
-  `user_username` varchar(50) NOT NULL,
-  `user_password` varchar(255) NOT NULL,
-  `user_status` int(10) NOT NULL DEFAULT 1,
-  `user_permission` varchar(100) NOT NULL,
-  `user_last_login` datetime DEFAULT NULL,
-  `user_photo` varchar(200) DEFAULT NULL,
-  `user_address` VARCHAR(255) DEFAULT NULL,
-  `user_cnic` VARCHAR(50) DEFAULT NULL,
-  `user_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `user_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `user_cnic_front` VARCHAR(255) DEFAULT NULL,
-  `user_cnic_back` VARCHAR(255) DEFAULT NULL,
-  `user_salary` DECIMAL(10,2) DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(100) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`user_id`),
-  UNIQUE KEY `user_username` (`user_username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_user_leave` (
-  `leave_id` INT(11) NOT NULL AUTO_INCREMENT,
-  `user_id` INT(11) NOT NULL,
-  `leave_type` VARCHAR(50) NOT NULL DEFAULT 'earn',
-  `leave_start_date` DATE NOT NULL,
-  `leave_end_date` DATE NOT NULL,
-  `leave_count` DECIMAL(10,2) NOT NULL,	  
-  `leave_status` ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
-  `created_at` DATETIME NOT NULL DEFAULT current_timestamp(),
-  `created_by` VARCHAR(100) NOT NULL,
-  `updated_at` DATETIME DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` VARCHAR(100) DEFAULT NULL,
-  PRIMARY KEY (`leave_id`),
-  FOREIGN KEY (`user_id`) REFERENCES `nxt_user` (`user_id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_user_available_leaves` (
-  `available_leave_id` INT(11) NOT NULL AUTO_INCREMENT, 
-  `user_id` INT(11) NOT NULL, 
-  `leave_alias` VARCHAR(100) NOT NULL, 
-  `available_balance` INT(10) NOT NULL, 
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP(), 
-  `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(),
-  PRIMARY KEY(`available_leave_id`),
-  FOREIGN KEY (`user_id`) REFERENCES `nxt_user` (`user_id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `recentactivity` (
-  `activity_id` int(11) NOT NULL AUTO_INCREMENT,
-  `admin_user` varchar(100) NOT NULL,
-  `action_title` varchar(100) NOT NULL,
-  `action_description` text NOT NULL,
-  `table_affected` varchar(255) NOT NULL,
-  `affected_id` int(11) NOT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`activity_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_notification` (
-  `id` INT(11) NOT NULL AUTO_INCREMENT,
-  `type` VARCHAR(100) NOT NULL,
-  `description` TEXT NOT NULL,
-  `affected_table` VARCHAR(255),
-  `affected_id` INT(11) NOT NULL,
-  `user_id` VARCHAR(255) NOT NULL,
-  `ip_address` VARCHAR(45) NULL,
-  `meta_data`te,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_prescriptions` (
-    `prescription_id` INT(11) NOT NULL AUTO_INCREMENT,
-    `slip_uuid` VARCHAR(100) NOT NULL,
-    `patient_mrid` VARCHAR(100) NOT NULL,
-    `patient_mobile` VARCHAR(100) NOT NULL,
-    `patient_name` VARCHAR(255) NOT NULL,
-    `department_alias` VARCHAR(255) DEFAULT NULL,
-    `doctor_alias` VARCHAR(255) NOT NULL,
-    `status` enum('pending','created') NOT NULL DEFAULT 'pending',
-    `symptoms` TEXT DEFAULT NULL,
-    `diagnosis` TEXT DEFAULT NULL,
-    `ai_id` INT(11) DEFAULT NULL,
-    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-    `created_by` VARCHAR(255) NOT NULL,
-    `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-    `updated_by` VARCHAR(255) NULL,
-     PRIMARY KEY (`prescription_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `prescription_items` (
-    `item_id` INT(11) NOT NULL AUTO_INCREMENT,
-    `prescription_id` INT(11) NOT NULL,
-    `medicine_name` VARCHAR(255) DEFAULT NULL,
-    `dosage` TEXT DEFAULT NULL,
-    `frequency` VARCHAR(50) DEFAULT NULL,
-    `duration` INT(11) DEFAULT NULL,
-    `special_instructions` TEXT DEFAULT NULL,
-    `category` VARCHAR(50) DEFAULT NULL,
-    `remarks` TEXT DEFAULT NULL,
-    `interaction_warnings` TEXT DEFAULT NULL,
-    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-    `created_by` VARCHAR(255) NOT NULL,
-    `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-    `updated_by` VARCHAR(255) NULL,
-     PRIMARY KEY (`item_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `ai_feedback` (
-    `feeback_id` INT(11) NOT NULL AUTO_INCREMENT,
-    `doctor_alias` VARCHAR(255) NOT NULL,
-    `ai_suggestion_id` INT(11) NOT NULL,
-    `rating` INT(11) CHECK (rating BETWEEN 1 AND 5),
-    `comments` TEXT DEFAULT NULL,
-    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-    `created_by` VARCHAR(255) NOT NULL,
-    `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-    `updated_by` VARCHAR(255) NULL,
-    PRIMARY KEY (`feeback_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `ai_suggestions` (
-    `suggestion_id` INT(11) NOT NULL AUTO_INCREMENT,
-    `input` TEXT DEFAULT NULL,
-    `suggestions` TEXT DEFAULT NULL,
-    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-    `created_by` VARCHAR(255) NOT NULL,
-    `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-    `updated_by` VARCHAR(255) NULL,
-     PRIMARY KEY(`suggestion_id`)  
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `prescription_vitals` (
-    `vital_id` INT(11) NOT NULL AUTO_INCREMENT,
-    `prescription_id` INT(11) NOT NULL,
-    `pulse` VARCHAR(50) DEFAULT NULL,
-    `blood_pressure` VARCHAR(50) DEFAULT NULL,
-    `temperature` VARCHAR(50) DEFAULT NULL,
-    `respiratory_rate` VARCHAR(50) DEFAULT NULL,
-    `height` VARCHAR(50) DEFAULT NULL,
-    `weight` VARCHAR(50) DEFAULT NULL,
-    `bmi` VARCHAR(100) DEFAULT NULL,
-    `ofc` VARCHAR(100) DEFAULT NULL,
-    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-    `created_by` VARCHAR(255) NOT NULL,
-    `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-    `updated_by` VARCHAR(255) NULL,
-     PRIMARY KEY(`vital_id`)  
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `prescription_other` (
-    `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `prescription_id` INT(11) NOT NULL,
-    `referral_consultant` VARCHAR(100) DEFAULT NULL,
-    `referral_note` TEXT DEFAULT NULL,
-    `disposal` VARCHAR(50) DEFAULT NULL,
-    `disposal_note` TEXT DEFAULT NULL,
-    `followup_date` datetime DEFAULT NULL,
-    `followup_note` TEXT DEFAULT NULL,
-    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-    `created_by` VARCHAR(255) NOT NULL,
-    `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-    `updated_by` VARCHAR(255) NULL,
-     PRIMARY KEY(`id`)  
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_medicine` (
-    `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `medicine_name` VARCHAR(255) NOT NULL UNIQUE,
-    PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_daily_expenses` (
-  `expense_id` INT(11) NOT NULL AUTO_INCREMENT,
-  `expense_name` VARCHAR(100) NOT NULL,
-  `expense_amount` DECIMAL(10,2) NOT NULL,
-  `expense_date` DATE NOT NULL,
-  `expense_description` TEXT DEFAULT NULL,
-  `created_at` DATETIME NOT NULL DEFAULT current_timestamp(),
-  `created_by` VARCHAR(100) NOT NULL,
-  `updated_at` DATETIME DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` VARCHAR(100) DEFAULT NULL,
-  PRIMARY KEY (`expense_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_doctor_schedule` (
-  `schedule_id` INT(11) NOT NULL AUTO_INCREMENT,
-  `doctor_alias` VARCHAR(100) NOT NULL,
-  `schedule_day` ENUM('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday') NOT NULL,
-  `schedule_slots` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(100) NOT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`schedule_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_inventory` (
-  `item_id` INT(11) NOT NULL AUTO_INCREMENT,
-  `item_name` VARCHAR(255) NOT NULL,
-  `item_category` VARCHAR(100) NOT NULL DEFAULT 'Other',
-  `item_quantity` INT(11) NOT NULL DEFAULT 0,
-  `item_price_one` DECIMAL(10,2) NOT NULL,
-  `item_price_all` DECIMAL(10,2) NOT NULL,
-  `item_supplier` VARCHAR(255) DEFAULT NULL,
-  `item_expiry_date` DATE DEFAULT NULL,
-  `item_status` ENUM('available', 'out of stock', 'expired') NOT NULL DEFAULT 'available',
-  `created_at` DATETIME NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(100) NOT NULL,  
-  `updated_at` DATETIME DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`item_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE IF NOT EXISTS `nxt_supplier` (
-  `supplier_id` INT(11) NOT NULL AUTO_INCREMENT, 
-  `supplier_name` VARCHAR(100) NOT NULL, 
-  `supplier_alias` VARCHAR(100) NOT NULL, 
-  `supplier_contact` VARCHAR(50) NOT NULL, 
-  `supplier_email` VARCHAR(100) DEFAULT NULL, 
-  `supplier_address` VARCHAR(255) DEFAULT NULL, 
-  `created_at` DATETIME NOT NULL DEFAULT current_timestamp(), 
-  `created_by` VARCHAR(100) NOT NULL, 
-  `updated_at` DATETIME DEFAULT NULL ON UPDATE current_timestamp(), 
-  `updated_by` VARCHAR(100) DEFAULT NULL,
-  PRIMARY KEY (`supplier_id`),
-  UNIQUE KEY `supplier_alias` (`supplier_alias`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS `nxt_category` (
@@ -642,6 +116,555 @@ CREATE TABLE IF NOT EXISTS `nxt_category_type` (
   `updated_by` VARCHAR(100) DEFAULT NULL,
   PRIMARY KEY (`type_id`),
   UNIQUE KEY `type_alias` (`type_alias`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_daily_expenses` (
+  `expense_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `expense_name` VARCHAR(100) NOT NULL,
+  `expense_amount` DECIMAL(10,2) NOT NULL,
+  `expense_date` DATETIME NOT NULL,
+  `expense_description` TEXT DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT current_timestamp(),
+  `created_by` VARCHAR(100) NOT NULL,
+  `updated_at` DATETIME DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` VARCHAR(100) DEFAULT NULL,
+  PRIMARY KEY (`expense_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_db_backup` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `db_name` VARCHAR(255) DEFAULT NULL,
+    `step_message` TEXT DEFAULT NULL,
+    `step_action` VARCHAR(100) DEFAULT NULL,
+    `success` TINYINT(1) DEFAULT NULL,
+    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_department` (
+  `department_id` int(11) NOT NULL AUTO_INCREMENT,
+  `department_name` varchar(100) NOT NULL,
+  `department_alias` varchar(100) NOT NULL,
+  `department_description` text NOT NULL,
+  `department_status` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`department_id`),
+  UNIQUE KEY `department_name` (`department_name`),
+  UNIQUE KEY `department_alias` (`department_alias`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_doctor` (
+  `doctor_id` int(11) NOT NULL AUTO_INCREMENT,
+  `doctor_name` varchar(100) NOT NULL,
+  `doctor_alias` varchar(100) NOT NULL,
+  `doctor_mobile` varchar(15) DEFAULT NULL,
+  `doctor_email` varchar(50) DEFAULT NULL,
+  `doctor_title` varchar(255) NOT NULL,
+  `doctor_share` int(11) NOT NULL DEFAULT 0,
+  `doctor_address` varchar(255) DEFAULT NULL,
+  `doctor_cnic` varchar(50) DEFAULT NULL,
+  `doctor_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `doctor_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `doctor_photo` varchar(255) DEFAULT NULL,
+  `doctor_type_alias` varchar(100) NOT NULL,
+  `doctor_department_alias` varchar(100) NOT NULL,
+  `doctor_status` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`doctor_id`),
+  UNIQUE KEY `doctor_alias` (`doctor_alias`),
+  KEY `fk_doctor_department_uuid` (`doctor_department_alias`),
+  KEY `fk_doctor_type_uuid` (`doctor_type_alias`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_doctor_schedule` (
+  `schedule_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `doctor_alias` VARCHAR(100) NOT NULL,
+  `schedule_day` ENUM('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday') NOT NULL,
+  `schedule_slots` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`schedule_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_doctor_type` (
+  `doctor_type_id` int(11) NOT NULL AUTO_INCREMENT,
+  `doctor_type_name` varchar(100) NOT NULL,
+  `doctor_type_alias` varchar(100) NOT NULL,
+  `doctor_type_description` text DEFAULT NULL,
+  `doctor_type_status` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`doctor_type_id`),
+  UNIQUE KEY `doctor_type_alias` (`doctor_type_alias`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_followup_slip` (
+  `slip_id` int(11) NOT NULL AUTO_INCREMENT,
+  `slip_uuid` varchar(50) NOT NULL,
+  `slip_ref_uuid` varchar(50) NOT NULL,
+  `slip_ref_mrid` varchar(50) NOT NULL,
+  `slip_fee` int(11) NOT NULL DEFAULT 0,
+  `slip_discount` int(11) NOT NULL DEFAULT 0,
+  `slip_paid` int(11) NOT NULL DEFAULT 0,
+  `slip_balance` int(11) NOT NULL DEFAULT 0,
+  `slip_delete` int(11) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`slip_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_inventory` (
+  `item_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `item_name` VARCHAR(255) NOT NULL,
+  `item_category` VARCHAR(100) NOT NULL DEFAULT 'other',
+  `item_quantity` INT(11) NOT NULL DEFAULT 0,
+  `item_price_one` DECIMAL(10,2) NOT NULL,
+  `item_price_all` DECIMAL(10,2) NOT NULL,
+  `item_supplier` VARCHAR(255) DEFAULT NULL,
+  `item_expiry_date` DATE DEFAULT NULL,
+  `item_status` ENUM('in stock', 'out of stock', 'expired') NOT NULL DEFAULT 'in stock',
+  `created_at` DATETIME NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,  
+  `updated_at` DATETIME DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_lab_invoice` (
+  `invoice_id` int(11) NOT NULL AUTO_INCREMENT,
+  `invoice_uuid` varchar(25) NOT NULL,
+  `invoice_tests` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `patient_mrid` varchar(25) NOT NULL,
+  `report_date` datetime NOT NULL,
+  `reference` varchar(100) DEFAULT NULL,
+  `consultant` varchar(100) NOT NULL DEFAULT 'self',
+  `invoice_delete` TINYINT(1) NOT NULL DEFAULT 1,
+  `report_status` enum('pending','created') NOT NULL DEFAULT 'pending',
+  `total` int(11) NOT NULL DEFAULT 0,
+  `paid` int(11) NOT NULL DEFAULT 0,
+  `discount` int(11) NOT NULL DEFAULT 0,
+  `payable` int(11) NOT NULL DEFAULT 0,
+  `balance` int(11) NOT NULL DEFAULT 0,
+  `created_by` varchar(100) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`invoice_id`),
+  UNIQUE KEY `lab_invoice_uuid` (`invoice_uuid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_lab_invoice_tests` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `test_description` varchar(255) NOT NULL,
+  `report_datetime` datetime NOT NULL,
+  `price` int(11) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_lab_report` (
+  `report_id` int(11) NOT NULL AUTO_INCREMENT,
+  `report_uuid` varchar(50) NOT NULL,
+  `invoice_uuid` varchar(50) NOT NULL,
+  `patient_mrid` varchar(50) NOT NULL,
+  `patient_name` varchar(255) NOT NULL,
+  `patient_mobile` varchar(15) NOT NULL,
+  `test_results` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `remarks` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `report_delete` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`report_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
+  `test_id` int(11) NOT NULL AUTO_INCREMENT,
+  `test_name` varchar(100) NOT NULL,
+  `test_code` varchar(20) NOT NULL,
+  `test_description` text DEFAULT NULL,
+  `test_charges` DECIMAL(10,2) NOT NULL,
+  `sample_require` varchar(255) DEFAULT NULL,
+  `report_completion` varchar(50) DEFAULT NULL,
+  `category` VARCHAR(100) NOT NULL,
+  `performed_days` varchar(50) DEFAULT NULL,
+  `report_title` varchar(255) DEFAULT NULL,
+  `clinical_interpretation` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `note` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `status` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_by` varchar(100) NOT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`test_id`),
+  UNIQUE KEY `test_code` (`test_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_medicine` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `medicine_name` VARCHAR(255) NOT NULL UNIQUE,
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_notification` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `type` VARCHAR(100) NOT NULL,
+  `description` TEXT NOT NULL,
+  `affected_table` VARCHAR(255) DEFAULT NULL,
+  `affected_id` INT(11) NOT NULL,
+  `user_id` VARCHAR(255) NOT NULL,
+  `ip_address` VARCHAR(45) DEFAULT NULL,
+  `meta_data` LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_patient` (
+  `patient_id` int(10) NOT NULL AUTO_INCREMENT,
+  `patient_mrid` varchar(20) NOT NULL,
+  `patient_name` varchar(100) NOT NULL,
+  `patient_mobile` varchar(15) NOT NULL,
+  `patient_password` varchar(100) NOT NULL DEFAULT '$2a$10$G6BADZ8K89gZgsh9K1mg2.7KwWJz0H54p6sMXhJV5Bnq1OX68O7GC',
+  `patient_email` varchar(100) DEFAULT NULL,
+  `patient_gender` varchar(20) NOT NULL,
+  `patient_dob` date DEFAULT NULL,
+  `patient_age` varchar(255) NOT NULL,
+  `patient_blood_group` varchar(10) DEFAULT NULL,
+  `patient_address` varchar(255) DEFAULT NULL,
+  `patient_delete` TINYINT(1) NOT NULL DEFAULT 0,
+  `patient_last_login` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`patient_id`),
+  UNIQUE KEY `patient_mrid` (`patient_mrid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_permission` (
+  `permission_id` int(11) NOT NULL AUTO_INCREMENT,
+  `permission_name` varchar(100) NOT NULL,
+  `permission_alias` varchar(100) NOT NULL,
+  `permission_description` text DEFAULT NULL,
+  `component_access` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `read_permission` TINYINT(1) NOT NULL DEFAULT 0,
+  `write_permission` TINYINT(1) NOT NULL DEFAULT 0,
+  `delete_permission` TINYINT(1) NOT NULL DEFAULT 0,
+  `permission_status` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`permission_id`),
+  UNIQUE KEY `permission_alias` (`permission_alias`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_prescriptions` (
+    `prescription_id` INT(11) NOT NULL AUTO_INCREMENT,
+    `slip_uuid` VARCHAR(100) NOT NULL,
+    `patient_mrid` VARCHAR(100) NOT NULL,
+    `patient_mobile` VARCHAR(100) NOT NULL,
+    `patient_name` VARCHAR(255) NOT NULL,
+    `department_alias` VARCHAR(255) DEFAULT NULL,
+    `doctor_alias` VARCHAR(255) NOT NULL,
+    `status` enum('pending','created') NOT NULL DEFAULT 'pending',
+    `symptoms` TEXT DEFAULT NULL,
+    `diagnosis` TEXT DEFAULT NULL,
+    `ai_id` INT(11) DEFAULT NULL,
+    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+    `created_by` VARCHAR(255) NOT NULL,
+    `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+    `updated_by` VARCHAR(255) NULL,
+     PRIMARY KEY (`prescription_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_print_design` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT, 
+  `identifier` VARCHAR(100) NOT NULL, 
+  `header_logo` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL, 
+  `header_title` VARCHAR(255) NOT NULL, 
+  `header_description` VARCHAR(255) DEFAULT NULL, 
+  `address` VARCHAR(255) NOT NULL, 
+  `phone` TEXT NOT NULL, 
+  `email` TEXT DEFAULT NULL, 
+  `website` VARCHAR(100) DEFAULT NULL, 
+  `footer_title` VARCHAR(255) DEFAULT NULL, 
+  `footer_description` TEXT DEFAULT NULL, 
+  `created_at` DATETIME NOT NULL DEFAULT current_timestamp(),
+  `created_by` VARCHAR(100) NOT NULL,
+  `updated_at` DATETIME DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` VARCHAR(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `identifier` (`identifier`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_room` (
+  `room_id` int(11) NOT NULL AUTO_INCREMENT,
+  `room_name` varchar(100) NOT NULL,
+  `room_alias` varchar(100) NOT NULL,
+  `room_description` text DEFAULT NULL,
+  `room_rate` int(10) NOT NULL,
+  `room_status` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`room_id`),
+  UNIQUE KEY `room_alias` (`room_alias`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_service` (
+  `service_id` int(11) NOT NULL AUTO_INCREMENT,
+  `service_name` varchar(100) NOT NULL,
+  `service_alias` varchar(100) NOT NULL,
+  `service_description` text DEFAULT NULL,
+  `service_rate` int(10) NOT NULL,
+  `service_status` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`service_id`),
+  UNIQUE KEY `service_alias` (`service_alias`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_service_slip` (
+  `slip_id` int(11) NOT NULL AUTO_INCREMENT,
+  `slip_uuid` varchar(50) NOT NULL,
+  `slip_ref_slip` varchar(50) NOT NULL,
+  `slip_name` varchar(255) NOT NULL,
+  `slip_rate` int(11) NOT NULL DEFAULT 0,
+  `slip_discount` int(11) NOT NULL DEFAULT 0,
+  `slip_paid` int(11) NOT NULL DEFAULT 0,
+  `slip_balance` int(11) NOT NULL DEFAULT 0,
+  `slip_delete` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(50) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`slip_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_slip` (
+  `slip_id` int(11) NOT NULL AUTO_INCREMENT,
+  `slip_uuid` varchar(50) NOT NULL,
+  `slip_mrid` varchar(50) NOT NULL,
+  `slip_patient_name` varchar(100) NOT NULL,
+  `slip_patient_mobile` varchar(15) NOT NULL,
+  `slip_disposal` varchar(50) NOT NULL,
+  `slip_department` varchar(100) DEFAULT NULL,
+  `slip_doctor` varchar(100) DEFAULT NULL,
+  `slip_appointment` varchar(100) DEFAULT 'walk_in',
+  `slip_payment_mode` varchar(50) DEFAULT NULL,
+  `slip_payment_detail` varchar(255) DEFAULT NULL,
+  `slip_fee` int(10) DEFAULT NULL,
+  `slip_discount` int(10) DEFAULT NULL,
+  `slip_payable` int(10) DEFAULT NULL,
+  `slip_paid` int(10) DEFAULT NULL,
+  `slip_balance` int(10) DEFAULT NULL, 
+  `slip_procedure` varchar(255) DEFAULT NULL,
+  `slip_type` varchar(50) NOT NULL,
+  `slip_delete` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`slip_id`),
+  UNIQUE KEY `slip_uuid` (`slip_uuid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_slip_subtype` (
+  `slip_subtype_id` int(11) NOT NULL AUTO_INCREMENT,
+  `slip_type_alias` varchar(100) NOT NULL,
+  `slip_subtype_name` varchar(100) NOT NULL,
+  `slip_subtype_alias` varchar(100) NOT NULL,
+  `slip_subtype_description` text DEFAULT NULL,
+  `slip_subtype_status` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`slip_subtype_id`),
+  UNIQUE KEY `slip_subtype_alias` (`slip_subtype_alias`),
+  KEY `fk_slip_type_alias` (`slip_type_alias`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
+  `slip_type_id` int(11) NOT NULL AUTO_INCREMENT,
+  `slip_type_name` varchar(100) NOT NULL,
+  `slip_type_alias` varchar(100) NOT NULL,
+  `fields` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `isBill` tinyint(1) NOT NULL,
+  `slip_type_status` TINYINT(1) NOT NULL DEFAULT 1,
+  `slip_type_description` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`slip_type_id`),
+  UNIQUE KEY `slip_type_alias` (`slip_type_alias`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_supplier` (
+  `supplier_id` INT(11) NOT NULL AUTO_INCREMENT, 
+  `supplier_name` VARCHAR(100) NOT NULL, 
+  `supplier_alias` VARCHAR(100) NOT NULL, 
+  `supplier_contact` VARCHAR(50) DEFAULT NULL, 
+  `supplier_email` VARCHAR(100) DEFAULT NULL, 
+  `supplier_address` VARCHAR(255) DEFAULT NULL, 
+  `created_at` DATETIME NOT NULL DEFAULT current_timestamp(), 
+  `created_by` VARCHAR(100) NOT NULL, 
+  `updated_at` DATETIME DEFAULT NULL ON UPDATE current_timestamp(), 
+  `updated_by` VARCHAR(100) DEFAULT NULL,
+  PRIMARY KEY (`supplier_id`),
+  UNIQUE KEY `supplier_alias` (`supplier_alias`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_test_component` (
+  `component_id` int(10) NOT NULL AUTO_INCREMENT,
+  `component_title` varchar(100) DEFAULT NULL,
+  `component_ranges` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `test_code` varchar(100) NOT NULL,
+  `created_by` varchar(100) NOT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`component_id`),
+  KEY `fk_test_code_from_lab_test` (`test_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_user` (
+  `user_id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_name` varchar(100) NOT NULL,
+  `user_email` varchar(100) DEFAULT NULL,
+  `user_mobile` varchar(15) DEFAULT NULL,
+  `user_username` varchar(50) NOT NULL,
+  `user_password` varchar(255) NOT NULL,
+  `user_status` TINYINT(1) NOT NULL DEFAULT 1,
+  `user_permission` varchar(100) NOT NULL,
+  `user_photo` varchar(255) DEFAULT NULL,
+  `user_address` VARCHAR(255) DEFAULT NULL,
+  `user_cnic` VARCHAR(50) DEFAULT NULL,
+  `user_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `user_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `user_cnic_front` VARCHAR(255) DEFAULT NULL,
+  `user_cnic_back` VARCHAR(255) DEFAULT NULL,
+  `user_salary` VARCHAR(20) DEFAULT NULL,
+  `user_last_login` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`user_id`),
+  UNIQUE KEY `user_username` (`user_username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_user_available_leaves` (
+  `available_leave_id` INT(11) NOT NULL AUTO_INCREMENT, 
+  `user_id` INT(11) NOT NULL, 
+  `leave_alias` VARCHAR(100) NOT NULL, 
+  `available_balance` INT(10) NOT NULL, 
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP(), 
+  `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(),
+  PRIMARY KEY(`available_leave_id`),
+  FOREIGN KEY (`user_id`) REFERENCES `nxt_user` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `nxt_user_leave` (
+  `leave_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `user_id` INT(11) NOT NULL,
+  `leave_type` VARCHAR(50) NOT NULL DEFAULT 'earn',
+  `leave_start_date` DATE NOT NULL,
+  `leave_end_date` DATE NOT NULL,
+  `leave_count` DECIMAL(10,2) NOT NULL,	  
+  `leave_comment` TEXT DEFAULT NULL,
+  `leave_remarks` TEXT DEFAULT NULL,
+  `leave_status` ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+  `created_at` DATETIME NOT NULL DEFAULT current_timestamp(),
+  `created_by` VARCHAR(100) NOT NULL,
+  `updated_at` DATETIME DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` VARCHAR(100) DEFAULT NULL,
+  PRIMARY KEY (`leave_id`),
+  FOREIGN KEY (`user_id`) REFERENCES `nxt_user` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `prescription_items` (
+    `item_id` INT(11) NOT NULL AUTO_INCREMENT,
+    `prescription_id` INT(11) NOT NULL,
+    `medicine_name` VARCHAR(255) DEFAULT NULL,
+    `dosage` VARCHAR(255) DEFAULT NULL,
+    `frequency` VARCHAR(255) DEFAULT NULL,
+    `duration` VARCHAR(255) DEFAULT NULL,
+    `special_instructions` VARCHAR(255) DEFAULT NULL,
+    `category` VARCHAR(50) DEFAULT NULL,
+    `remarks` TEXT DEFAULT NULL,
+    `interaction_warnings` TEXT DEFAULT NULL,
+    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+    `created_by` VARCHAR(100) NOT NULL,
+    `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+    `updated_by` VARCHAR(100) NULL,
+     PRIMARY KEY (`item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `prescription_other` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `prescription_id` INT(11) NOT NULL,
+    `referral_consultant` VARCHAR(100) DEFAULT NULL,
+    `referral_note` TEXT DEFAULT NULL,
+    `disposal` VARCHAR(50) DEFAULT NULL,
+    `disposal_note` TEXT DEFAULT NULL,
+    `followup_date` datetime DEFAULT NULL,
+    `followup_note` TEXT DEFAULT NULL,
+    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+    `created_by` VARCHAR(100) NOT NULL,
+    `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+    `updated_by` VARCHAR(100) NULL,
+     PRIMARY KEY(`id`)  
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `prescription_vitals` (
+    `vital_id` INT(11) NOT NULL AUTO_INCREMENT,
+    `prescription_id` INT(11) NOT NULL,
+    `pulse` VARCHAR(50) DEFAULT NULL,
+    `blood_pressure` VARCHAR(50) DEFAULT NULL,
+    `temperature` VARCHAR(50) DEFAULT NULL,
+    `respiratory_rate` VARCHAR(50) DEFAULT NULL,
+    `height` VARCHAR(50) DEFAULT NULL,
+    `weight` VARCHAR(50) DEFAULT NULL,
+    `bmi` VARCHAR(100) DEFAULT NULL,
+    `ofc` VARCHAR(100) DEFAULT NULL,
+    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+    `created_by` VARCHAR(255) NOT NULL,
+    `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+    `updated_by` VARCHAR(255) NULL,
+     PRIMARY KEY(`vital_id`)  
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `recentactivity` (
+  `activity_id` int(11) NOT NULL AUTO_INCREMENT,
+  `admin_user` varchar(100) NOT NULL,
+  `action_title` varchar(100) NOT NULL,
+  `action_description` text DEFAULT NULL,
+  `table_affected` varchar(255) DEFAULT NULL,
+  `affected_id` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`activity_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT INTO `nxt_permission` (`permission_id`, `permission_name`, `permission_alias`, `permission_description`,`component_access`, `read_permission`, `write_permission`, `delete_permission`,`created_at`, `created_by`) VALUES
