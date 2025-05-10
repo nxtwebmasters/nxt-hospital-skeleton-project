@@ -3,7 +3,7 @@ services:
 
   # HOSPITAL UNIFIED ADMIN FRONTEND
   hospital-frontend:
-    image: pandanxt/hospital-frontend:1.0.1
+    image: pandanxt/hospital-frontend:develop-1.0.0
     ports:
       - 6001:80
     container_name: nxt-hospital.nxtwebmasters.com
@@ -11,24 +11,29 @@ services:
     environment:
       HMS_BACKEND_URL: "https://api-hospital.nxtwebmasters.com"
       DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com/images/default-user.webp"
-      PATIENT_PORTAL_URL: "https://medeast.nxtwebmasters.com/assets/print"
+      PATIENT_PORTAL_URL: "https://portal-hospital.nxtwebmasters.com"
       BLOOD_GROUP: "A,B,AB,O"
       REPORT_OPTION: "Positive,Negative,Reactive,Non-Reactive,Matched,Not-Matched"
+      ENABLE_AI_SUGGESTION: false
+      DESIGN_IDENTIFIER: "nxtwebmaster"
 
   # HOSPITAL PATIENT PORTAL
   patient-frontend:
-    image: pandanxt/customer-portal:1.0.1
+    image: pandanxt/customer-portal:familycare-1.0.0
     ports:
       - 8001:80
-    container_name: patient-portal.nxtwebmasters.com
+    container_name: portal-hospital.nxtwebmasters.com
     restart: always
     environment:
       HMS_BACKEND_URL: "https://api-hospital.nxtwebmasters.com"
       DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com/images/default-user.webp"
+      PORTAL_URL: "https://portal-hospital.nxtwebmasters.com"
+      PATIENT_DEFAULT_PASSWORD: "NxtHospital123"
+      DESIGN_IDENTIFIER: "nxtwebmaster"
 
   # HOSPITAL BACKEND API
   hospital-apis:
-    image: pandanxt/hms-backend-apis:1.1.1
+    image: pandanxt/hms-backend-apis:develop-1.0.0
     ports:
       - 5001:80
     container_name: api-hospital.nxtwebmasters.com
@@ -42,8 +47,8 @@ services:
       DB_PASSWORD: "NxtHospital464"
       DB_CONNECTION_LIMIT: 10
       DB_MULTIPLE_STATEMENTS: true
-      EMAIL_USER: "knowledge.hub5155@gmail.com"
-      EMAIL_PASSWORD: "xpbq xunw hrvk vajq"
+      EMAIL_USER: "familycarecomplex01@gmail.com"
+      EMAIL_PASSWORD: "ebdb hauj uony ebpk"
       EMAIL_IMAGE_PATH: "https://file-hospital.nxtwebmasters.com/images/NxtWebMasters.ico"
       JWT_SECRET: "94C3AFF3C97E70E644094C1181E8670A"
       IMAGE_STORAGE_PATH: "/usr/share/nginx/html/images"
@@ -51,9 +56,17 @@ services:
       WEBHOOK_URL: "https://chat.googleapis.com/v1/spaces/AAAAk9hYwn4/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=c_DArxbyU1MOxMzzm1P2u0zvdYZy3tw6dzgZWg_ANBo"
       CUSTOMER_PORTAL_URL: "https://portal-hospital.nxtwebmasters.com/assets/print"
       BACKEND_URL: "https://api-hospital.nxtwebmasters.com"
-      EMAIL_RECIPIENTS: "pandanxt00@gmail.com,buxaritexh@gmail.com,umerk1371@gmail.com,info@medeast.net"
+      EMAIL_RECIPIENTS: "pandanxt00@gmail.com,buxaritexh@gmail.com"
       BACKUP_TABLES: "nxt_appointment,nxt_followup_slip,nxt_service_slip,nxt_slip,nxt_bill,nxt_lab_invoice,nxt_lab_report,nxt_patient,recentactivity"
-      ALLOWED_ORIGINS: "http://localhost:4200,http://localhost:4300,https://157.173.109.136:6001,https://157.173.109.136:6000,https://157.173.109.136:8001,https://hospital.nxtwebmasters.com,https://portal-hospital.nxtwebmasters.com"
+      ALLOWED_ORIGINS: "http://localhost:4200,http://localhost:4300,https://nxt-hospital.nxtwebmasters.com,https://portal-hospital.nxtwebmasters.com"
+      LEAVEBALANCE: "sick:8,earn:16,annual:5,compensation:0"
+      URL_EXPIRATION_MS: 900000
+      PATIENT_DEFAULT_PASSWORD: "NxtHospital123"
+      ENABLE_WHATSAPP: true
+      MSGPK_WHATSAPP_API_URL: "https://msgpk.com/api/send.php"
+      MSGPK_WHATSAPP_API_KEY: "923128776604-55ca19be-a5ff-4da3-a056-7a4eb17a9168"
+      PATIENT_PORTAL_URL: "https://portal-hospital.nxtwebmasters.com"
+      WHATSAPP_IMAGE_URL: "https://file-hospital.nxtwebmasters.com/images/nxt-logo.jpg"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:80/health" ]
       interval: 30s
