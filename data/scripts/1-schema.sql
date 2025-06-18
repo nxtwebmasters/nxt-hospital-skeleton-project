@@ -670,7 +670,7 @@ CREATE TABLE IF NOT EXISTS `recentactivity` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT INTO `nxt_permission` (`permission_id`, `permission_name`, `permission_alias`, `permission_description`,`component_access`, `read_permission`, `write_permission`, `delete_permission`,`created_at`, `created_by`) VALUES
-(1, 'Administrator', 'admin', 'Permission with complete system access', '["lab-slip","lab-report","lab-summary","lab-test","lab-test-vital","slip","bill","slip-type","department","doctor","doctor-type","patient","category","room","service","bill-vitals","permission","backup","user","appointment","appointment-type","prescription","dashboard"]', 1, 1, 1, CURRENT_TIMESTAMP(), 'admin');
+(1, 'Administrator', 'admin', 'Permission with complete system access', '["appointment","slip","slip-type","bill","bill-vitals","lab-slip","lab-report","lab-test","lab-test-vital","lab-summary","prescription","doctor","doctor-schedule","patient","category","category-type","department","room","service","backup","permission","user","user-leave","manage-leave","dashboard","daily-expense","inventory","supplier","design-setting","calendar","access-level","campaign","segment","text-message"]', 1, 1, 1, CURRENT_TIMESTAMP(), 'admin');
 
 INSERT INTO `nxt_user` (`user_id`, `user_name`, `user_username`, `user_password`, `user_status`, `user_permission`, `created_at`, `created_by`) VALUES 
 (1, 'Administrator', 'admin', '$2a$10$D3HzBNl77kmSdXxNUCpNqOglNmqjqRlaCKUAkLre8wa/DnTWeaNMi', 1, 'admin', CURRENT_TIMESTAMP(), 'admin');
@@ -1457,48 +1457,97 @@ INSERT INTO `nxt_lab_test` (`test_id`, `test_name`, `test_code`, `test_descripti
 (170, 'C-3', '269', '', 950.00, '3-5 cc Clotted Blood/Serum', 'After 5 Days', 'SPECIAL', '5', 'Special Biochemistry Report', '[]', 1, 'admin', '2024-12-15 08:19:16', NULL, NULL, '[]'),
 (171, 'C-4', '270', '', 950.00, '3-5 cc Clotted Blood/Serum', 'After 5 Days', 'SPECIAL', '5', 'Special Biochemistry Report', '[]', 1, 'admin', '2024-12-15 08:20:00', NULL, NULL, '[]');
 
--- Procedure For Backup And Copy
-DELIMITER //
 
-CREATE DEFINER=`root`@`%` PROCEDURE `nxt-hospital`.`backup_and_copy`(IN source_db VARCHAR(255), IN backup_db VARCHAR(255))
-BEGIN
-    DECLARE done INT DEFAULT 0;
-    DECLARE tbl_name VARCHAR(255);
-    DECLARE cur CURSOR FOR
-        SELECT table_name FROM information_schema.tables WHERE table_schema = source_db;
-    
-    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+CREATE DATABASE IF NOT EXISTS `nxt-campaign`;
 
-    -- Create the backup database dynamically
-    SET @create_db_query = CONCAT('CREATE DATABASE IF NOT EXISTS `', backup_db, '`');
-    PREPARE stmt FROM @create_db_query;
-    EXECUTE stmt;
-    DEALLOCATE PREPARE stmt;
+USE `nxt-campaign`;
 
-    -- Loop through all tables in the source database
-    OPEN cur;
-    read_loop: LOOP
-        FETCH cur INTO tbl_name;
-        IF done THEN
-            LEAVE read_loop;
-        END IF;
+CREATE TABLE IF NOT EXISTS `nxt_segment` (
+    `segment_id` INT AUTO_INCREMENT,
+    `segment_name` VARCHAR(100) NOT NULL,
+    `segment_alias` VARCHAR(100) NOT NULL,
+    `segment_filter` LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+    `segment_description` TEXT,
+    `contact_count` INT DEFAULT 0,
+    `segment_status` TINYINT(1) NOT NULL DEFAULT 1,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP(),
+    `created_by` VARCHAR(100) NOT NULL,
+    `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(),
+    `updated_by` VARCHAR(100) DEFAULT NULL,
+    PRIMARY KEY (`segment_id`),
+    UNIQUE KEY `segment_alias` (`segment_alias`),
+    INDEX `idx_segment_status` (`segment_status`),
+    CONSTRAINT `chk_segment_filter` CHECK (JSON_VALID(`segment_filter`))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-        -- Copy data from each table to the backup database
-        SET @copy_query = CONCAT('CREATE TABLE `', backup_db, '`.`', tbl_name, '` LIKE `', source_db, '`.`', tbl_name, '`');
-        PREPARE stmt FROM @copy_query;
-        EXECUTE stmt;
-        DEALLOCATE PREPARE stmt;
+CREATE TABLE IF NOT EXISTS `nxt_text_message` (
+    `message_id` INT AUTO_INCREMENT,
+    `message_name` VARCHAR(100) NOT NULL,
+    `message_alias` VARCHAR(100) NOT NULL,
+    `message_text` TEXT NOT NULL,
+    `media_url` VARCHAR(255) COMMENT 'URL of attached image/media',
+    `media_type` ENUM('image', 'video', 'document', 'none') DEFAULT 'none',
+    `variables` JSON DEFAULT NULL COMMENT 'Available variables in message_text',
+    `message_status` TINYINT(1) NOT NULL DEFAULT 1,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP(),
+    `created_by` VARCHAR(100) NOT NULL,
+    `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(),
+    `updated_by` VARCHAR(100) DEFAULT NULL,
+    PRIMARY KEY (`message_id`),
+    UNIQUE KEY `message_alias` (`message_alias`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-        SET @insert_query = CONCAT('INSERT INTO `', backup_db, '`.`', tbl_name, '` SELECT * FROM `', source_db, '`.`', tbl_name, '`');
-        PREPARE stmt FROM @insert_query;
-        EXECUTE stmt;
-        DEALLOCATE PREPARE stmt;
+CREATE TABLE IF NOT EXISTS `nxt_campaign` (
+    `campaign_id` INT AUTO_INCREMENT,
+    `campaign_name` VARCHAR(100) NOT NULL,
+    `campaign_alias` VARCHAR(100) NOT NULL,
+    `campaign_segment` INT NOT NULL,
+    `campaign_message` INT NOT NULL,
+    `campaign_status` ENUM('draft', 'scheduled', 'processing', 'completed', 'failed', 'paused', 'deleted') DEFAULT 'draft',
+    `scheduled_at` datetime NOT NULL COMMENT 'When to start sending messages',
+    `batches_sent` INT DEFAULT 0 COMMENT 'Number of batches processed',
+    `batch_size` INT DEFAULT 100 COMMENT 'Number of messages per batch',
+    `expiry_date` DATETIME COMMENT 'When campaign expires after this date',
+    `completion_time` DATETIME DEFAULT NULL COMMENT 'When campaign finished processing',
+    `total_contacts` INT DEFAULT 0,
+    `success_count` INT DEFAULT 0,
+    `failure_count` INT DEFAULT 0,
+    `approved_by` VARCHAR(100) DEFAULT NULL,
+    `approved_at` DATETIME DEFAULT NULL,
+    `tags` JSON DEFAULT NULL COMMENT 'Array of tags for categorization',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP(),
+    `created_by` VARCHAR(100) NOT NULL,
+    `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(),
+    `updated_by` VARCHAR(100) DEFAULT NULL,
+    PRIMARY KEY (`campaign_id`),
+    UNIQUE KEY `campaign_alias` (`campaign_alias`),
+    FOREIGN KEY (`campaign_segment`) REFERENCES `nxt_segment`(`segment_id`),
+    FOREIGN KEY (`campaign_message`) REFERENCES `nxt_text_message`(`message_id`),
+    INDEX `idx_campaign_status` (`campaign_status`),
+    INDEX `idx_scheduled_at` (`scheduled_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-    END LOOP;
-    CLOSE cur;
+CREATE TABLE IF NOT EXISTS `nxt_campaign_log` (
+    `log_id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `campaign_id` INT NOT NULL,
+    `contact_id` VARCHAR(100) NOT NULL COMMENT 'Reference to your contacts table',
+    `status` ENUM('pending', 'sent', 'delivered', 'read', 'failed') DEFAULT 'pending',
+    `error_message` TEXT,
+    `attempt_count` TINYINT DEFAULT 0,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`campaign_id`) REFERENCES `nxt_campaign`(`campaign_id`),
+    INDEX `idx_campaign_contact` (`campaign_id`, `contact_id`),
+    INDEX `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-    -- Return the name of the backup database
-    SELECT backup_db AS backup_database_name;
-END//
-
-DELIMITER;
+CREATE TABLE IF NOT EXISTS `recentactivity` (
+  `activity_id` int(11) NOT NULL AUTO_INCREMENT,
+  `admin_user` varchar(100) DEFAULT NULL,
+  `action_title` varchar(100) NOT NULL,
+  `action_description` text DEFAULT NULL,
+  `table_affected` varchar(255) DEFAULT NULL,
+  `affected_id` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`activity_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

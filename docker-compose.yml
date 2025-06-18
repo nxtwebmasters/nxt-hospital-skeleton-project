@@ -1,70 +1,75 @@
 version: "3.8"
 services:
 
-  # HOSPITAL UNIFIED ADMIN FRONTEND
   hospital-frontend:
-    image: pandanxt/hospital-frontend:develop-1.0.0
+    image: pandanxt/hospital-frontend:staging-1.0.0
     ports:
       - 6001:80
-    container_name: nxt-hospital.nxtwebmasters.com
+    container_name: nxt-hospital
     restart: always
     environment:
-      HMS_BACKEND_URL: "https://api-hospital.nxtwebmasters.com"
+      HMS_BACKEND_URL: "http://localhost:5001"
+      CAMPAIGN_BACKEND_URL: "http://localhost:9001"
       DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com/images/default-user.webp"
       PATIENT_PORTAL_URL: "https://portal-hospital.nxtwebmasters.com"
       BLOOD_GROUP: "A,B,AB,O"
       REPORT_OPTION: "Positive,Negative,Reactive,Non-Reactive,Matched,Not-Matched"
       ENABLE_AI_SUGGESTION: false
       DESIGN_IDENTIFIER: "nxtwebmaster"
+    networks:
+      - internal-net  
 
-  # HOSPITAL PATIENT PORTAL
   patient-frontend:
-    image: pandanxt/customer-portal:familycare-1.0.0
+    image: pandanxt/customer-portal:develop-1.0.0
     ports:
       - 8001:80
-    container_name: portal-hospital.nxtwebmasters.com
+    container_name: portal-hospital
     restart: always
     environment:
-      HMS_BACKEND_URL: "https://api-hospital.nxtwebmasters.com"
+      HMS_BACKEND_URL: "http://localhost:5001"
       DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com/images/default-user.webp"
       PORTAL_URL: "https://portal-hospital.nxtwebmasters.com"
       PATIENT_DEFAULT_PASSWORD: "NxtHospital123"
       DESIGN_IDENTIFIER: "nxtwebmaster"
+    networks:
+      - internal-net  
 
-  # HOSPITAL BACKEND API
   hospital-apis:
-    image: pandanxt/hms-backend-apis:develop-1.0.0
+    image: pandanxt/hms-backend-apis:staging-1.0.0
     ports:
       - 5001:80
-    container_name: api-hospital.nxtwebmasters.com
+    container_name: api-hospital
     restart: always
     environment:
       PORT: 80
       LOG_LEVEL: info
-      DB_HOST: "hospital-mysql"
+      DB_HOST: "mysql"
       SOURCE_DB_NAME: "nxt-hospital"
-      DB_USERNAME: "root"
-      DB_PASSWORD: "NxtHospital464"
+      DB_USERNAME: "nxt_user"
+      DB_PASSWORD: "NxtWebMasters464" 
       DB_CONNECTION_LIMIT: 10
       DB_MULTIPLE_STATEMENTS: true
       EMAIL_USER: "familycarecomplex01@gmail.com"
       EMAIL_PASSWORD: "ebdb hauj uony ebpk"
+      EMAIL_RECIPIENTS: "pandanxt00@gmail.com,buxaritexh@gmail.com"
       EMAIL_IMAGE_PATH: "https://file-hospital.nxtwebmasters.com/images/NxtWebMasters.ico"
+      BACKUP_TABLES: "nxt_appointment,nxt_followup_slip,nxt_service_slip,nxt_slip,nxt_bill,nxt_lab_invoice,nxt_lab_report,nxt_patient,recentactivity"
       JWT_SECRET: "94C3AFF3C97E70E644094C1181E8670A"
       IMAGE_STORAGE_PATH: "/usr/share/nginx/html/images"
       FILE_SERVER_URL: "https://file-hospital.nxtwebmasters.com/images/"
       WEBHOOK_URL: "https://chat.googleapis.com/v1/spaces/AAAAk9hYwn4/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=c_DArxbyU1MOxMzzm1P2u0zvdYZy3tw6dzgZWg_ANBo"
+      ALLOWED_ORIGINS: "http://localhost:4200,http://localhost:4300,http://localhost:6001,http://localhost:9001,http://localhost:5001"
       CUSTOMER_PORTAL_URL: "https://portal-hospital.nxtwebmasters.com/assets/print"
       BACKEND_URL: "https://api-hospital.nxtwebmasters.com"
-      EMAIL_RECIPIENTS: "pandanxt00@gmail.com,buxaritexh@gmail.com"
-      BACKUP_TABLES: "nxt_appointment,nxt_followup_slip,nxt_service_slip,nxt_slip,nxt_bill,nxt_lab_invoice,nxt_lab_report,nxt_patient,recentactivity"
-      ALLOWED_ORIGINS: "http://localhost:4200,http://localhost:4300,https://nxt-hospital.nxtwebmasters.com,https://portal-hospital.nxtwebmasters.com"
       LEAVEBALANCE: "sick:8,earn:16,annual:5,compensation:0"
       URL_EXPIRATION_MS: 900000
       PATIENT_DEFAULT_PASSWORD: "NxtHospital123"
       ENABLE_WHATSAPP: true
       MSGPK_WHATSAPP_API_URL: "https://msgpk.com/api/send.php"
       MSGPK_WHATSAPP_API_KEY: "923128776604-55ca19be-a5ff-4da3-a056-7a4eb17a9168"
+      WHATSAPP_MAX_RETRIES: 3
+      WHATSAPP_RETRY_DELAY_MS: 1000
+      WHATSAPP_RATE_LIMIT_DELAY_MS: 100
       PATIENT_PORTAL_URL: "https://portal-hospital.nxtwebmasters.com"
       WHATSAPP_IMAGE_URL: "https://file-hospital.nxtwebmasters.com/images/nxt-logo.jpg"
     healthcheck:
@@ -77,25 +82,78 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    networks:
+      - internal-net 
 
-  # HOSPITAL DATABASE SERVICE
+  campaign-frontend:
+    image: pandanxt/campaign-frontend:main-1.0.0
+    ports:
+      - 3001:80
+    container_name: campaign-frontend
+    restart: always
+    environment:
+      CAMPAIGN_BACKEND_URL: "http://localhost:9001"
+      ENABLE_LOGGING: false
+      LOG_PUSHING_URL: "http://localhost:5000"
+    networks:
+      - internal-net  
+
+  campaign-apis:
+    image: pandanxt/campaign-backend-apis:main-1.0.0 
+    ports:
+      - 9001:80
+    container_name: api-campaign
+    restart: always
+    env_file:
+      - ./campaign.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal-net 
+
   mysql:
     image: mysql:latest
     container_name: hospital-mysql
-    cap_add:
-      - SYS_NICE
     restart: always
     environment:
-      - MYSQL_ROOT_PASSWORD=NxtHospital464
-      - MYSQL_USER=nxthospital
-      - MYSQL_PASSWORD=NxtHospital123
-      - MYSQL_DATABASE=nxt-hospital
+      MYSQL_ROOT_PASSWORD: "NxtWebMasters!@#123" 
+      MYSQL_DATABASE: "nxt-hospital"
+      MYSQL_USER: "nxt_user"
+      MYSQL_PASSWORD: "NxtWebMasters464"
     ports:
       - "3306:3306"
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "nxt_user", "-pNxtWebMasters464" ]
       interval: 10s
       timeout: 5s
       retries: 20
     volumes:
-      - ${PWD}/data/scripts:/docker-entrypoint-initdb.d
+      - ./data/scripts:/docker-entrypoint-initdb.d
+    networks:
+      - internal-net 
+
+  redis:
+    image: redis:7.2
+    container_name: hospital-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal-net 
+
+networks:
+  internal-net:
+    driver: bridge
