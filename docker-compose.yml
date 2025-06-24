@@ -11,7 +11,7 @@ services:
       HMS_BACKEND_URL: "http://localhost:5001"
       CAMPAIGN_BACKEND_URL: "http://localhost:9001"
       DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com/images/default-user.webp"
-      PATIENT_PORTAL_URL: "https://portal-hospital.nxtwebmasters.com"
+      PATIENT_PORTAL_URL: "http://localhost:8001"
       BLOOD_GROUP: "A,B,AB,O"
       REPORT_OPTION: "Positive,Negative,Reactive,Non-Reactive,Matched,Not-Matched"
       ENABLE_AI_SUGGESTION: false
@@ -28,7 +28,7 @@ services:
     environment:
       HMS_BACKEND_URL: "http://localhost:5001"
       DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com/images/default-user.webp"
-      PORTAL_URL: "https://portal-hospital.nxtwebmasters.com"
+      PORTAL_URL: "http://localhost:8001"
       PATIENT_DEFAULT_PASSWORD: "NxtHospital123"
       DESIGN_IDENTIFIER: "nxtwebmaster"
     networks:
@@ -58,9 +58,9 @@ services:
       IMAGE_STORAGE_PATH: "/usr/share/nginx/html/images"
       FILE_SERVER_URL: "https://file-hospital.nxtwebmasters.com/images/"
       WEBHOOK_URL: "https://chat.googleapis.com/v1/spaces/AAAAk9hYwn4/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=c_DArxbyU1MOxMzzm1P2u0zvdYZy3tw6dzgZWg_ANBo"
-      ALLOWED_ORIGINS: "http://localhost:4200,http://localhost:4300,http://localhost:6001,http://localhost:9001,http://localhost:5001"
-      CUSTOMER_PORTAL_URL: "https://portal-hospital.nxtwebmasters.com/assets/print"
-      BACKEND_URL: "https://api-hospital.nxtwebmasters.com"
+      ALLOWED_ORIGINS: "http://localhost:4200,http://localhost:4300,http://localhost:6001,http://localhost:9001,http://localhost:5001,http://localhost:8001"
+      CUSTOMER_PORTAL_URL: "http://localhost:8001/assets/print"
+      BACKEND_URL: "http://localhost:5001"
       LEAVEBALANCE: "sick:8,earn:16,annual:5,compensation:0"
       URL_EXPIRATION_MS: 900000
       PATIENT_DEFAULT_PASSWORD: "NxtHospital123"
@@ -70,7 +70,7 @@ services:
       WHATSAPP_MAX_RETRIES: 3
       WHATSAPP_RETRY_DELAY_MS: 1000
       WHATSAPP_RATE_LIMIT_DELAY_MS: 100
-      PATIENT_PORTAL_URL: "https://portal-hospital.nxtwebmasters.com"
+      PATIENT_PORTAL_URL: "http://localhost:8001"
       WHATSAPP_IMAGE_URL: "https://file-hospital.nxtwebmasters.com/images/nxt-logo.jpg"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:80/health" ]
