@@ -1,7 +1,7 @@
 -- Database: `nxt-hospital`
-CREATE DATABASE IF NOT EXISTS `nxt-hospital-example`;
+CREATE DATABASE IF NOT EXISTS `nxt-hospital`;
 
-USE `nxt-hospital-example`;
+USE `nxt-hospital`;
 
 -- Table structure for table `ai_feedback`
 CREATE TABLE IF NOT EXISTS `ai_feedback` (
