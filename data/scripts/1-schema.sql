@@ -114,9 +114,7 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign` (
   KEY `idx_scheduled_at` (`scheduled_at`),
   KEY `idx_campaign_channel` (`campaign_channel`),
   KEY `idx_campaign_type` (`campaign_type`),
-  KEY `idx_campaign_status_type` (`campaign_status`,`campaign_type`),
-  CONSTRAINT `nxt_campaign_ibfk_1` FOREIGN KEY (`campaign_segment`) REFERENCES `nxt_segment` (`segment_id`),
-  CONSTRAINT `nxt_campaign_ibfk_2` FOREIGN KEY (`campaign_message`) REFERENCES `nxt_text_message` (`message_id`)
+  KEY `idx_campaign_status_type` (`campaign_status`,`campaign_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_campaign_log`
 CREATE TABLE IF NOT EXISTS `nxt_campaign_log` (
@@ -558,8 +556,7 @@ CREATE TABLE IF NOT EXISTS `nxt_test_component` (
   `updated_by` varchar(50) DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`component_id`),
-  KEY `fk_test_code_from_lab_test` (`test_code`),
-  CONSTRAINT `fk_test_code_from_lab_test` FOREIGN KEY (`test_code`) REFERENCES `nxt_lab_test` (`test_code`)
+  KEY `fk_test_code_from_lab_test` (`test_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- Table structure for table `nxt_text_message`
 CREATE TABLE IF NOT EXISTS `nxt_text_message` (
@@ -753,3 +750,17 @@ CREATE TABLE IF NOT EXISTS `recentactivity` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`activity_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Add foreign key constraints after all tables are created
+-- First add primary keys and unique constraints where needed
+ALTER TABLE `nxt_lab_test` 
+  ADD PRIMARY KEY (`test_id`),
+  ADD UNIQUE KEY `unique_test_code` (`test_code`);
+
+-- Now add foreign key constraints
+ALTER TABLE `nxt_campaign` 
+  ADD CONSTRAINT `nxt_campaign_ibfk_1` FOREIGN KEY (`campaign_segment`) REFERENCES `nxt_segment` (`segment_id`),
+  ADD CONSTRAINT `nxt_campaign_ibfk_2` FOREIGN KEY (`campaign_message`) REFERENCES `nxt_text_message` (`message_id`);
+
+ALTER TABLE `nxt_test_component` 
+  ADD CONSTRAINT `fk_test_code_from_lab_test` FOREIGN KEY (`test_code`) REFERENCES `nxt_lab_test` (`test_code`);
