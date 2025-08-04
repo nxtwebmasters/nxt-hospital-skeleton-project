@@ -2,7 +2,7 @@ version: "3.8"
 services:
 
   hospital-frontend:
-    image: pandanxt/hospital-frontend:staging-1.0.0
+    image: pandanxt/hospital-frontend:campaigns-1.0.0
     ports:
       - 6001:80
     container_name: nxt-hospital
@@ -35,43 +35,13 @@ services:
       - internal-net  
 
   hospital-apis:
-    image: pandanxt/hms-backend-apis:staging-1.0.0
+    image: pandanxt/hms-backend-apis:campaigns-1.0.0
     ports:
       - 5001:80
     container_name: api-hospital
     restart: always
-    environment:
-      PORT: 80
-      LOG_LEVEL: info
-      DB_HOST: "mysql"
-      SOURCE_DB_NAME: "nxt-hospital"
-      DB_USERNAME: "nxt_user"
-      DB_PASSWORD: "NxtWebMasters464" 
-      DB_CONNECTION_LIMIT: 10
-      DB_MULTIPLE_STATEMENTS: true
-      EMAIL_USER: "familycarecomplex01@gmail.com"
-      EMAIL_PASSWORD: "ebdb hauj uony ebpk"
-      EMAIL_RECIPIENTS: "pandanxt00@gmail.com,buxaritexh@gmail.com"
-      EMAIL_IMAGE_PATH: "https://file-hospital.nxtwebmasters.com/images/NxtWebMasters.ico"
-      BACKUP_TABLES: "nxt_appointment,nxt_followup_slip,nxt_service_slip,nxt_slip,nxt_bill,nxt_lab_invoice,nxt_lab_report,nxt_patient,recentactivity"
-      JWT_SECRET: "94C3AFF3C97E70E644094C1181E8670A"
-      IMAGE_STORAGE_PATH: "/usr/share/nginx/html/images"
-      FILE_SERVER_URL: "https://file-hospital.nxtwebmasters.com/images/"
-      WEBHOOK_URL: "https://chat.googleapis.com/v1/spaces/AAAAk9hYwn4/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=c_DArxbyU1MOxMzzm1P2u0zvdYZy3tw6dzgZWg_ANBo"
-      ALLOWED_ORIGINS: "http://localhost:4200,http://localhost:4300,http://localhost:6001,http://localhost:9001,http://localhost:5001,http://localhost:8001"
-      CUSTOMER_PORTAL_URL: "http://localhost:8001/assets/print"
-      BACKEND_URL: "http://localhost:5001"
-      LEAVEBALANCE: "sick:8,earn:16,annual:5,compensation:0"
-      URL_EXPIRATION_MS: 900000
-      PATIENT_DEFAULT_PASSWORD: "NxtHospital123"
-      ENABLE_WHATSAPP: true
-      MSGPK_WHATSAPP_API_URL: "https://msgpk.com/api/send.php"
-      MSGPK_WHATSAPP_API_KEY: "923128776604-55ca19be-a5ff-4da3-a056-7a4eb17a9168"
-      WHATSAPP_MAX_RETRIES: 3
-      WHATSAPP_RETRY_DELAY_MS: 1000
-      WHATSAPP_RATE_LIMIT_DELAY_MS: 100
-      PATIENT_PORTAL_URL: "http://localhost:8001"
-      WHATSAPP_IMAGE_URL: "https://file-hospital.nxtwebmasters.com/images/nxt-logo.jpg"
+    env_file:
+      - ./hms-backend.env
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:80/health" ]
       interval: 30s
@@ -79,38 +49,6 @@ services:
       retries: 3
     volumes:
       - /usr/share/nginx/html/images:/usr/share/nginx/html/images
-    depends_on:
-      mysql:
-        condition: service_healthy
-    networks:
-      - internal-net 
-
-  campaign-frontend:
-    image: pandanxt/campaign-frontend:main-1.0.0
-    ports:
-      - 3001:80
-    container_name: campaign-frontend
-    restart: always
-    environment:
-      CAMPAIGN_BACKEND_URL: "http://localhost:9001"
-      ENABLE_LOGGING: false
-      LOG_PUSHING_URL: "http://localhost:5000"
-    networks:
-      - internal-net  
-
-  campaign-apis:
-    image: pandanxt/campaign-backend-apis:main-1.0.0 
-    ports:
-      - 9001:80
-    container_name: api-campaign
-    restart: always
-    env_file:
-      - ./campaign.env
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
     depends_on:
       mysql:
         condition: service_healthy
