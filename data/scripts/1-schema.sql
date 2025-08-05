@@ -454,7 +454,7 @@ CREATE TABLE IF NOT EXISTS `nxt_print_design` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) NOT NULL,
+  `updated_by` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_report_footer`
@@ -535,7 +535,7 @@ CREATE TABLE IF NOT EXISTS `nxt_slip` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) NOT NULL,
+  `updated_by` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`slip_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_slip_type`
@@ -773,7 +773,7 @@ CREATE TABLE IF NOT EXISTS `recentactivity` (
   `action_title` varchar(50) NOT NULL,
   `action_description` text DEFAULT NULL,
   `table_affected` varchar(255) DEFAULT NULL,
-  `affected_id` int(11) DEFAULT NULL,
+  `affected_id` VARCHAR(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`activity_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

@@ -9,7 +9,7 @@ services:
     restart: always
     environment:
       HMS_BACKEND_URL: "http://localhost:5001"
-      CAMPAIGN_BACKEND_URL: "http://localhost:9001"
+      # CAMPAIGN_BACKEND_URL: "http://localhost:9001"
       DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com/images/default-user.webp"
       PATIENT_PORTAL_URL: "http://localhost:8001"
       BLOOD_GROUP: "A,B,AB,O"
