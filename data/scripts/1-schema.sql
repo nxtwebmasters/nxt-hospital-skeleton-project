@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign_triggers` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_category`
 CREATE TABLE IF NOT EXISTS `nxt_category` (
-  `category_id` int(10) NOT NULL,
+  `category_id` int(10) NOT NULL AUTO_INCREMENT,
   `category_type` varchar(100) NOT NULL,
   `category_name` varchar(100) NOT NULL,
   `category_alias` varchar(100) NOT NULL,
@@ -179,11 +179,12 @@ CREATE TABLE IF NOT EXISTS `nxt_category` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`category_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_category_type`
 CREATE TABLE IF NOT EXISTS `nxt_category_type` (
-  `type_id` int(11) NOT NULL,
+  `type_id` int(11) NOT NULL AUTO_INCREMENT,
   `type_name` varchar(100) NOT NULL,
   `type_alias` varchar(100) NOT NULL,
   `type_description` longtext DEFAULT NULL,
@@ -191,11 +192,12 @@ CREATE TABLE IF NOT EXISTS `nxt_category_type` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`type_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_daily_expenses`
 CREATE TABLE IF NOT EXISTS `nxt_daily_expenses` (
-  `expense_id` int(11) NOT NULL,
+  `expense_id` int(11) NOT NULL AUTO_INCREMENT,
   `expense_name` varchar(100) NOT NULL,
   `expense_amount` decimal(10,2) NOT NULL,
   `expense_date` datetime NOT NULL,
@@ -203,16 +205,18 @@ CREATE TABLE IF NOT EXISTS `nxt_daily_expenses` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`expense_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_db_backup`
 CREATE TABLE IF NOT EXISTS `nxt_db_backup` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `db_name` varchar(255) DEFAULT NULL,
   `step_message` text DEFAULT NULL,
   `step_action` varchar(100) DEFAULT NULL,
   `success` tinyint(1) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_department`
 CREATE TABLE IF NOT EXISTS `nxt_department` (
@@ -257,18 +261,19 @@ CREATE TABLE IF NOT EXISTS `nxt_doctor` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_doctor_schedule`
 CREATE TABLE IF NOT EXISTS `nxt_doctor_schedule` (
-  `schedule_id` int(11) NOT NULL,
+  `schedule_id` int(11) NOT NULL AUTO_INCREMENT,
   `doctor_alias` varchar(100) NOT NULL,
   `schedule_day` enum('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL,
   `schedule_slots` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`schedule_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_inventory`
 CREATE TABLE IF NOT EXISTS `nxt_inventory` (
-  `item_id` int(11) NOT NULL,
+  `item_id` int(11) NOT NULL AUTO_INCREMENT,
   `item_name` varchar(255) NOT NULL,
   `item_category` varchar(100) NOT NULL DEFAULT 'Other',
   `item_quantity` int(11) NOT NULL DEFAULT 0,
@@ -280,11 +285,12 @@ CREATE TABLE IF NOT EXISTS `nxt_inventory` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`item_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_lab_invoice`
 CREATE TABLE IF NOT EXISTS `nxt_lab_invoice` (
-  `invoice_id` int(11) NOT NULL,
+  `invoice_id` int(11) NOT NULL AUTO_INCREMENT,
   `invoice_uuid` varchar(25) NOT NULL,
   `invoice_tests` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`invoice_tests`)),
   `patient_mrid` varchar(25) NOT NULL,
@@ -301,22 +307,24 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_invoice` (
   `created_by` varchar(50) NOT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_by` varchar(50) DEFAULT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp()
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`invoice_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_lab_invoice_tests`
 CREATE TABLE IF NOT EXISTS `nxt_lab_invoice_tests` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `test_description` varchar(255) NOT NULL,
   `report_datetime` datetime NOT NULL,
   `price` int(11) NOT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(50) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(50) DEFAULT NULL
+  `updated_by` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_lab_report`
 CREATE TABLE IF NOT EXISTS `nxt_lab_report` (
-  `report_id` int(11) NOT NULL,
+  `report_id` int(11) NOT NULL AUTO_INCREMENT,
   `report_uuid` varchar(50) NOT NULL,
   `invoice_uuid` varchar(50) NOT NULL,
   `patient_mrid` varchar(50) NOT NULL,
@@ -328,11 +336,12 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_report` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(50) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(50) NOT NULL
+  `updated_by` varchar(50) NOT NULL,
+  PRIMARY KEY (`report_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_lab_test`
 CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
-  `test_id` int(11) NOT NULL,
+  `test_id` int(11) NOT NULL AUTO_INCREMENT,
   `test_name` varchar(100) NOT NULL,
   `test_code` varchar(20) NOT NULL,
   `test_description` text DEFAULT NULL,
@@ -348,16 +357,19 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_by` varchar(100) DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `note` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`note`))
+  `note` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`note`)),
+  PRIMARY KEY (`test_id`),
+  UNIQUE KEY `test_code` (`test_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- Table structure for table `nxt_medicine`
 CREATE TABLE IF NOT EXISTS `nxt_medicine` (
-  `id` int(11) NOT NULL,
-  `medicine_name` varchar(255) NOT NULL
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `medicine_name` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_notification`
 CREATE TABLE IF NOT EXISTS `nxt_notification` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `type` varchar(100) NOT NULL,
   `description` text NOT NULL,
   `affected_table` varchar(255) DEFAULT NULL,
@@ -365,7 +377,8 @@ CREATE TABLE IF NOT EXISTS `nxt_notification` (
   `user_id` varchar(255) NOT NULL,
   `ip_address` varchar(45) DEFAULT NULL,
   `meta_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_patient`
 CREATE TABLE IF NOT EXISTS `nxt_patient` (
@@ -391,7 +404,7 @@ CREATE TABLE IF NOT EXISTS `nxt_patient` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_permission`
 CREATE TABLE IF NOT EXISTS `nxt_permission` (
-  `permission_id` int(11) NOT NULL,
+  `permission_id` int(11) NOT NULL AUTO_INCREMENT,
   `permission_name` varchar(100) NOT NULL,
   `permission_alias` varchar(100) NOT NULL,
   `permission_description` text NOT NULL,
@@ -403,11 +416,12 @@ CREATE TABLE IF NOT EXISTS `nxt_permission` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`permission_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_prescriptions`
 CREATE TABLE IF NOT EXISTS `nxt_prescriptions` (
-  `prescription_id` int(11) NOT NULL,
+  `prescription_id` int(11) NOT NULL AUTO_INCREMENT,
   `slip_uuid` varchar(100) DEFAULT NULL,
   `patient_mrid` varchar(100) NOT NULL,
   `patient_mobile` varchar(100) NOT NULL,
@@ -421,11 +435,12 @@ CREATE TABLE IF NOT EXISTS `nxt_prescriptions` (
   `created_at` datetime DEFAULT current_timestamp(),
   `created_by` varchar(255) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(255) DEFAULT NULL
+  `updated_by` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`prescription_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_print_design`
 CREATE TABLE IF NOT EXISTS `nxt_print_design` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `identifier` varchar(100) NOT NULL,
   `header_logo` longtext DEFAULT NULL,
   `header_title` varchar(255) NOT NULL,
@@ -439,18 +454,20 @@ CREATE TABLE IF NOT EXISTS `nxt_print_design` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) NOT NULL
+  `updated_by` varchar(100) NOT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_report_footer`
 CREATE TABLE IF NOT EXISTS `nxt_report_footer` (
-  `footer_id` int(10) NOT NULL,
+  `footer_id` int(10) NOT NULL AUTO_INCREMENT,
   `footer_title` varchar(255) DEFAULT NULL,
   `footer_details` text DEFAULT NULL,
-  `footer_no` int(10) NOT NULL
+  `footer_no` int(10) NOT NULL,
+  PRIMARY KEY (`footer_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_room`
 CREATE TABLE IF NOT EXISTS `nxt_room` (
-  `room_id` int(11) NOT NULL,
+  `room_id` int(11) NOT NULL AUTO_INCREMENT,
   `room_name` varchar(100) NOT NULL,
   `room_alias` varchar(100) NOT NULL,
   `room_description` text DEFAULT NULL,
@@ -459,7 +476,8 @@ CREATE TABLE IF NOT EXISTS `nxt_room` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`room_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_segment`
 CREATE TABLE IF NOT EXISTS `nxt_segment` (
@@ -480,7 +498,7 @@ CREATE TABLE IF NOT EXISTS `nxt_segment` (
 ) ;
 -- Table structure for table `nxt_service`
 CREATE TABLE IF NOT EXISTS `nxt_service` (
-  `service_id` int(11) NOT NULL,
+  `service_id` int(11) NOT NULL AUTO_INCREMENT,
   `service_name` varchar(100) NOT NULL,
   `service_alias` varchar(100) NOT NULL,
   `service_description` text DEFAULT NULL,
@@ -489,11 +507,12 @@ CREATE TABLE IF NOT EXISTS `nxt_service` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`service_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_slip`
 CREATE TABLE IF NOT EXISTS `nxt_slip` (
-  `slip_id` int(11) NOT NULL,
+  `slip_id` int(11) NOT NULL AUTO_INCREMENT,
   `slip_uuid` varchar(20) NOT NULL,
   `slip_mrid` varchar(20) NOT NULL,
   `slip_patient_name` varchar(100) NOT NULL,
@@ -516,11 +535,12 @@ CREATE TABLE IF NOT EXISTS `nxt_slip` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) NOT NULL
+  `updated_by` varchar(100) NOT NULL,
+  PRIMARY KEY (`slip_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_slip_type`
 CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
-  `slip_type_id` int(11) NOT NULL,
+  `slip_type_id` int(11) NOT NULL AUTO_INCREMENT,
   `slip_type_name` varchar(100) NOT NULL,
   `slip_type_alias` varchar(100) NOT NULL,
   `fields` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`fields`)),
@@ -530,11 +550,12 @@ CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`slip_type_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_supplier`
 CREATE TABLE IF NOT EXISTS `nxt_supplier` (
-  `supplier_id` int(11) NOT NULL,
+  `supplier_id` int(11) NOT NULL AUTO_INCREMENT,
   `supplier_name` varchar(255) NOT NULL,
   `supplier_alias` varchar(255) NOT NULL,
   `supplier_contact` varchar(50) DEFAULT NULL,
@@ -543,7 +564,8 @@ CREATE TABLE IF NOT EXISTS `nxt_supplier` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`supplier_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_test_component`
 CREATE TABLE IF NOT EXISTS `nxt_test_component` (
@@ -577,7 +599,7 @@ CREATE TABLE IF NOT EXISTS `nxt_text_message` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_user`
 CREATE TABLE IF NOT EXISTS `nxt_user` (
-  `user_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL AUTO_INCREMENT,
   `user_name` varchar(100) NOT NULL,
   `user_email` varchar(50) DEFAULT NULL,
   `user_mobile` varchar(15) DEFAULT NULL,
@@ -597,11 +619,12 @@ CREATE TABLE IF NOT EXISTS `nxt_user` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(20) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(20) DEFAULT NULL
+  `updated_by` varchar(20) DEFAULT NULL,
+  PRIMARY KEY (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_users`
 CREATE TABLE IF NOT EXISTS `nxt_users` (
-  `user_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL AUTO_INCREMENT,
   `user_name` varchar(100) NOT NULL,
   `user_alias` varchar(100) DEFAULT NULL,
   `user_email` varchar(50) DEFAULT NULL,
@@ -628,20 +651,22 @@ CREATE TABLE IF NOT EXISTS `nxt_users` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_user_available_leaves`
 CREATE TABLE IF NOT EXISTS `nxt_user_available_leaves` (
-  `available_leave_id` int(10) NOT NULL,
+  `available_leave_id` int(10) NOT NULL AUTO_INCREMENT,
   `user_id` int(10) NOT NULL,
   `leave_alias` varchar(100) NOT NULL,
   `available_balance` int(10) NOT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp()
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`available_leave_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_user_leave`
 CREATE TABLE IF NOT EXISTS `nxt_user_leave` (
-  `leave_id` int(11) NOT NULL,
+  `leave_id` int(11) NOT NULL AUTO_INCREMENT,
   `user_id` int(11) NOT NULL,
   `leave_type` enum('earn','sick','annual','compensation') NOT NULL DEFAULT 'earn',
   `leave_start_date` date NOT NULL,
@@ -653,11 +678,12 @@ CREATE TABLE IF NOT EXISTS `nxt_user_leave` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`leave_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `nxt_user_test`
 CREATE TABLE IF NOT EXISTS `nxt_user_test` (
-  `user_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL AUTO_INCREMENT,
   `user_type` enum('doctor','nurse','staff','admin') NOT NULL,
   `user_name` varchar(100) NOT NULL,
   `user_alias` varchar(100) DEFAULT NULL,
@@ -685,8 +711,9 @@ CREATE TABLE IF NOT EXISTS `nxt_user_test` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
-) ;
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 -- Table structure for table `prescription_items`
 CREATE TABLE IF NOT EXISTS `prescription_items` (
   `item_id` int(11) NOT NULL AUTO_INCREMENT,
@@ -753,9 +780,9 @@ CREATE TABLE IF NOT EXISTS `recentactivity` (
 
 -- Add foreign key constraints after all tables are created
 -- First add primary keys and unique constraints where needed
-ALTER TABLE `nxt_lab_test` 
-  ADD PRIMARY KEY (`test_id`),
-  ADD UNIQUE KEY `unique_test_code` (`test_code`);
+-- ALTER TABLE `nxt_lab_test` 
+--   ADD PRIMARY KEY (`test_id`),
+--   ADD UNIQUE KEY `unique_test_code` (`test_code`);
 
 -- Now add foreign key constraints
 ALTER TABLE `nxt_campaign` 
