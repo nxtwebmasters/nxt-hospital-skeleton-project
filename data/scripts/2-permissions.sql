@@ -5,5 +5,4 @@
 -- It is more reliable than relying on the automatic grant for the first DB.
 -- =================================================================
 GRANT ALL PRIVILEGES ON `nxt-hospital`.* TO 'nxt_user'@'%';
-GRANT ALL PRIVILEGES ON `nxt-campaign`.* TO 'nxt_user'@'%';
 FLUSH PRIVILEGES;
