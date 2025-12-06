@@ -1,7 +1,9 @@
+version: '2.1'
+
 services:
 
   hospital-frontend:
-    image: pandanxt/hospital-frontend:campaigns-1.0.0
+    image: pandanxt/hospital-frontend:SR-3.0.0
     ports:
       - 6001:80
     container_name: nxt-hospital
@@ -9,7 +11,7 @@ services:
     environment:
       HMS_BACKEND_URL: "http://localhost:5001"
       DEFAULT_PRINT_LAYOUT: "a4"
-      DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com/images/default-user.webp"
+      DEFAULT_USER_ICON: "https://file-server.nxtwebmasters.com/images/default-user.webp"
       PATIENT_PORTAL_URL: "http://localhost:8001"
       BLOOD_GROUP: "A,B,AB,O"
       REPORT_OPTION: "Positive,Negative,Reactive,Non-Reactive,Matched,Not-Matched"
@@ -21,7 +23,7 @@ services:
       - internal-net  
 
   patient-frontend:
-    image: pandanxt/customer-portal:develop-1.0.0
+    image: pandanxt/customer-portal:SR-3.0.2
     ports:
       - 8001:80
     container_name: portal-hospital
@@ -29,7 +31,7 @@ services:
     environment:
       HMS_BACKEND_URL: "http://localhost:5001"
       DEFAULT_PRINT_LAYOUT: "thermal"
-      DEFAULT_USER_ICON: "https://file-hospital.nxtwebmasters.com/images/default-user.webp"
+      DEFAULT_USER_ICON: "https://file-server.nxtwebmasters.com/images/default-user.webp"
       PORTAL_URL: "http://localhost:8001"
       PATIENT_DEFAULT_PASSWORD: "NxtHospital123"
       DESIGN_IDENTIFIER: "nxtwebmaster"
@@ -37,7 +39,7 @@ services:
       - internal-net  
 
   hospital-apis:
-    image: pandanxt/hms-backend-apis:campaigns-1.0.0
+    image: pandanxt/hms-backend:SR-3.0.1
     ports:
       - 5001:80
     container_name: api-hospital
