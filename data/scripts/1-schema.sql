@@ -1,11 +1,17 @@
+--
 -- Database: `nxt-hospital`
+--
 CREATE DATABASE IF NOT EXISTS `nxt-hospital`;
 
 USE `nxt-hospital`;
+-- --------------------------------------------------------
 
+--
 -- Table structure for table `ai_feedback`
+--
+
 CREATE TABLE IF NOT EXISTS `ai_feedback` (
-  `feedback_id` int(11) NOT NULL AUTO_INCREMENT,
+  `feedback_id` int(11) NOT NULL,
   `doctor_alias` varchar(255) NOT NULL,
   `ai_suggestion_id` int(11) NOT NULL,
   `rating` int(11) DEFAULT NULL CHECK (`rating` between 1 and 5),
@@ -13,25 +19,33 @@ CREATE TABLE IF NOT EXISTS `ai_feedback` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(255) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`feedback_id`)
+  `updated_by` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `ai_suggestions`
+--
+
 CREATE TABLE IF NOT EXISTS `ai_suggestions` (
-  `suggestion_id` int(11) NOT NULL AUTO_INCREMENT,
+  `suggestion_id` int(11) NOT NULL,
   `input` text DEFAULT NULL,
   `suggestions` text DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(255) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`suggestion_id`)
+  `updated_by` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_appointment`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_appointment` (
-  `appointment_id` int(11) NOT NULL AUTO_INCREMENT,
+  `appointment_id` int(11) NOT NULL,
   `appointment_uuid` varchar(50) NOT NULL,
   `appointment_patient_mrid` varchar(50) NOT NULL,
   `appointment_patient_name` varchar(255) DEFAULT NULL,
@@ -45,23 +59,62 @@ CREATE TABLE IF NOT EXISTS `nxt_appointment` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`appointment_id`),
-  UNIQUE KEY `appointment_uuid` (`appointment_uuid`),
-  KEY `fk_appointment_patient_mrid` (`appointment_patient_mrid`),
-  KEY `fk_appointment_type_uuid` (`appointment_type_alias`),
-  KEY `fk_appointment_department_uuid` (`appointment_department_alias`),
-  KEY `fk_appointment_doctor_uuid` (`appointment_doctor_alias`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `nxt_bed`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_bed` (
+  `bed_id` int(11) NOT NULL,
+  `bed_number` varchar(50) NOT NULL COMMENT 'Display number like "101-A", "Ward-1-B2"',
+  `room_id` int(11) NOT NULL,
+  `bed_status` enum('available','occupied','maintenance','reserved') DEFAULT 'available',
+  `current_patient_mrid` varchar(100) DEFAULT NULL COMMENT 'Currently admitted patient',
+  `current_bill_uuid` varchar(100) DEFAULT NULL COMMENT 'Active bill for current patient',
+  `occupied_at` datetime DEFAULT NULL COMMENT 'When bed was occupied',
+  `bed_rate_per_day` decimal(10,2) DEFAULT 0.00 COMMENT 'Additional bed charges',
+  `bed_notes` text DEFAULT NULL COMMENT 'Maintenance notes or special instructions',
+  `created_by` varchar(100) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Individual bed tracking for multi-bed rooms';
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `nxt_bed_history`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_bed_history` (
+  `history_id` int(11) NOT NULL,
+  `bed_id` int(11) NOT NULL,
+  `patient_mrid` varchar(100) NOT NULL,
+  `bill_uuid` varchar(100) DEFAULT NULL,
+  `action_type` enum('admitted','discharged','transferred_in','transferred_out') NOT NULL,
+  `action_timestamp` datetime NOT NULL DEFAULT current_timestamp(),
+  `action_by` int(11) DEFAULT NULL,
+  `action_notes` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Lightweight bed allocation history for audit trail';
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_bill`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_bill` (
-  `bill_id` int(11) NOT NULL AUTO_INCREMENT,
+  `bill_id` int(11) NOT NULL,
   `bill_uuid` varchar(50) NOT NULL,
   `slip_uuid` varchar(50) DEFAULT NULL,
   `patient_mrid` varchar(50) NOT NULL,
   `patient_name` varchar(100) NOT NULL,
   `patient_mobile` varchar(15) NOT NULL,
+  `patient_cnic` varchar(15) DEFAULT NULL COMMENT 'Patient CNIC for billing and tax documentation',
   `bill_doctor` varchar(200) DEFAULT NULL,
   `bill_disposal` varchar(100) DEFAULT NULL,
   `bill_vitals` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -73,19 +126,64 @@ CREATE TABLE IF NOT EXISTS `nxt_bill` (
   `bill_discount` int(11) NOT NULL DEFAULT 0,
   `bill_balance` int(11) NOT NULL DEFAULT 0,
   `bill_type` varchar(100) DEFAULT NULL,
-  `discharge_date` DATETIME NULL COMMENT 'Date and time when patient was discharged (for indoor bills with admission)',
-  `admission_duration_hours` DECIMAL(10,2) NULL DEFAULT NULL COMMENT 'Total duration in hours patient was admitted (for indoor bills). Calculate days/hours: days=floor(hours/24), remaining=hours%24',
+  `discharge_date` datetime DEFAULT NULL COMMENT 'Date and time when patient was discharged (for indoor bills with admission)',
+  `admission_duration_hours` decimal(10,2) DEFAULT NULL COMMENT 'Total duration in hours patient was admitted (for indoor bills). Calculate days/hours: days=floor(hours/24), remaining=hours%24',
   `bill_delete` int(11) NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(50) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `updated_by` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`bill_id`)
+  `bill_tax_details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON array of applied taxes for audit trail' CHECK (json_valid(`bill_tax_details`)),
+  `fbr_invoice_number` varchar(255) DEFAULT NULL COMMENT 'FBR-generated unique invoice number',
+  `fbr_qr_code_url` text DEFAULT NULL COMMENT 'FBR QR code URL for invoice verification',
+  `fbr_sync_status` enum('pending','synced','failed','skipped','disabled') NOT NULL DEFAULT 'pending' COMMENT 'FBR synchronization status',
+  `fbr_response_message` text DEFAULT NULL COMMENT 'FBR API response message for debugging',
+  `fbr_synced_at` datetime DEFAULT NULL COMMENT 'Timestamp when synced with FBR',
+  `fbr_retry_count` int(11) DEFAULT 0 COMMENT 'Number of FBR sync retry attempts',
+  `room_id` int(11) DEFAULT NULL COMMENT 'Room assigned for INDOOR bills',
+  `bed_id` int(11) DEFAULT NULL COMMENT 'Specific bed assigned',
+  `room_charges` decimal(10,2) DEFAULT 0.00 COMMENT 'Total room charges (calculated on discharge)',
+  `is_referral_case` tinyint(1) DEFAULT 0 COMMENT 'Flag: 1 = referral case, 0 = normal case',
+  `referral_hospital` varchar(255) DEFAULT NULL COMMENT 'Name of receiving hospital for referral',
+  `referral_date` datetime DEFAULT NULL COMMENT 'Date and time of referral',
+  `referral_reason` text DEFAULT NULL COMMENT 'Medical reason for referring patient',
+  `referral_doctor_name` varchar(255) DEFAULT NULL COMMENT 'Doctor who made referral decision',
+  `referral_contact` varchar(50) DEFAULT NULL COMMENT 'Contact number of receiving hospital',
+  `referral_notes` text DEFAULT NULL COMMENT 'Additional referral information',
+  `referral_documented_by` varchar(255) DEFAULT NULL COMMENT 'User who documented referral',
+  `is_death_case` tinyint(1) DEFAULT 0 COMMENT 'Flag: 1 = death case, 0 = normal case',
+  `death_date` datetime DEFAULT NULL COMMENT 'Date and time of patient death',
+  `death_reason` text DEFAULT NULL COMMENT 'Medical cause of death',
+  `death_location` varchar(255) DEFAULT NULL COMMENT 'Location where death occurred (ICU, Ward, ER, etc.)',
+  `death_notes` text DEFAULT NULL COMMENT 'Additional death case information',
+  `death_reported_by` varchar(255) DEFAULT NULL COMMENT 'Doctor who certified death',
+  `death_family_notified` tinyint(1) DEFAULT 0 COMMENT 'Flag: 1 = family notified, 0 = not notified',
+  `death_duration_hours` decimal(10,2) DEFAULT NULL COMMENT 'Duration in hours from admission to death',
+  `death_documented_by` varchar(255) DEFAULT NULL COMMENT 'User who documented death case'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Hospital bills. bill_type="INDOOR" indicates admission with room/bed tracking';
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `nxt_bootstrap_status`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_bootstrap_status` (
+  `id` int(11) NOT NULL,
+  `component` varchar(50) NOT NULL,
+  `status` enum('started','completed','failed') NOT NULL,
+  `completed_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `metadata` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`metadata`))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_campaign`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_campaign` (
-  `campaign_id` int(11) NOT NULL AUTO_INCREMENT,
+  `campaign_id` int(11) NOT NULL,
   `campaign_name` varchar(100) NOT NULL,
   `campaign_alias` varchar(100) NOT NULL,
   `campaign_segment` int(11) NOT NULL,
@@ -111,21 +209,17 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`campaign_id`),
-  UNIQUE KEY `campaign_alias` (`campaign_alias`),
-  KEY `campaign_segment` (`campaign_segment`),
-  KEY `campaign_message` (`campaign_message`),
-  KEY `idx_campaign_status` (`campaign_status`),
-  KEY `idx_scheduled_at` (`scheduled_at`),
-  KEY `idx_campaign_channel` (`campaign_channel`),
-  KEY `idx_campaign_type` (`campaign_type`),
-  KEY `idx_campaign_status_type` (`campaign_status`,`campaign_type`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_campaign_log`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_campaign_log` (
-  `log_id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `log_id` bigint(20) NOT NULL,
   `campaign_id` int(11) NOT NULL,
   `contact_id` varchar(100) NOT NULL COMMENT 'Reference to your contacts table',
   `status` enum('pending','sent','delivered','read','failed') DEFAULT 'pending',
@@ -133,16 +227,17 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign_log` (
   `attempt_count` tinyint(4) DEFAULT 0,
   `channel_type` enum('whatsapp','email','sms','push') DEFAULT 'whatsapp',
   `created_at` datetime DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  PRIMARY KEY (`log_id`),
-  KEY `idx_campaign_contact` (`campaign_id`,`contact_id`),
-  KEY `idx_status` (`status`),
-  CONSTRAINT `nxt_campaign_log_ibfk_1` FOREIGN KEY (`campaign_id`) REFERENCES `nxt_campaign` (`campaign_id`)
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_campaign_queue`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_campaign_queue` (
-  `queue_id` int(11) NOT NULL AUTO_INCREMENT,
+  `queue_id` int(11) NOT NULL,
   `campaign_id` int(11) NOT NULL,
   `patient_mrid` varchar(50) NOT NULL,
   `contact_info` varchar(255) NOT NULL,
@@ -154,33 +249,33 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign_queue` (
   `channel_type` enum('whatsapp','email','sms','push') DEFAULT 'whatsapp',
   `error_message` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`queue_id`),
-  KEY `idx_status` (`status`),
-  KEY `idx_scheduled` (`scheduled_at`),
-  KEY `idx_campaign_queue` (`campaign_id`,`status`),
-  KEY `idx_contact_channel` (`contact_info`,`channel_type`),
-  CONSTRAINT `nxt_campaign_queue_ibfk_1` FOREIGN KEY (`campaign_id`) REFERENCES `nxt_campaign` (`campaign_id`) ON DELETE CASCADE
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_campaign_triggers`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_campaign_triggers` (
-  `trigger_id` int(11) NOT NULL AUTO_INCREMENT,
+  `trigger_id` int(11) NOT NULL,
   `campaign_id` int(11) NOT NULL,
   `trigger_event` varchar(100) NOT NULL,
   `trigger_conditions` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`trigger_conditions`)),
   `is_active` tinyint(1) DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`trigger_id`),
-  KEY `idx_trigger_event` (`trigger_event`),
-  KEY `idx_campaign_trigger` (`campaign_id`,`trigger_event`),
-  CONSTRAINT `nxt_campaign_triggers_ibfk_1` FOREIGN KEY (`campaign_id`) REFERENCES `nxt_campaign` (`campaign_id`) ON DELETE CASCADE
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_category`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_category` (
-  `category_id` int(10) NOT NULL AUTO_INCREMENT,
+  `category_id` int(10) NOT NULL,
   `category_type` varchar(100) NOT NULL,
   `category_name` varchar(100) NOT NULL,
   `category_alias` varchar(100) NOT NULL,
@@ -189,13 +284,17 @@ CREATE TABLE IF NOT EXISTS `nxt_category` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`category_id`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_category_type`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_category_type` (
-  `type_id` int(11) NOT NULL AUTO_INCREMENT,
+  `type_id` int(11) NOT NULL,
   `type_name` varchar(100) NOT NULL,
   `type_alias` varchar(100) NOT NULL,
   `type_description` longtext DEFAULT NULL,
@@ -203,13 +302,17 @@ CREATE TABLE IF NOT EXISTS `nxt_category_type` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`type_id`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_daily_expenses`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_daily_expenses` (
-  `expense_id` int(11) NOT NULL AUTO_INCREMENT,
+  `expense_id` int(11) NOT NULL,
   `expense_name` varchar(100) NOT NULL,
   `expense_amount` decimal(10,2) NOT NULL,
   `expense_date` datetime NOT NULL,
@@ -217,24 +320,32 @@ CREATE TABLE IF NOT EXISTS `nxt_daily_expenses` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`expense_id`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_db_backup`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_db_backup` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `db_name` varchar(255) DEFAULT NULL,
   `step_message` text DEFAULT NULL,
   `step_action` varchar(100) DEFAULT NULL,
   `success` tinyint(1) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`)
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_department`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_department` (
-  `department_id` int(11) NOT NULL AUTO_INCREMENT,
+  `department_id` int(11) NOT NULL,
   `department_name` varchar(100) NOT NULL,
   `department_alias` varchar(100) NOT NULL,
   `department_description` text NOT NULL,
@@ -242,15 +353,17 @@ CREATE TABLE IF NOT EXISTS `nxt_department` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(20) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(20) DEFAULT NULL,
-  PRIMARY KEY (`department_id`),
-  UNIQUE KEY `department_name` (`department_name`),
-  UNIQUE KEY `department_alias` (`department_alias`)
+  `updated_by` varchar(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_doctor`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_doctor` (
-  `doctor_id` int(11) NOT NULL AUTO_INCREMENT,
+  `doctor_id` int(11) NOT NULL,
   `doctor_name` varchar(100) NOT NULL,
   `doctor_alias` varchar(100) NOT NULL,
   `doctor_mobile` varchar(15) DEFAULT NULL,
@@ -268,29 +381,78 @@ CREATE TABLE IF NOT EXISTS `nxt_doctor` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`doctor_id`),
-  UNIQUE KEY `doctor_alias` (`doctor_alias`),
-  KEY `fk_doctor_department_uuid` (`doctor_department_alias`),
-  KEY `fk_doctor_type_uuid` (`doctor_type_alias`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_doctor_schedule`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_doctor_schedule` (
-  `schedule_id` int(11) NOT NULL AUTO_INCREMENT,
+  `schedule_id` int(11) NOT NULL,
   `doctor_alias` varchar(100) NOT NULL,
   `schedule_day` enum('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL,
   `schedule_slots` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`schedule_id`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `nxt_fbr_config`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_fbr_config` (
+  `fbr_config_id` int(11) NOT NULL,
+  `hospital_name` varchar(255) NOT NULL COMMENT 'Hospital name registered with FBR',
+  `hospital_ntn` varchar(50) DEFAULT NULL COMMENT 'Hospital National Tax Number',
+  `hospital_address` text DEFAULT NULL COMMENT 'Hospital registered address',
+  `pos_id` varchar(50) NOT NULL COMMENT 'FBR Point of Sale ID',
+  `api_token` text NOT NULL COMMENT 'FBR API JWT token',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Whether FBR integration is active',
+  `use_sandbox` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Use FBR sandbox environment',
+  `auto_sync` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Automatically sync invoices with FBR',
+  `retry_failed` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Automatically retry failed syncs',
+  `max_retry_attempts` int(11) NOT NULL DEFAULT 3 COMMENT 'Maximum retry attempts',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `nxt_fbr_sync_log`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_fbr_sync_log` (
+  `log_id` int(11) NOT NULL,
+  `invoice_type` enum('slip','bill') NOT NULL COMMENT 'Type of invoice synced',
+  `invoice_id` int(11) NOT NULL COMMENT 'ID of the slip or bill',
+  `invoice_number` varchar(255) NOT NULL COMMENT 'Internal invoice number',
+  `fbr_invoice_number` varchar(255) DEFAULT NULL COMMENT 'FBR-generated invoice number',
+  `sync_status` enum('pending','success','failed') NOT NULL DEFAULT 'pending',
+  `request_payload` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON payload sent to FBR' CHECK (json_valid(`request_payload`)),
+  `response_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON response from FBR' CHECK (json_valid(`response_data`)),
+  `error_message` text DEFAULT NULL COMMENT 'Error message if sync failed',
+  `sync_duration_ms` int(11) DEFAULT NULL COMMENT 'Time taken for sync in milliseconds',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_inventory`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_inventory` (
-  `item_id` int(11) NOT NULL AUTO_INCREMENT,
+  `item_id` int(11) NOT NULL,
   `item_name` varchar(255) NOT NULL,
   `item_category` varchar(100) NOT NULL DEFAULT 'Other',
   `item_quantity` int(11) NOT NULL DEFAULT 0,
@@ -302,13 +464,17 @@ CREATE TABLE IF NOT EXISTS `nxt_inventory` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`item_id`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_lab_invoice`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_lab_invoice` (
-  `invoice_id` int(11) NOT NULL AUTO_INCREMENT,
+  `invoice_id` int(11) NOT NULL,
   `invoice_uuid` varchar(50) NOT NULL,
   `invoice_tests` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`invoice_tests`)),
   `patient_mrid` varchar(50) NOT NULL,
@@ -325,26 +491,34 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_invoice` (
   `created_by` varchar(50) NOT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_by` varchar(50) DEFAULT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  PRIMARY KEY (`invoice_id`)
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_lab_invoice_tests`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_lab_invoice_tests` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `test_description` varchar(255) NOT NULL,
   `report_datetime` datetime NOT NULL,
   `price` int(11) NOT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(50) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  `updated_by` varchar(50) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_lab_report`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_lab_report` (
-  `report_id` int(11) NOT NULL AUTO_INCREMENT,
+  `report_id` int(11) NOT NULL,
   `report_uuid` varchar(50) NOT NULL,
   `invoice_uuid` varchar(50) NOT NULL,
   `patient_mrid` varchar(50) NOT NULL,
@@ -356,13 +530,17 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_report` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(50) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(50) NOT NULL,
-  PRIMARY KEY (`report_id`)
+  `updated_by` varchar(50) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_lab_test`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
-  `test_id` int(11) NOT NULL AUTO_INCREMENT,
+  `test_id` int(11) NOT NULL,
   `test_name` varchar(100) NOT NULL,
   `test_code` varchar(20) NOT NULL,
   `test_description` text DEFAULT NULL,
@@ -378,21 +556,28 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_by` varchar(100) DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `note` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`note`)),
-  PRIMARY KEY (`test_id`),
-  UNIQUE KEY `test_code` (`test_code`)
+  `note` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`note`))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_medicine`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_medicine` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `medicine_name` varchar(255) NOT NULL,
-  PRIMARY KEY (`id`)
+  `id` int(11) NOT NULL,
+  `medicine_name` varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_notification`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_notification` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `type` varchar(100) NOT NULL,
   `description` text NOT NULL,
   `affected_table` varchar(255) DEFAULT NULL,
@@ -400,16 +585,22 @@ CREATE TABLE IF NOT EXISTS `nxt_notification` (
   `user_id` varchar(255) NOT NULL,
   `ip_address` varchar(45) DEFAULT NULL,
   `meta_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`)
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_patient`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_patient` (
-  `patient_id` int(10) NOT NULL AUTO_INCREMENT,
+  `patient_id` int(10) NOT NULL,
   `patient_mrid` varchar(50) NOT NULL,
   `patient_name` varchar(100) NOT NULL,
   `patient_mobile` varchar(15) NOT NULL,
+  `patient_cnic` varchar(15) DEFAULT NULL COMMENT 'Pakistani CNIC (13 digits) - National identifier',
+  `guardian_cnic` varchar(15) DEFAULT NULL COMMENT 'Guardian CNIC for minors/children (optional field for family relationships)',
   `patient_password` varchar(100) NOT NULL DEFAULT '12345',
   `patient_email` varchar(100) DEFAULT NULL,
   `patient_gender` varchar(20) NOT NULL,
@@ -422,14 +613,55 @@ CREATE TABLE IF NOT EXISTS `nxt_patient` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`patient_id`),
-  UNIQUE KEY `patient_mrid` (`patient_mrid`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `nxt_patient_audit`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_patient_audit` (
+  `audit_id` int(11) NOT NULL,
+  `action` varchar(50) NOT NULL COMMENT 'Action performed (create, match, confirm, etc.)',
+  `patient_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT 'Patient data involved in the action' CHECK (json_valid(`patient_data`)),
+  `matching_criteria` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Search criteria used for matching' CHECK (json_valid(`matching_criteria`)),
+  `decision_made` varchar(100) DEFAULT NULL COMMENT 'Decision outcome (new_patient, reuse_mrid, user_confirmation, etc.)',
+  `confidence_score` decimal(3,2) DEFAULT NULL COMMENT 'Matching confidence (0.00-1.00)',
+  `user_id` int(11) DEFAULT NULL COMMENT 'User who made the decision',
+  `session_id` varchar(100) DEFAULT NULL COMMENT 'Session identifier for tracking',
+  `ip_address` varchar(45) DEFAULT NULL COMMENT 'Client IP address',
+  `user_agent` text DEFAULT NULL COMMENT 'Browser/client user agent',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `nxt_patient_relationship`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_patient_relationship` (
+  `relationship_id` int(11) NOT NULL,
+  `primary_patient_id` int(11) NOT NULL COMMENT 'Main patient record',
+  `related_patient_id` int(11) NOT NULL COMMENT 'Related patient record',
+  `relationship_type` enum('family_member','duplicate_cnic','guardian_dependent') DEFAULT NULL,
+  `relationship_detail` varchar(50) DEFAULT NULL COMMENT 'Specific relationship type (father, mother, son, etc.)',
+  `relationship_notes` text DEFAULT NULL COMMENT 'Additional relationship details',
+  `created_by` int(11) DEFAULT NULL COMMENT 'User who created the relationship',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_permission`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_permission` (
-  `permission_id` int(11) NOT NULL AUTO_INCREMENT,
+  `permission_id` int(11) NOT NULL,
   `permission_name` varchar(100) NOT NULL,
   `permission_alias` varchar(100) NOT NULL,
   `permission_description` text NOT NULL,
@@ -441,13 +673,17 @@ CREATE TABLE IF NOT EXISTS `nxt_permission` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`permission_id`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_prescriptions`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_prescriptions` (
-  `prescription_id` int(11) NOT NULL AUTO_INCREMENT,
+  `prescription_id` int(11) NOT NULL,
   `slip_uuid` varchar(50) DEFAULT NULL,
   `patient_mrid` varchar(50) NOT NULL,
   `patient_mobile` varchar(100) NOT NULL,
@@ -461,13 +697,17 @@ CREATE TABLE IF NOT EXISTS `nxt_prescriptions` (
   `created_at` datetime DEFAULT current_timestamp(),
   `created_by` varchar(255) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`prescription_id`)
+  `updated_by` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_print_design`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_print_design` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `identifier` varchar(100) NOT NULL,
   `header_logo` longtext DEFAULT NULL,
   `header_title` varchar(255) NOT NULL,
@@ -481,37 +721,54 @@ CREATE TABLE IF NOT EXISTS `nxt_print_design` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_report_footer`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_report_footer` (
-  `footer_id` int(10) NOT NULL AUTO_INCREMENT,
+  `footer_id` int(10) NOT NULL,
   `footer_title` varchar(255) DEFAULT NULL,
   `footer_details` text DEFAULT NULL,
-  `footer_no` int(10) NOT NULL,
-  PRIMARY KEY (`footer_id`)
+  `footer_no` int(10) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_room`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_room` (
-  `room_id` int(11) NOT NULL AUTO_INCREMENT,
+  `room_id` int(11) NOT NULL,
   `room_name` varchar(100) NOT NULL,
   `room_alias` varchar(100) NOT NULL,
   `room_description` text DEFAULT NULL,
-  `room_rate` int(10) NOT NULL,
+  `room_rate` int(10) NOT NULL COMMENT 'Per day room charges',
   `room_status` int(10) NOT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`room_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `room_category` varchar(50) DEFAULT NULL COMMENT 'FK to nxt_category.category_alias for room type',
+  `room_floor` varchar(20) DEFAULT NULL COMMENT 'Floor location of the room',
+  `room_wing` varchar(50) DEFAULT NULL COMMENT 'Wing/section of the hospital',
+  `total_beds` int(11) DEFAULT 1 COMMENT 'Total bed capacity in this room',
+  `occupied_beds` int(11) DEFAULT 0 COMMENT 'Currently occupied beds'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Hospital rooms with multi-bed capacity and category tracking';
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_segment`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_segment` (
-  `segment_id` int(11) NOT NULL AUTO_INCREMENT,
+  `segment_id` int(11) NOT NULL,
   `segment_name` varchar(100) NOT NULL,
   `segment_alias` varchar(100) NOT NULL,
   `segment_filter` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -521,15 +778,17 @@ CREATE TABLE IF NOT EXISTS `nxt_segment` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`segment_id`),
-  UNIQUE KEY `segment_alias` (`segment_alias`),
-  KEY `idx_segment_status` (`segment_status`)
-) ;
+  `updated_by` varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_service`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_service` (
-  `service_id` int(11) NOT NULL AUTO_INCREMENT,
+  `service_id` int(11) NOT NULL,
   `service_name` varchar(100) NOT NULL,
   `service_alias` varchar(100) NOT NULL,
   `service_description` text DEFAULT NULL,
@@ -539,16 +798,22 @@ CREATE TABLE IF NOT EXISTS `nxt_service` (
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`service_id`)
+  `pct_code` varchar(20) DEFAULT NULL COMMENT 'Pakistan Customs Tariff code for FBR compliance'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_slip`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_slip` (
-  `slip_id` int(11) NOT NULL AUTO_INCREMENT,
+  `slip_id` int(11) NOT NULL,
   `slip_uuid` varchar(50) NOT NULL,
   `slip_mrid` varchar(50) NOT NULL,
   `slip_patient_name` varchar(100) NOT NULL,
   `slip_patient_mobile` varchar(15) NOT NULL,
+  `slip_patient_cnic` varchar(15) DEFAULT NULL COMMENT 'Copy of patient CNIC for quick lookup during visits',
   `slip_disposal` varchar(50) NOT NULL,
   `slip_department` varchar(20) DEFAULT NULL,
   `slip_doctor` varchar(20) NOT NULL,
@@ -563,18 +828,38 @@ CREATE TABLE IF NOT EXISTS `nxt_slip` (
   `slip_procedure` varchar(255) DEFAULT NULL,
   `slip_service` longtext DEFAULT NULL,
   `slip_type` varchar(100) NOT NULL,
-  `admission_date` DATETIME NULL COMMENT 'Date and time when patient was admitted (for indoor/admission slip types)',
+  `admission_date` datetime DEFAULT NULL COMMENT 'Date and time when patient was admitted (for indoor/admission slip types)',
   `slip_delete` int(10) NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`slip_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `slip_tax_details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON array of applied taxes for audit trail' CHECK (json_valid(`slip_tax_details`)),
+  `fbr_invoice_number` varchar(255) DEFAULT NULL COMMENT 'FBR-generated unique invoice number',
+  `fbr_qr_code_url` text DEFAULT NULL COMMENT 'FBR QR code URL for invoice verification',
+  `fbr_sync_status` enum('pending','synced','failed','skipped','disabled') NOT NULL DEFAULT 'pending' COMMENT 'FBR synchronization status',
+  `fbr_response_message` text DEFAULT NULL COMMENT 'FBR API response message for debugging',
+  `fbr_synced_at` datetime DEFAULT NULL COMMENT 'Timestamp when synced with FBR',
+  `fbr_retry_count` int(11) DEFAULT 0 COMMENT 'Number of FBR sync retry attempts',
+  `room_id` int(11) DEFAULT NULL COMMENT 'Room assigned for INDOOR slips',
+  `bed_id` int(11) DEFAULT NULL COMMENT 'Bed assigned at admission',
+  `admission_notes` text DEFAULT NULL COMMENT 'Admission notes, patient condition, special instructions for indoor patients',
+  `estimated_duration_days` int(11) DEFAULT NULL COMMENT 'Estimated duration of stay in days for indoor patients',
+  `procedure_type` enum('planned','unplanned') DEFAULT NULL COMMENT 'Type of procedure: planned (scheduled) or unplanned (emergency)',
+  `procedure_reason` text DEFAULT NULL COMMENT 'Reason/details: urgency for unplanned, additional info for planned procedures',
+  `is_readmission` tinyint(1) DEFAULT 0 COMMENT 'Flag: 1 if this is a readmission, 0 if new admission',
+  `readmission_reason` varchar(255) DEFAULT NULL COMMENT 'Reason for readmission (complication, treatment_continuation, etc.)',
+  `relationship_context` varchar(50) DEFAULT NULL COMMENT 'Context of patient relationship (readmission, family_member, etc.)'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Patient slips. slip_type="INDOOR" with room/bed for admissions';
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_slip_type`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
-  `slip_type_id` int(11) NOT NULL AUTO_INCREMENT,
+  `slip_type_id` int(11) NOT NULL,
   `slip_type_name` varchar(100) NOT NULL,
   `slip_type_alias` varchar(100) NOT NULL,
   `fields` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`fields`)),
@@ -585,12 +870,20 @@ CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`slip_type_id`)
+  `enable_tax` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1 to enable tax calculation',
+  `prices_are_tax_inclusive` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1 if entered fees already include tax',
+  `enable_fbr_sync` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Enable FBR synchronization for this slip type',
+  `fbr_invoice_type` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Fiscal, 2=Non-Fiscal invoice type for FBR'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_supplier`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_supplier` (
-  `supplier_id` int(11) NOT NULL AUTO_INCREMENT,
+  `supplier_id` int(11) NOT NULL,
   `supplier_name` varchar(255) NOT NULL,
   `supplier_alias` varchar(255) NOT NULL,
   `supplier_contact` varchar(50) DEFAULT NULL,
@@ -599,27 +892,63 @@ CREATE TABLE IF NOT EXISTS `nxt_supplier` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`supplier_id`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `nxt_tax_settings`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_tax_settings` (
+  `tax_id` int(11) NOT NULL,
+  `tax_name` varchar(100) NOT NULL COMMENT 'User-friendly name, e.g., "General Sales Tax"',
+  `tax_alias` varchar(100) NOT NULL COMMENT 'Unique identifier like other NXT tables',
+  `tax_code` varchar(20) NOT NULL COMMENT 'Short code like GST, VAT, etc.',
+  `tax_percentage` decimal(5,2) NOT NULL,
+  `is_compound` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1 if calculated on subtotal + other taxes',
+  `calculation_order` int(11) NOT NULL DEFAULT 0 COMMENT 'Priority for calculation (0 first, then 1, 2... etc)',
+  `apply_to_slip_type` varchar(100) NOT NULL DEFAULT '*' COMMENT 'Specific slip_type_alias or "*" for all',
+  `applies_above_amount` decimal(15,2) DEFAULT 0.00 COMMENT 'Apply tax only if subtotal exceeds this value',
+  `applies_below_amount` decimal(15,2) DEFAULT NULL COMMENT 'Max amount for tax application',
+  `department_specific` varchar(100) DEFAULT NULL COMMENT 'Apply only to specific departments',
+  `doctor_type_specific` varchar(100) DEFAULT NULL COMMENT 'Apply only to specific doctor types',
+  `tax_account_code` varchar(50) DEFAULT NULL COMMENT 'For accounting integration',
+  `effective_from` date DEFAULT NULL COMMENT 'Tax effective start date',
+  `effective_to` date DEFAULT NULL COMMENT 'Tax effective end date',
+  `tax_status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1 for Active, 0 for Inactive',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_test_component`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_test_component` (
-  `component_id` int(10) NOT NULL AUTO_INCREMENT,
+  `component_id` int(10) NOT NULL,
   `component_title` varchar(100) DEFAULT NULL,
   `component_ranges` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`component_ranges`)),
   `test_code` varchar(100) NOT NULL,
   `created_by` varchar(50) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_by` varchar(50) DEFAULT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  PRIMARY KEY (`component_id`),
-  KEY `fk_test_code_from_lab_test` (`test_code`)
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_text_message`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_text_message` (
-  `message_id` int(11) NOT NULL AUTO_INCREMENT,
+  `message_id` int(11) NOT NULL,
   `message_name` varchar(100) NOT NULL,
   `message_alias` varchar(100) NOT NULL,
   `message_text` text NOT NULL,
@@ -630,14 +959,17 @@ CREATE TABLE IF NOT EXISTS `nxt_text_message` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`message_id`),
-  UNIQUE KEY `message_alias` (`message_alias`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_user`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_user` (
-  `user_id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
   `user_name` varchar(100) NOT NULL,
   `user_email` varchar(50) DEFAULT NULL,
   `user_mobile` varchar(15) DEFAULT NULL,
@@ -657,13 +989,17 @@ CREATE TABLE IF NOT EXISTS `nxt_user` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(20) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(20) DEFAULT NULL,
-  PRIMARY KEY (`user_id`)
+  `updated_by` varchar(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_users`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_users` (
-  `user_id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
   `user_name` varchar(100) NOT NULL,
   `user_alias` varchar(100) DEFAULT NULL,
   `user_email` varchar(50) DEFAULT NULL,
@@ -690,24 +1026,32 @@ CREATE TABLE IF NOT EXISTS `nxt_users` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`user_id`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_user_available_leaves`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_user_available_leaves` (
-  `available_leave_id` int(10) NOT NULL AUTO_INCREMENT,
+  `available_leave_id` int(10) NOT NULL,
   `user_id` int(10) NOT NULL,
   `leave_alias` varchar(100) NOT NULL,
   `available_balance` int(10) NOT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  PRIMARY KEY (`available_leave_id`)
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_user_leave`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_user_leave` (
-  `leave_id` int(11) NOT NULL AUTO_INCREMENT,
+  `leave_id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
   `leave_type` enum('earn','sick','annual','compensation') NOT NULL DEFAULT 'earn',
   `leave_start_date` date NOT NULL,
@@ -719,13 +1063,17 @@ CREATE TABLE IF NOT EXISTS `nxt_user_leave` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`leave_id`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `nxt_user_test`
+--
+
 CREATE TABLE IF NOT EXISTS `nxt_user_test` (
-  `user_id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
   `user_type` enum('doctor','nurse','staff','admin') NOT NULL,
   `user_name` varchar(100) NOT NULL,
   `user_alias` varchar(100) DEFAULT NULL,
@@ -753,13 +1101,17 @@ CREATE TABLE IF NOT EXISTS `nxt_user_test` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`user_id`)
+  `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `prescription_items`
+--
+
 CREATE TABLE IF NOT EXISTS `prescription_items` (
-  `item_id` int(11) NOT NULL AUTO_INCREMENT,
+  `item_id` int(11) NOT NULL,
   `prescription_id` int(11) NOT NULL,
   `medicine_name` varchar(255) DEFAULT NULL,
   `dosage` text DEFAULT NULL,
@@ -772,13 +1124,17 @@ CREATE TABLE IF NOT EXISTS `prescription_items` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(255) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`item_id`)
+  `updated_by` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `prescription_other`
+--
+
 CREATE TABLE IF NOT EXISTS `prescription_other` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL,
   `prescription_id` int(11) NOT NULL,
   `referral_consultant` varchar(100) DEFAULT NULL,
   `referral_note` text DEFAULT NULL,
@@ -789,13 +1145,17 @@ CREATE TABLE IF NOT EXISTS `prescription_other` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(255) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  `updated_by` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `prescription_vitals`
+--
+
 CREATE TABLE IF NOT EXISTS `prescription_vitals` (
-  `vital_id` int(11) NOT NULL AUTO_INCREMENT,
+  `vital_id` int(11) NOT NULL,
   `prescription_id` int(11) NOT NULL,
   `pulse` varchar(50) DEFAULT NULL,
   `blood_pressure` varchar(50) DEFAULT NULL,
@@ -808,42 +1168,905 @@ CREATE TABLE IF NOT EXISTS `prescription_vitals` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(255) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`vital_id`)
+  `updated_by` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `recentactivity`
+--
+
 CREATE TABLE IF NOT EXISTS `recentactivity` (
-  `activity_id` int(11) NOT NULL AUTO_INCREMENT,
+  `activity_id` int(11) NOT NULL,
   `admin_user` varchar(100) DEFAULT NULL,
   `action_title` varchar(50) NOT NULL,
   `action_description` text DEFAULT NULL,
   `table_affected` varchar(255) DEFAULT NULL,
-  `affected_id` VARCHAR(255) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`activity_id`)
+  `affected_id` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Now add foreign key constraints (drop first if exists to make idempotent)
-ALTER TABLE `nxt_campaign` 
-  DROP FOREIGN KEY IF EXISTS `nxt_campaign_ibfk_1`,
-  DROP FOREIGN KEY IF EXISTS `nxt_campaign_ibfk_2`;
+-- --------------------------------------------------------
 
-ALTER TABLE `nxt_campaign` 
+--
+-- Stand-in structure for view `vw_campaign_analytics`
+-- (See below for the actual view)
+--
+CREATE TABLE IF NOT EXISTS `vw_campaign_analytics` (
+`campaign_id` int(11)
+,`campaign_name` varchar(100)
+,`campaign_type` enum('bulk','triggered','scheduled','immediate')
+,`campaign_channel` enum('whatsapp','email','sms','push')
+,`campaign_status` enum('draft','scheduled','processing','completed','failed','paused')
+,`total_triggered` bigint(21)
+,`successful_sends` decimal(22,0)
+,`failed_sends` decimal(22,0)
+,`pending_sends` decimal(22,0)
+,`success_rate` decimal(28,2)
+,`first_trigger` timestamp
+,`last_trigger` timestamp
+);
+
+-- --------------------------------------------------------
+
+--
+-- Stand-in structure for view `v_daily_readmission_summary`
+-- (See below for the actual view)
+--
+CREATE TABLE IF NOT EXISTS `v_daily_readmission_summary` (
+`admission_date` date
+,`total_admissions` bigint(21)
+,`readmission_count` decimal(25,0)
+,`readmission_rate` decimal(31,2)
+,`slip_type` varchar(100)
+,`slip_department` varchar(20)
+,`slip_doctor` varchar(20)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Stand-in structure for view `v_readmission_analytics`
+-- (See below for the actual view)
+--
+CREATE TABLE IF NOT EXISTS `v_readmission_analytics` (
+`slip_id` int(11)
+,`slip_uuid` varchar(50)
+,`slip_mrid` varchar(50)
+,`slip_patient_name` varchar(100)
+,`slip_patient_cnic` varchar(15)
+,`created_at` datetime
+,`slip_type` varchar(100)
+,`slip_department` varchar(20)
+,`slip_doctor` varchar(20)
+,`is_readmission` tinyint(1)
+,`readmission_reason` varchar(255)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `vw_campaign_analytics`
+--
+DROP TABLE IF EXISTS `vw_campaign_analytics`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `vw_campaign_analytics`  AS SELECT `c`.`campaign_id` AS `campaign_id`, `c`.`campaign_name` AS `campaign_name`, `c`.`campaign_type` AS `campaign_type`, `c`.`campaign_channel` AS `campaign_channel`, `c`.`campaign_status` AS `campaign_status`, count(`cq`.`queue_id`) AS `total_triggered`, sum(case when `cq`.`status` = 'sent' then 1 else 0 end) AS `successful_sends`, sum(case when `cq`.`status` = 'failed' then 1 else 0 end) AS `failed_sends`, sum(case when `cq`.`status` = 'pending' then 1 else 0 end) AS `pending_sends`, round(sum(case when `cq`.`status` = 'sent' then 1 else 0 end) / nullif(count(`cq`.`queue_id`),0) * 100,2) AS `success_rate`, min(`cq`.`created_at`) AS `first_trigger`, max(`cq`.`created_at`) AS `last_trigger` FROM (`nxt_campaign` `c` left join `nxt_campaign_queue` `cq` on(`c`.`campaign_id` = `cq`.`campaign_id`)) WHERE `c`.`campaign_type` = 'triggered' GROUP BY `c`.`campaign_id`, `c`.`campaign_name`, `c`.`campaign_type`, `c`.`campaign_channel`, `c`.`campaign_status` ;
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `v_daily_readmission_summary`
+--
+DROP TABLE IF EXISTS `v_daily_readmission_summary`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v_daily_readmission_summary`  AS SELECT cast(`s`.`created_at` as date) AS `admission_date`, count(`s`.`slip_id`) AS `total_admissions`, sum(`s`.`is_readmission`) AS `readmission_count`, round(sum(`s`.`is_readmission`) / count(`s`.`slip_id`) * 100,2) AS `readmission_rate`, `s`.`slip_type` AS `slip_type`, `s`.`slip_department` AS `slip_department`, `s`.`slip_doctor` AS `slip_doctor` FROM `nxt_slip` AS `s` WHERE `s`.`created_at` >= current_timestamp() - interval 30 day GROUP BY cast(`s`.`created_at` as date), `s`.`slip_type`, `s`.`slip_department`, `s`.`slip_doctor` ORDER BY cast(`s`.`created_at` as date) DESC ;
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `v_readmission_analytics`
+--
+DROP TABLE IF EXISTS `v_readmission_analytics`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v_readmission_analytics`  AS SELECT `s`.`slip_id` AS `slip_id`, `s`.`slip_uuid` AS `slip_uuid`, `s`.`slip_mrid` AS `slip_mrid`, `s`.`slip_patient_name` AS `slip_patient_name`, `s`.`slip_patient_cnic` AS `slip_patient_cnic`, `s`.`created_at` AS `created_at`, `s`.`slip_type` AS `slip_type`, `s`.`slip_department` AS `slip_department`, `s`.`slip_doctor` AS `slip_doctor`, `s`.`is_readmission` AS `is_readmission`, `s`.`readmission_reason` AS `readmission_reason` FROM `nxt_slip` AS `s` WHERE `s`.`created_at` >= current_timestamp() - interval 365 day ORDER BY `s`.`created_at` DESC ;
+
+--
+-- Indexes for dumped tables
+--
+
+--
+-- Indexes for table `ai_feedback`
+--
+ALTER TABLE `ai_feedback`
+  ADD PRIMARY KEY (`feedback_id`);
+
+--
+-- Indexes for table `ai_suggestions`
+--
+ALTER TABLE `ai_suggestions`
+  ADD PRIMARY KEY (`suggestion_id`);
+
+--
+-- Indexes for table `nxt_appointment`
+--
+ALTER TABLE `nxt_appointment`
+  ADD PRIMARY KEY (`appointment_id`),
+  ADD UNIQUE KEY `appointment_uuid` (`appointment_uuid`),
+  ADD KEY `fk_appointment_patient_mrid` (`appointment_patient_mrid`),
+  ADD KEY `fk_appointment_type_uuid` (`appointment_type_alias`),
+  ADD KEY `fk_appointment_department_uuid` (`appointment_department_alias`),
+  ADD KEY `fk_appointment_doctor_uuid` (`appointment_doctor_alias`);
+
+--
+-- Indexes for table `nxt_bed`
+--
+ALTER TABLE `nxt_bed`
+  ADD PRIMARY KEY (`bed_id`),
+  ADD UNIQUE KEY `unique_bed_number` (`bed_number`),
+  ADD KEY `idx_room_id` (`room_id`),
+  ADD KEY `idx_bed_status` (`bed_status`),
+  ADD KEY `idx_current_patient` (`current_patient_mrid`),
+  ADD KEY `idx_current_bill` (`current_bill_uuid`),
+  ADD KEY `idx_room_status` (`room_id`,`bed_status`);
+
+--
+-- Indexes for table `nxt_bed_history`
+--
+ALTER TABLE `nxt_bed_history`
+  ADD PRIMARY KEY (`history_id`),
+  ADD KEY `idx_bed_history` (`bed_id`,`action_timestamp`),
+  ADD KEY `idx_patient_history` (`patient_mrid`,`action_timestamp`),
+  ADD KEY `idx_bill_history` (`bill_uuid`);
+
+--
+-- Indexes for table `nxt_bill`
+--
+ALTER TABLE `nxt_bill`
+  ADD PRIMARY KEY (`bill_id`),
+  ADD UNIQUE KEY `unique_bill_uuid` (`bill_uuid`),
+  ADD KEY `idx_admission_duration_hours` (`admission_duration_hours`),
+  ADD KEY `idx_discharge_date` (`discharge_date`),
+  ADD KEY `idx_fbr_sync_status_bill` (`fbr_sync_status`),
+  ADD KEY `idx_fbr_synced_at_bill` (`fbr_synced_at`),
+  ADD KEY `idx_bill_room_bed` (`room_id`,`bed_id`),
+  ADD KEY `idx_bill_indoor_active` (`bill_type`,`discharge_date`),
+  ADD KEY `idx_bill_type_status` (`bill_type`,`bill_delete`,`discharge_date`),
+  ADD KEY `fk_bill_bed` (`bed_id`),
+  ADD KEY `idx_bill_referral` (`is_referral_case`,`referral_date`),
+  ADD KEY `idx_bill_death` (`is_death_case`,`death_date`),
+  ADD KEY `idx_bill_death_duration` (`death_duration_hours`),
+  ADD KEY `idx_bill_outcome` (`is_referral_case`,`is_death_case`,`created_at`),
+  ADD KEY `idx_bill_cnic` (`patient_cnic`);
+
+--
+-- Indexes for table `nxt_bootstrap_status`
+--
+ALTER TABLE `nxt_bootstrap_status`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_component_status` (`component`,`status`);
+
+--
+-- Indexes for table `nxt_campaign`
+--
+ALTER TABLE `nxt_campaign`
+  ADD PRIMARY KEY (`campaign_id`),
+  ADD UNIQUE KEY `campaign_alias` (`campaign_alias`),
+  ADD KEY `campaign_segment` (`campaign_segment`),
+  ADD KEY `campaign_message` (`campaign_message`),
+  ADD KEY `idx_campaign_status` (`campaign_status`),
+  ADD KEY `idx_scheduled_at` (`scheduled_at`),
+  ADD KEY `idx_campaign_channel` (`campaign_channel`),
+  ADD KEY `idx_campaign_type` (`campaign_type`),
+  ADD KEY `idx_campaign_status_type` (`campaign_status`,`campaign_type`),
+  ADD KEY `idx_campaign_type_status` (`campaign_type`,`campaign_status`),
+  ADD KEY `idx_trigger_event` (`trigger_event`);
+
+--
+-- Indexes for table `nxt_campaign_log`
+--
+ALTER TABLE `nxt_campaign_log`
+  ADD PRIMARY KEY (`log_id`),
+  ADD KEY `idx_campaign_contact` (`campaign_id`,`contact_id`),
+  ADD KEY `idx_status` (`status`);
+
+--
+-- Indexes for table `nxt_campaign_queue`
+--
+ALTER TABLE `nxt_campaign_queue`
+  ADD PRIMARY KEY (`queue_id`),
+  ADD KEY `idx_status` (`status`),
+  ADD KEY `idx_scheduled` (`scheduled_at`),
+  ADD KEY `idx_campaign_queue` (`campaign_id`,`status`),
+  ADD KEY `idx_contact_channel` (`contact_info`,`channel_type`);
+
+--
+-- Indexes for table `nxt_campaign_triggers`
+--
+ALTER TABLE `nxt_campaign_triggers`
+  ADD PRIMARY KEY (`trigger_id`),
+  ADD KEY `idx_trigger_event` (`trigger_event`),
+  ADD KEY `idx_campaign_trigger` (`campaign_id`,`trigger_event`);
+
+--
+-- Indexes for table `nxt_category`
+--
+ALTER TABLE `nxt_category`
+  ADD PRIMARY KEY (`category_id`),
+  ADD UNIQUE KEY `unique_category_alias` (`category_alias`);
+
+--
+-- Indexes for table `nxt_category_type`
+--
+ALTER TABLE `nxt_category_type`
+  ADD PRIMARY KEY (`type_id`);
+
+--
+-- Indexes for table `nxt_daily_expenses`
+--
+ALTER TABLE `nxt_daily_expenses`
+  ADD PRIMARY KEY (`expense_id`);
+
+--
+-- Indexes for table `nxt_db_backup`
+--
+ALTER TABLE `nxt_db_backup`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `nxt_department`
+--
+ALTER TABLE `nxt_department`
+  ADD PRIMARY KEY (`department_id`),
+  ADD UNIQUE KEY `department_name` (`department_name`),
+  ADD UNIQUE KEY `department_alias` (`department_alias`);
+
+--
+-- Indexes for table `nxt_doctor`
+--
+ALTER TABLE `nxt_doctor`
+  ADD PRIMARY KEY (`doctor_id`),
+  ADD UNIQUE KEY `doctor_alias` (`doctor_alias`),
+  ADD KEY `fk_doctor_department_uuid` (`doctor_department_alias`),
+  ADD KEY `fk_doctor_type_uuid` (`doctor_type_alias`);
+
+--
+-- Indexes for table `nxt_doctor_schedule`
+--
+ALTER TABLE `nxt_doctor_schedule`
+  ADD PRIMARY KEY (`schedule_id`);
+
+--
+-- Indexes for table `nxt_fbr_config`
+--
+ALTER TABLE `nxt_fbr_config`
+  ADD PRIMARY KEY (`fbr_config_id`);
+
+--
+-- Indexes for table `nxt_fbr_sync_log`
+--
+ALTER TABLE `nxt_fbr_sync_log`
+  ADD PRIMARY KEY (`log_id`),
+  ADD KEY `idx_invoice_type_id` (`invoice_type`,`invoice_id`),
+  ADD KEY `idx_sync_status` (`sync_status`),
+  ADD KEY `idx_created_at` (`created_at`);
+
+--
+-- Indexes for table `nxt_inventory`
+--
+ALTER TABLE `nxt_inventory`
+  ADD PRIMARY KEY (`item_id`);
+
+--
+-- Indexes for table `nxt_lab_invoice`
+--
+ALTER TABLE `nxt_lab_invoice`
+  ADD PRIMARY KEY (`invoice_id`);
+
+--
+-- Indexes for table `nxt_lab_invoice_tests`
+--
+ALTER TABLE `nxt_lab_invoice_tests`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `nxt_lab_report`
+--
+ALTER TABLE `nxt_lab_report`
+  ADD PRIMARY KEY (`report_id`);
+
+--
+-- Indexes for table `nxt_lab_test`
+--
+ALTER TABLE `nxt_lab_test`
+  ADD PRIMARY KEY (`test_id`),
+  ADD UNIQUE KEY `test_code` (`test_code`);
+
+--
+-- Indexes for table `nxt_medicine`
+--
+ALTER TABLE `nxt_medicine`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `nxt_notification`
+--
+ALTER TABLE `nxt_notification`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `nxt_patient`
+--
+ALTER TABLE `nxt_patient`
+  ADD PRIMARY KEY (`patient_id`),
+  ADD UNIQUE KEY `patient_mrid` (`patient_mrid`),
+  ADD KEY `idx_patient_mrid` (`patient_mrid`),
+  ADD KEY `idx_patient_cnic` (`patient_cnic`),
+  ADD KEY `idx_patient_guardian_cnic` (`guardian_cnic`);
+
+--
+-- Indexes for table `nxt_patient_audit`
+--
+ALTER TABLE `nxt_patient_audit`
+  ADD PRIMARY KEY (`audit_id`),
+  ADD KEY `idx_audit_action` (`action`),
+  ADD KEY `idx_audit_user` (`user_id`),
+  ADD KEY `idx_audit_created` (`created_at`),
+  ADD KEY `idx_audit_session` (`session_id`);
+
+--
+-- Indexes for table `nxt_patient_relationship`
+--
+ALTER TABLE `nxt_patient_relationship`
+  ADD PRIMARY KEY (`relationship_id`),
+  ADD UNIQUE KEY `unique_relationship` (`primary_patient_id`,`related_patient_id`,`relationship_type`),
+  ADD KEY `created_by` (`created_by`),
+  ADD KEY `idx_relationship_primary` (`primary_patient_id`),
+  ADD KEY `idx_relationship_related` (`related_patient_id`),
+  ADD KEY `idx_relationship_type` (`relationship_type`),
+  ADD KEY `idx_relationship_detail` (`relationship_detail`);
+
+--
+-- Indexes for table `nxt_permission`
+--
+ALTER TABLE `nxt_permission`
+  ADD PRIMARY KEY (`permission_id`);
+
+--
+-- Indexes for table `nxt_prescriptions`
+--
+ALTER TABLE `nxt_prescriptions`
+  ADD PRIMARY KEY (`prescription_id`);
+
+--
+-- Indexes for table `nxt_print_design`
+--
+ALTER TABLE `nxt_print_design`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `nxt_report_footer`
+--
+ALTER TABLE `nxt_report_footer`
+  ADD PRIMARY KEY (`footer_id`);
+
+--
+-- Indexes for table `nxt_room`
+--
+ALTER TABLE `nxt_room`
+  ADD PRIMARY KEY (`room_id`),
+  ADD KEY `idx_room_category` (`room_category`),
+  ADD KEY `idx_room_floor` (`room_floor`),
+  ADD KEY `idx_room_availability` (`total_beds`,`occupied_beds`);
+
+--
+-- Indexes for table `nxt_segment`
+--
+ALTER TABLE `nxt_segment`
+  ADD PRIMARY KEY (`segment_id`),
+  ADD UNIQUE KEY `segment_alias` (`segment_alias`),
+  ADD KEY `idx_segment_status` (`segment_status`);
+
+--
+-- Indexes for table `nxt_service`
+--
+ALTER TABLE `nxt_service`
+  ADD PRIMARY KEY (`service_id`);
+
+--
+-- Indexes for table `nxt_slip`
+--
+ALTER TABLE `nxt_slip`
+  ADD PRIMARY KEY (`slip_id`),
+  ADD KEY `idx_fbr_sync_status` (`fbr_sync_status`),
+  ADD KEY `idx_fbr_synced_at` (`fbr_synced_at`),
+  ADD KEY `idx_slip_room_bed` (`room_id`,`bed_id`),
+  ADD KEY `idx_slip_indoor` (`slip_type`,`admission_date`),
+  ADD KEY `fk_slip_bed` (`bed_id`),
+  ADD KEY `idx_estimated_duration` (`estimated_duration_days`),
+  ADD KEY `idx_procedure_type_admission` (`procedure_type`,`admission_date`),
+  ADD KEY `idx_slip_cnic` (`slip_patient_cnic`),
+  ADD KEY `idx_slip_readmission` (`is_readmission`),
+  ADD KEY `idx_slip_cnic_created` (`slip_patient_cnic`,`created_at`),
+  ADD KEY `idx_slip_cnic_disposal` (`slip_patient_cnic`,`slip_disposal`);
+
+--
+-- Indexes for table `nxt_slip_type`
+--
+ALTER TABLE `nxt_slip_type`
+  ADD PRIMARY KEY (`slip_type_id`);
+
+--
+-- Indexes for table `nxt_supplier`
+--
+ALTER TABLE `nxt_supplier`
+  ADD PRIMARY KEY (`supplier_id`);
+
+--
+-- Indexes for table `nxt_tax_settings`
+--
+ALTER TABLE `nxt_tax_settings`
+  ADD PRIMARY KEY (`tax_id`),
+  ADD UNIQUE KEY `unique_tax_alias` (`tax_alias`),
+  ADD UNIQUE KEY `unique_tax_code` (`tax_code`),
+  ADD KEY `idx_slip_type` (`apply_to_slip_type`),
+  ADD KEY `idx_tax_status` (`tax_status`),
+  ADD KEY `idx_effective_dates` (`effective_from`,`effective_to`);
+
+--
+-- Indexes for table `nxt_test_component`
+--
+ALTER TABLE `nxt_test_component`
+  ADD PRIMARY KEY (`component_id`),
+  ADD KEY `fk_test_code_from_lab_test` (`test_code`);
+
+--
+-- Indexes for table `nxt_text_message`
+--
+ALTER TABLE `nxt_text_message`
+  ADD PRIMARY KEY (`message_id`),
+  ADD UNIQUE KEY `message_alias` (`message_alias`);
+
+--
+-- Indexes for table `nxt_user`
+--
+ALTER TABLE `nxt_user`
+  ADD PRIMARY KEY (`user_id`);
+
+--
+-- Indexes for table `nxt_users`
+--
+ALTER TABLE `nxt_users`
+  ADD PRIMARY KEY (`user_id`);
+
+--
+-- Indexes for table `nxt_user_available_leaves`
+--
+ALTER TABLE `nxt_user_available_leaves`
+  ADD PRIMARY KEY (`available_leave_id`);
+
+--
+-- Indexes for table `nxt_user_leave`
+--
+ALTER TABLE `nxt_user_leave`
+  ADD PRIMARY KEY (`leave_id`);
+
+--
+-- Indexes for table `nxt_user_test`
+--
+ALTER TABLE `nxt_user_test`
+  ADD PRIMARY KEY (`user_id`);
+
+--
+-- Indexes for table `prescription_items`
+--
+ALTER TABLE `prescription_items`
+  ADD PRIMARY KEY (`item_id`);
+
+--
+-- Indexes for table `prescription_other`
+--
+ALTER TABLE `prescription_other`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `prescription_vitals`
+--
+ALTER TABLE `prescription_vitals`
+  ADD PRIMARY KEY (`vital_id`);
+
+--
+-- Indexes for table `recentactivity`
+--
+ALTER TABLE `recentactivity`
+  ADD PRIMARY KEY (`activity_id`);
+
+--
+-- AUTO_INCREMENT for dumped tables
+--
+
+--
+-- AUTO_INCREMENT for table `ai_feedback`
+--
+ALTER TABLE `ai_feedback`
+  MODIFY `feedback_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `ai_suggestions`
+--
+ALTER TABLE `ai_suggestions`
+  MODIFY `suggestion_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_appointment`
+--
+ALTER TABLE `nxt_appointment`
+  MODIFY `appointment_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_bed`
+--
+ALTER TABLE `nxt_bed`
+  MODIFY `bed_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_bed_history`
+--
+ALTER TABLE `nxt_bed_history`
+  MODIFY `history_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_bill`
+--
+ALTER TABLE `nxt_bill`
+  MODIFY `bill_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_bootstrap_status`
+--
+ALTER TABLE `nxt_bootstrap_status`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_campaign`
+--
+ALTER TABLE `nxt_campaign`
+  MODIFY `campaign_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_campaign_log`
+--
+ALTER TABLE `nxt_campaign_log`
+  MODIFY `log_id` bigint(20) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_campaign_queue`
+--
+ALTER TABLE `nxt_campaign_queue`
+  MODIFY `queue_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_campaign_triggers`
+--
+ALTER TABLE `nxt_campaign_triggers`
+  MODIFY `trigger_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_category`
+--
+ALTER TABLE `nxt_category`
+  MODIFY `category_id` int(10) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_category_type`
+--
+ALTER TABLE `nxt_category_type`
+  MODIFY `type_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_daily_expenses`
+--
+ALTER TABLE `nxt_daily_expenses`
+  MODIFY `expense_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_db_backup`
+--
+ALTER TABLE `nxt_db_backup`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_department`
+--
+ALTER TABLE `nxt_department`
+  MODIFY `department_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_doctor`
+--
+ALTER TABLE `nxt_doctor`
+  MODIFY `doctor_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_doctor_schedule`
+--
+ALTER TABLE `nxt_doctor_schedule`
+  MODIFY `schedule_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_fbr_config`
+--
+ALTER TABLE `nxt_fbr_config`
+  MODIFY `fbr_config_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_fbr_sync_log`
+--
+ALTER TABLE `nxt_fbr_sync_log`
+  MODIFY `log_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_inventory`
+--
+ALTER TABLE `nxt_inventory`
+  MODIFY `item_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_lab_invoice`
+--
+ALTER TABLE `nxt_lab_invoice`
+  MODIFY `invoice_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_lab_invoice_tests`
+--
+ALTER TABLE `nxt_lab_invoice_tests`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_lab_report`
+--
+ALTER TABLE `nxt_lab_report`
+  MODIFY `report_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_lab_test`
+--
+ALTER TABLE `nxt_lab_test`
+  MODIFY `test_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_medicine`
+--
+ALTER TABLE `nxt_medicine`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_notification`
+--
+ALTER TABLE `nxt_notification`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_patient`
+--
+ALTER TABLE `nxt_patient`
+  MODIFY `patient_id` int(10) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_patient_audit`
+--
+ALTER TABLE `nxt_patient_audit`
+  MODIFY `audit_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_patient_relationship`
+--
+ALTER TABLE `nxt_patient_relationship`
+  MODIFY `relationship_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_permission`
+--
+ALTER TABLE `nxt_permission`
+  MODIFY `permission_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_prescriptions`
+--
+ALTER TABLE `nxt_prescriptions`
+  MODIFY `prescription_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_print_design`
+--
+ALTER TABLE `nxt_print_design`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_report_footer`
+--
+ALTER TABLE `nxt_report_footer`
+  MODIFY `footer_id` int(10) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_room`
+--
+ALTER TABLE `nxt_room`
+  MODIFY `room_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_segment`
+--
+ALTER TABLE `nxt_segment`
+  MODIFY `segment_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_service`
+--
+ALTER TABLE `nxt_service`
+  MODIFY `service_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_slip`
+--
+ALTER TABLE `nxt_slip`
+  MODIFY `slip_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_slip_type`
+--
+ALTER TABLE `nxt_slip_type`
+  MODIFY `slip_type_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_supplier`
+--
+ALTER TABLE `nxt_supplier`
+  MODIFY `supplier_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_tax_settings`
+--
+ALTER TABLE `nxt_tax_settings`
+  MODIFY `tax_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_test_component`
+--
+ALTER TABLE `nxt_test_component`
+  MODIFY `component_id` int(10) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_text_message`
+--
+ALTER TABLE `nxt_text_message`
+  MODIFY `message_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_user`
+--
+ALTER TABLE `nxt_user`
+  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_users`
+--
+ALTER TABLE `nxt_users`
+  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_user_available_leaves`
+--
+ALTER TABLE `nxt_user_available_leaves`
+  MODIFY `available_leave_id` int(10) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_user_leave`
+--
+ALTER TABLE `nxt_user_leave`
+  MODIFY `leave_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_user_test`
+--
+ALTER TABLE `nxt_user_test`
+  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `prescription_items`
+--
+ALTER TABLE `prescription_items`
+  MODIFY `item_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `prescription_other`
+--
+ALTER TABLE `prescription_other`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `prescription_vitals`
+--
+ALTER TABLE `prescription_vitals`
+  MODIFY `vital_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `recentactivity`
+--
+ALTER TABLE `recentactivity`
+  MODIFY `activity_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- Constraints for table `nxt_bed`
+--
+ALTER TABLE `nxt_bed`
+  ADD CONSTRAINT `fk_bed_bill` FOREIGN KEY (`current_bill_uuid`) REFERENCES `nxt_bill` (`bill_uuid`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_bed_patient` FOREIGN KEY (`current_patient_mrid`) REFERENCES `nxt_patient` (`patient_mrid`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_bed_room` FOREIGN KEY (`room_id`) REFERENCES `nxt_room` (`room_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `nxt_bill`
+--
+ALTER TABLE `nxt_bill`
+  ADD CONSTRAINT `fk_bill_bed` FOREIGN KEY (`bed_id`) REFERENCES `nxt_bed` (`bed_id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_bill_room` FOREIGN KEY (`room_id`) REFERENCES `nxt_room` (`room_id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `nxt_campaign`
+--
+ALTER TABLE `nxt_campaign`
   ADD CONSTRAINT `nxt_campaign_ibfk_1` FOREIGN KEY (`campaign_segment`) REFERENCES `nxt_segment` (`segment_id`),
   ADD CONSTRAINT `nxt_campaign_ibfk_2` FOREIGN KEY (`campaign_message`) REFERENCES `nxt_text_message` (`message_id`);
 
-ALTER TABLE `nxt_test_component` 
-  DROP FOREIGN KEY IF EXISTS `fk_test_code_from_lab_test`;
+--
+-- Constraints for table `nxt_campaign_log`
+--
+ALTER TABLE `nxt_campaign_log`
+  ADD CONSTRAINT `nxt_campaign_log_ibfk_1` FOREIGN KEY (`campaign_id`) REFERENCES `nxt_campaign` (`campaign_id`);
 
-ALTER TABLE `nxt_test_component` 
+--
+-- Constraints for table `nxt_campaign_queue`
+--
+ALTER TABLE `nxt_campaign_queue`
+  ADD CONSTRAINT `nxt_campaign_queue_ibfk_1` FOREIGN KEY (`campaign_id`) REFERENCES `nxt_campaign` (`campaign_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `nxt_campaign_triggers`
+--
+ALTER TABLE `nxt_campaign_triggers`
+  ADD CONSTRAINT `nxt_campaign_triggers_ibfk_1` FOREIGN KEY (`campaign_id`) REFERENCES `nxt_campaign` (`campaign_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `nxt_patient_audit`
+--
+ALTER TABLE `nxt_patient_audit`
+  ADD CONSTRAINT `nxt_patient_audit_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `nxt_user` (`user_id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `nxt_patient_relationship`
+--
+ALTER TABLE `nxt_patient_relationship`
+  ADD CONSTRAINT `nxt_patient_relationship_ibfk_1` FOREIGN KEY (`primary_patient_id`) REFERENCES `nxt_patient` (`patient_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `nxt_patient_relationship_ibfk_2` FOREIGN KEY (`related_patient_id`) REFERENCES `nxt_patient` (`patient_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `nxt_patient_relationship_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `nxt_user` (`user_id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `nxt_room`
+--
+ALTER TABLE `nxt_room`
+  ADD CONSTRAINT `fk_room_category` FOREIGN KEY (`room_category`) REFERENCES `nxt_category` (`category_alias`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `nxt_slip`
+--
+ALTER TABLE `nxt_slip`
+  ADD CONSTRAINT `fk_slip_bed` FOREIGN KEY (`bed_id`) REFERENCES `nxt_bed` (`bed_id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_slip_room` FOREIGN KEY (`room_id`) REFERENCES `nxt_room` (`room_id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `nxt_test_component`
+--
+ALTER TABLE `nxt_test_component`
   ADD CONSTRAINT `fk_test_code_from_lab_test` FOREIGN KEY (`test_code`) REFERENCES `nxt_lab_test` (`test_code`);
-
--- Add index for performance on admission duration queries
-CREATE INDEX IF NOT EXISTS `idx_admission_duration_hours` ON nxt_bill(`admission_duration_hours`);
-
--- Add index for discharge_date queries
-CREATE INDEX IF NOT EXISTS `idx_discharge_date` ON nxt_bill(`discharge_date`);
-
--- Update the schema documentation comment
-ALTER TABLE nxt_bill COMMENT = 'Hospital bill records with support for indoor patient admission duration tracking (hours-based)';
+COMMIT;
