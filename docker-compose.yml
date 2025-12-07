@@ -1,7 +1,7 @@
 services:
 
   hospital-frontend:
-    image: pandanxt/hospital-frontend:SR-3.0.0
+    image: pandanxt/hospital-frontend:SR-3.0.1
     ports:
       - 6001:80
     container_name: nxt-hospital
@@ -37,7 +37,7 @@ services:
       - internal-net  
 
   hospital-apis:
-    image: pandanxt/hms-backend:SR-3.0.1
+    image: pandanxt/hms-backend:SR-3.0.2
     ports:
       - 5001:80
     container_name: api-hospital
@@ -49,6 +49,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
     volumes:
       - /usr/share/nginx/html/images:/usr/share/nginx/html/images
     depends_on:
@@ -58,40 +59,11 @@ services:
         condition: service_healthy
     networks:
       - internal-net
-
-  # campaign-frontend:
-  #   image: pandanxt/campaign-frontend:main-1.0.0
-  #   ports:
-  #     - 3001:80
-  #   container_name: campaign-frontend
-  #   restart: always
-  #   environment:
-  #     CAMPAIGN_BACKEND_URL: "http://localhost:9001"
-  #     ENABLE_LOGGING: false
-  #     LOG_PUSHING_URL: "http://localhost:5000"
-  #   networks:
-  #     - internal-net  
-
-  # campaign-apis:
-  #   image: pandanxt/campaign-backend-apis:main-1.0.0 
-  #   ports:
-  #     - 9001:80
-  #   container_name: api-campaign
-  #   restart: always
-  #   env_file:
-  #     - ./campaign.env
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:80/health"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #   depends_on:
-  #     mysql:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   networks:
-  #     - internal-net 
+    # Add startup delay to ensure MySQL schema is fully initialized
+    command: >
+      sh -c "echo 'Waiting for MySQL to fully initialize schema...' &&
+             sleep 10 &&
+             node server.js"
 
   mysql:
     image: mysql:latest
@@ -105,10 +77,13 @@ services:
     ports:
       - "3306:3306"
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "nxt_user", "-pNxtWebMasters464" ]
+      test: >
+        sh -c 'mysqladmin ping -h localhost -u nxt_user -pNxtWebMasters464 &&
+        mysql -u nxt_user -pNxtWebMasters464 nxt-hospital -e "SELECT 1 FROM information_schema.tables WHERE table_schema=\"nxt-hospital\" LIMIT 1" || exit 1'
       interval: 10s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 30s
     volumes:
       - ./data/scripts:/docker-entrypoint-initdb.d
     networks:
