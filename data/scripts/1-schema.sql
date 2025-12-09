@@ -872,6 +872,8 @@ CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
   `updated_by` varchar(100) DEFAULT NULL,
   `enable_tax` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1 to enable tax calculation',
   `prices_are_tax_inclusive` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1 if entered fees already include tax',
+  `print_layout` ENUM('thermal', 'a4') NOT NULL DEFAULT 'thermal' COMMENT 'Slip print layout: thermal (80mm) or a4 (210mm)',
+  `bill_print_layout` ENUM('thermal', 'a4') NULL DEFAULT NULL COMMENT 'Bill print layout: thermal (80mm) or a4 (210mm) - only for slip types with isBill=1'
   `enable_fbr_sync` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Enable FBR synchronization for this slip type',
   `fbr_invoice_type` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Fiscal, 2=Non-Fiscal invoice type for FBR'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
