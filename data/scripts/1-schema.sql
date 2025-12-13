@@ -7,11 +7,106 @@ USE `nxt-hospital`;
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `nxt_tenant`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_tenant` (
+  `tenant_id` VARCHAR(50) NOT NULL PRIMARY KEY COMMENT 'Unique tenant identifier (e.g., tenant_abc123)',
+  `tenant_name` VARCHAR(255) NOT NULL COMMENT 'Hospital/Organization name',
+  `tenant_subdomain` VARCHAR(100) NOT NULL UNIQUE COMMENT 'Subdomain (e.g., hospital1 in hospital1.yourdomain.com)',
+  `tenant_status` ENUM('active', 'suspended', 'trial', 'expired', 'pending_dns') DEFAULT 'trial' COMMENT 'Account status',
+  `subscription_plan` VARCHAR(50) DEFAULT 'basic' COMMENT 'Subscription tier (basic/premium/enterprise)',
+  `subscription_start_date` DATE DEFAULT NULL COMMENT 'Subscription start date',
+  `subscription_end_date` DATE DEFAULT NULL COMMENT 'Subscription expiry date',
+  `max_users` INT DEFAULT 50 COMMENT 'Maximum allowed users for this tenant',
+  `max_patients` INT DEFAULT 10000 COMMENT 'Maximum allowed patients',
+  `features` JSON DEFAULT NULL COMMENT 'Feature flags: {"fbr":true,"campaigns":true,"ai":false}',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_by` VARCHAR(100) DEFAULT 'system',
+  `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  `updated_by` VARCHAR(100) DEFAULT NULL,
+  INDEX `idx_subdomain` (`tenant_subdomain`),
+  INDEX `idx_status` (`tenant_status`),
+  INDEX `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Multi-tenant master table - stores hospital/organization details';
+
+--
+-- Table structure for table `nxt_tenant_config`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_tenant_config` (
+  `config_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `tenant_id` VARCHAR(50) NOT NULL COMMENT 'Reference to nxt_tenant.tenant_id',
+  `config_key` VARCHAR(100) NOT NULL COMMENT 'Configuration key (e.g., hospital_name, timezone, currency)',
+  `config_value` TEXT DEFAULT NULL COMMENT 'Configuration value',
+  `config_type` ENUM('string', 'number', 'boolean', 'json') DEFAULT 'string',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_tenant_config` (`tenant_id`, `config_key`),
+  FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant`(`tenant_id`) ON DELETE CASCADE,
+  INDEX `idx_tenant_config` (`tenant_id`, `config_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Tenant-specific configuration settings (key-value pairs)';
+
+--
+-- Table structure for table `nxt_manual_subdomain_requests`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_manual_subdomain_requests` (
+  `request_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `tenant_id` VARCHAR(50) NOT NULL,
+  `subdomain` VARCHAR(100) NOT NULL,
+  `status` ENUM('pending', 'created', 'failed') DEFAULT 'pending',
+  `requested_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `created_at` DATETIME DEFAULT NULL,
+  `created_by` VARCHAR(100) DEFAULT NULL,
+  `notes` TEXT DEFAULT NULL,
+  INDEX `idx_status` (`status`),
+  INDEX `idx_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Track manual subdomain creation requests for HosterPK (if wildcard not available)';
+
+--
+-- Insert default/system tenant for backward compatibility with existing data
+--
+
+-- Insert default/system tenant for backward compatibility with existing data
+INSERT INTO `nxt_tenant` (
+  `tenant_id`, 
+  `tenant_name`, 
+  `tenant_subdomain`, 
+  `tenant_status`, 
+  `subscription_plan`,
+  `features`,
+  `created_at`,
+  `created_by`
+) VALUES (
+  'tenant_system_default',
+  'System Default Hospital',
+  'default',
+  'active',
+  'enterprise',
+  '{"fbr":true,"campaigns":true,"ai":true,"health_authority_analytics":true}',
+  NOW(),
+  'migration_script'
+) ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
+
+-- Insert default configurations for system tenant
+INSERT INTO `nxt_tenant_config` (`tenant_id`, `config_key`, `config_value`, `config_type`) VALUES
+  ('tenant_system_default', 'hospital_name', 'Default Hospital', 'string'),
+  ('tenant_system_default', 'timezone', 'Asia/Karachi', 'string'),
+  ('tenant_system_default', 'currency', 'PKR', 'string'),
+  ('tenant_system_default', 'date_format', 'DD/MM/YYYY', 'string')
+ON DUPLICATE KEY UPDATE config_value=config_value;
+
+--
 -- Table structure for table `ai_feedback`
 --
 
 CREATE TABLE IF NOT EXISTS `ai_feedback` (
   `feedback_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `doctor_alias` varchar(255) NOT NULL,
   `ai_suggestion_id` int(11) NOT NULL,
   `rating` int(11) DEFAULT NULL CHECK (`rating` between 1 and 5),
@@ -30,6 +125,7 @@ CREATE TABLE IF NOT EXISTS `ai_feedback` (
 
 CREATE TABLE IF NOT EXISTS `ai_suggestions` (
   `suggestion_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `input` text DEFAULT NULL,
   `suggestions` text DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -46,6 +142,7 @@ CREATE TABLE IF NOT EXISTS `ai_suggestions` (
 
 CREATE TABLE IF NOT EXISTS `nxt_appointment` (
   `appointment_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `appointment_uuid` varchar(50) NOT NULL,
   `appointment_patient_mrid` varchar(50) NOT NULL,
   `appointment_patient_name` varchar(255) DEFAULT NULL,
@@ -70,6 +167,7 @@ CREATE TABLE IF NOT EXISTS `nxt_appointment` (
 
 CREATE TABLE IF NOT EXISTS `nxt_bed` (
   `bed_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `bed_number` varchar(50) NOT NULL COMMENT 'Display number like "101-A", "Ward-1-B2"',
   `room_id` int(11) NOT NULL,
   `bed_status` enum('available','occupied','maintenance','reserved') DEFAULT 'available',
@@ -92,6 +190,7 @@ CREATE TABLE IF NOT EXISTS `nxt_bed` (
 
 CREATE TABLE IF NOT EXISTS `nxt_bed_history` (
   `history_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `bed_id` int(11) NOT NULL,
   `patient_mrid` varchar(100) NOT NULL,
   `bill_uuid` varchar(100) DEFAULT NULL,
@@ -109,6 +208,7 @@ CREATE TABLE IF NOT EXISTS `nxt_bed_history` (
 
 CREATE TABLE IF NOT EXISTS `nxt_bill` (
   `bill_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `bill_uuid` varchar(50) NOT NULL,
   `slip_uuid` varchar(50) DEFAULT NULL,
   `patient_mrid` varchar(50) NOT NULL,
@@ -170,6 +270,7 @@ CREATE TABLE IF NOT EXISTS `nxt_bill` (
 
 CREATE TABLE IF NOT EXISTS `nxt_bootstrap_status` (
   `id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `component` varchar(50) NOT NULL,
   `status` enum('started','completed','failed') NOT NULL,
   `completed_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -184,6 +285,7 @@ CREATE TABLE IF NOT EXISTS `nxt_bootstrap_status` (
 
 CREATE TABLE IF NOT EXISTS `nxt_campaign` (
   `campaign_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `campaign_name` varchar(100) NOT NULL,
   `campaign_alias` varchar(100) NOT NULL,
   `campaign_segment` int(11) NOT NULL,
@@ -220,6 +322,7 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign` (
 
 CREATE TABLE IF NOT EXISTS `nxt_campaign_log` (
   `log_id` bigint(20) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `campaign_id` int(11) NOT NULL,
   `contact_id` varchar(100) NOT NULL COMMENT 'Reference to your contacts table',
   `status` enum('pending','sent','delivered','read','failed') DEFAULT 'pending',
@@ -238,6 +341,7 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign_log` (
 
 CREATE TABLE IF NOT EXISTS `nxt_campaign_queue` (
   `queue_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `campaign_id` int(11) NOT NULL,
   `patient_mrid` varchar(50) NOT NULL,
   `contact_info` varchar(255) NOT NULL,
@@ -260,6 +364,7 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign_queue` (
 
 CREATE TABLE IF NOT EXISTS `nxt_campaign_triggers` (
   `trigger_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `campaign_id` int(11) NOT NULL,
   `trigger_event` varchar(100) NOT NULL,
   `trigger_conditions` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`trigger_conditions`)),
@@ -276,6 +381,7 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign_triggers` (
 
 CREATE TABLE IF NOT EXISTS `nxt_category` (
   `category_id` int(10) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `category_type` varchar(100) NOT NULL,
   `category_name` varchar(100) NOT NULL,
   `category_alias` varchar(100) NOT NULL,
@@ -295,6 +401,7 @@ CREATE TABLE IF NOT EXISTS `nxt_category` (
 
 CREATE TABLE IF NOT EXISTS `nxt_category_type` (
   `type_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `type_name` varchar(100) NOT NULL,
   `type_alias` varchar(100) NOT NULL,
   `type_description` longtext DEFAULT NULL,
@@ -313,6 +420,7 @@ CREATE TABLE IF NOT EXISTS `nxt_category_type` (
 
 CREATE TABLE IF NOT EXISTS `nxt_daily_expenses` (
   `expense_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `expense_name` varchar(100) NOT NULL,
   `expense_amount` decimal(10,2) NOT NULL,
   `expense_date` datetime NOT NULL,
@@ -331,6 +439,7 @@ CREATE TABLE IF NOT EXISTS `nxt_daily_expenses` (
 
 CREATE TABLE IF NOT EXISTS `nxt_db_backup` (
   `id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `db_name` varchar(255) DEFAULT NULL,
   `step_message` text DEFAULT NULL,
   `step_action` varchar(100) DEFAULT NULL,
@@ -346,6 +455,7 @@ CREATE TABLE IF NOT EXISTS `nxt_db_backup` (
 
 CREATE TABLE IF NOT EXISTS `nxt_department` (
   `department_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `department_name` varchar(100) NOT NULL,
   `department_alias` varchar(100) NOT NULL,
   `department_description` text NOT NULL,
@@ -364,6 +474,7 @@ CREATE TABLE IF NOT EXISTS `nxt_department` (
 
 CREATE TABLE IF NOT EXISTS `nxt_doctor` (
   `doctor_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `doctor_name` varchar(100) NOT NULL,
   `doctor_alias` varchar(100) NOT NULL,
   `doctor_mobile` varchar(15) DEFAULT NULL,
@@ -392,6 +503,7 @@ CREATE TABLE IF NOT EXISTS `nxt_doctor` (
 
 CREATE TABLE IF NOT EXISTS `nxt_doctor_schedule` (
   `schedule_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `doctor_alias` varchar(100) NOT NULL,
   `schedule_day` enum('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL,
   `schedule_slots` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -409,6 +521,7 @@ CREATE TABLE IF NOT EXISTS `nxt_doctor_schedule` (
 
 CREATE TABLE IF NOT EXISTS `nxt_fbr_config` (
   `fbr_config_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `hospital_name` varchar(255) NOT NULL COMMENT 'Hospital name registered with FBR',
   `hospital_ntn` varchar(50) DEFAULT NULL COMMENT 'Hospital National Tax Number',
   `hospital_address` text DEFAULT NULL COMMENT 'Hospital registered address',
@@ -433,6 +546,7 @@ CREATE TABLE IF NOT EXISTS `nxt_fbr_config` (
 
 CREATE TABLE IF NOT EXISTS `nxt_fbr_sync_log` (
   `log_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `invoice_type` enum('slip','bill') NOT NULL COMMENT 'Type of invoice synced',
   `invoice_id` int(11) NOT NULL COMMENT 'ID of the slip or bill',
   `invoice_number` varchar(255) NOT NULL COMMENT 'Internal invoice number',
@@ -453,6 +567,7 @@ CREATE TABLE IF NOT EXISTS `nxt_fbr_sync_log` (
 
 CREATE TABLE IF NOT EXISTS `nxt_inventory` (
   `item_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `item_name` varchar(255) NOT NULL,
   `item_category` varchar(100) NOT NULL DEFAULT 'Other',
   `item_quantity` int(11) NOT NULL DEFAULT 0,
@@ -475,6 +590,7 @@ CREATE TABLE IF NOT EXISTS `nxt_inventory` (
 
 CREATE TABLE IF NOT EXISTS `nxt_lab_invoice` (
   `invoice_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `invoice_uuid` varchar(50) NOT NULL,
   `invoice_tests` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`invoice_tests`)),
   `patient_mrid` varchar(50) NOT NULL,
@@ -502,6 +618,8 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_invoice` (
 
 CREATE TABLE IF NOT EXISTS `nxt_lab_invoice_tests` (
   `id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `invoice_uuid` varchar(50) NOT NULL,
   `test_description` varchar(255) NOT NULL,
   `report_datetime` datetime NOT NULL,
   `price` int(11) NOT NULL,
@@ -519,6 +637,7 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_invoice_tests` (
 
 CREATE TABLE IF NOT EXISTS `nxt_lab_report` (
   `report_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `report_uuid` varchar(50) NOT NULL,
   `invoice_uuid` varchar(50) NOT NULL,
   `patient_mrid` varchar(50) NOT NULL,
@@ -541,6 +660,7 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_report` (
 
 CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
   `test_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `test_name` varchar(100) NOT NULL,
   `test_code` varchar(20) NOT NULL,
   `test_description` text DEFAULT NULL,
@@ -567,6 +687,7 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
 
 CREATE TABLE IF NOT EXISTS `nxt_medicine` (
   `id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `medicine_name` varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -578,6 +699,7 @@ CREATE TABLE IF NOT EXISTS `nxt_medicine` (
 
 CREATE TABLE IF NOT EXISTS `nxt_notification` (
   `id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `type` varchar(100) NOT NULL,
   `description` text NOT NULL,
   `affected_table` varchar(255) DEFAULT NULL,
@@ -596,6 +718,7 @@ CREATE TABLE IF NOT EXISTS `nxt_notification` (
 
 CREATE TABLE IF NOT EXISTS `nxt_patient` (
   `patient_id` int(10) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `patient_mrid` varchar(50) NOT NULL,
   `patient_name` varchar(100) NOT NULL,
   `patient_mobile` varchar(15) NOT NULL,
@@ -624,6 +747,7 @@ CREATE TABLE IF NOT EXISTS `nxt_patient` (
 
 CREATE TABLE IF NOT EXISTS `nxt_patient_audit` (
   `audit_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `action` varchar(50) NOT NULL COMMENT 'Action performed (create, match, confirm, etc.)',
   `patient_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT 'Patient data involved in the action' CHECK (json_valid(`patient_data`)),
   `matching_criteria` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Search criteria used for matching' CHECK (json_valid(`matching_criteria`)),
@@ -644,6 +768,7 @@ CREATE TABLE IF NOT EXISTS `nxt_patient_audit` (
 
 CREATE TABLE IF NOT EXISTS `nxt_patient_relationship` (
   `relationship_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `primary_patient_id` int(11) NOT NULL COMMENT 'Main patient record',
   `related_patient_id` int(11) NOT NULL COMMENT 'Related patient record',
   `relationship_type` enum('family_member','duplicate_cnic','guardian_dependent') DEFAULT NULL,
@@ -662,6 +787,7 @@ CREATE TABLE IF NOT EXISTS `nxt_patient_relationship` (
 
 CREATE TABLE IF NOT EXISTS `nxt_permission` (
   `permission_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `permission_name` varchar(100) NOT NULL,
   `permission_alias` varchar(100) NOT NULL,
   `permission_description` text NOT NULL,
@@ -684,6 +810,7 @@ CREATE TABLE IF NOT EXISTS `nxt_permission` (
 
 CREATE TABLE IF NOT EXISTS `nxt_prescriptions` (
   `prescription_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `slip_uuid` varchar(50) DEFAULT NULL,
   `patient_mrid` varchar(50) NOT NULL,
   `patient_mobile` varchar(100) NOT NULL,
@@ -708,6 +835,7 @@ CREATE TABLE IF NOT EXISTS `nxt_prescriptions` (
 
 CREATE TABLE IF NOT EXISTS `nxt_print_design` (
   `id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `identifier` varchar(100) NOT NULL,
   `header_logo` longtext DEFAULT NULL,
   `header_title` varchar(255) NOT NULL,
@@ -732,6 +860,7 @@ CREATE TABLE IF NOT EXISTS `nxt_print_design` (
 
 CREATE TABLE IF NOT EXISTS `nxt_report_footer` (
   `footer_id` int(10) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `footer_title` varchar(255) DEFAULT NULL,
   `footer_details` text DEFAULT NULL,
   `footer_no` int(10) NOT NULL
@@ -745,6 +874,7 @@ CREATE TABLE IF NOT EXISTS `nxt_report_footer` (
 
 CREATE TABLE IF NOT EXISTS `nxt_room` (
   `room_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `room_name` varchar(100) NOT NULL,
   `room_alias` varchar(100) NOT NULL,
   `room_description` text DEFAULT NULL,
@@ -769,6 +899,7 @@ CREATE TABLE IF NOT EXISTS `nxt_room` (
 
 CREATE TABLE IF NOT EXISTS `nxt_segment` (
   `segment_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `segment_name` varchar(100) NOT NULL,
   `segment_alias` varchar(100) NOT NULL,
   `segment_filter` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -789,6 +920,7 @@ CREATE TABLE IF NOT EXISTS `nxt_segment` (
 
 CREATE TABLE IF NOT EXISTS `nxt_service` (
   `service_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `service_name` varchar(100) NOT NULL,
   `service_alias` varchar(100) NOT NULL,
   `service_description` text DEFAULT NULL,
@@ -809,6 +941,7 @@ CREATE TABLE IF NOT EXISTS `nxt_service` (
 
 CREATE TABLE IF NOT EXISTS `nxt_slip` (
   `slip_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `slip_uuid` varchar(50) NOT NULL,
   `slip_mrid` varchar(50) NOT NULL,
   `slip_patient_name` varchar(100) NOT NULL,
@@ -860,6 +993,7 @@ CREATE TABLE IF NOT EXISTS `nxt_slip` (
 
 CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
   `slip_type_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `slip_type_name` varchar(100) NOT NULL,
   `slip_type_alias` varchar(100) NOT NULL,
   `fields` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`fields`)),
@@ -873,7 +1007,7 @@ CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
   `enable_tax` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1 to enable tax calculation',
   `prices_are_tax_inclusive` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1 if entered fees already include tax',
   `print_layout` ENUM('thermal', 'a4') NOT NULL DEFAULT 'thermal' COMMENT 'Slip print layout: thermal (80mm) or a4 (210mm)',
-  `bill_print_layout` ENUM('thermal', 'a4') NULL DEFAULT NULL COMMENT 'Bill print layout: thermal (80mm) or a4 (210mm) - only for slip types with isBill=1'
+  `bill_print_layout` ENUM('thermal', 'a4') NULL DEFAULT NULL COMMENT 'Bill print layout: thermal (80mm) or a4 (210mm) - only for slip types with isBill=1',
   `enable_fbr_sync` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Enable FBR synchronization for this slip type',
   `fbr_invoice_type` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Fiscal, 2=Non-Fiscal invoice type for FBR'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -886,6 +1020,7 @@ CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
 
 CREATE TABLE IF NOT EXISTS `nxt_supplier` (
   `supplier_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `supplier_name` varchar(255) NOT NULL,
   `supplier_alias` varchar(255) NOT NULL,
   `supplier_contact` varchar(50) DEFAULT NULL,
@@ -905,6 +1040,7 @@ CREATE TABLE IF NOT EXISTS `nxt_supplier` (
 
 CREATE TABLE IF NOT EXISTS `nxt_tax_settings` (
   `tax_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `tax_name` varchar(100) NOT NULL COMMENT 'User-friendly name, e.g., "General Sales Tax"',
   `tax_alias` varchar(100) NOT NULL COMMENT 'Unique identifier like other NXT tables',
   `tax_code` varchar(20) NOT NULL COMMENT 'Short code like GST, VAT, etc.',
@@ -934,6 +1070,7 @@ CREATE TABLE IF NOT EXISTS `nxt_tax_settings` (
 
 CREATE TABLE IF NOT EXISTS `nxt_test_component` (
   `component_id` int(10) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `component_title` varchar(100) DEFAULT NULL,
   `component_ranges` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`component_ranges`)),
   `test_code` varchar(100) NOT NULL,
@@ -951,6 +1088,7 @@ CREATE TABLE IF NOT EXISTS `nxt_test_component` (
 
 CREATE TABLE IF NOT EXISTS `nxt_text_message` (
   `message_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `message_name` varchar(100) NOT NULL,
   `message_alias` varchar(100) NOT NULL,
   `message_text` text NOT NULL,
@@ -972,6 +1110,7 @@ CREATE TABLE IF NOT EXISTS `nxt_text_message` (
 
 CREATE TABLE IF NOT EXISTS `nxt_user` (
   `user_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `user_name` varchar(100) NOT NULL,
   `user_email` varchar(50) DEFAULT NULL,
   `user_mobile` varchar(15) DEFAULT NULL,
@@ -1002,6 +1141,7 @@ CREATE TABLE IF NOT EXISTS `nxt_user` (
 
 CREATE TABLE IF NOT EXISTS `nxt_users` (
   `user_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `user_name` varchar(100) NOT NULL,
   `user_alias` varchar(100) DEFAULT NULL,
   `user_email` varchar(50) DEFAULT NULL,
@@ -1039,6 +1179,7 @@ CREATE TABLE IF NOT EXISTS `nxt_users` (
 
 CREATE TABLE IF NOT EXISTS `nxt_user_available_leaves` (
   `available_leave_id` int(10) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `user_id` int(10) NOT NULL,
   `leave_alias` varchar(100) NOT NULL,
   `available_balance` int(10) NOT NULL,
@@ -1054,6 +1195,7 @@ CREATE TABLE IF NOT EXISTS `nxt_user_available_leaves` (
 
 CREATE TABLE IF NOT EXISTS `nxt_user_leave` (
   `leave_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `user_id` int(11) NOT NULL,
   `leave_type` enum('earn','sick','annual','compensation') NOT NULL DEFAULT 'earn',
   `leave_start_date` date NOT NULL,
@@ -1076,6 +1218,7 @@ CREATE TABLE IF NOT EXISTS `nxt_user_leave` (
 
 CREATE TABLE IF NOT EXISTS `nxt_user_test` (
   `user_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `user_type` enum('doctor','nurse','staff','admin') NOT NULL,
   `user_name` varchar(100) NOT NULL,
   `user_alias` varchar(100) DEFAULT NULL,
@@ -1114,6 +1257,7 @@ CREATE TABLE IF NOT EXISTS `nxt_user_test` (
 
 CREATE TABLE IF NOT EXISTS `prescription_items` (
   `item_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `prescription_id` int(11) NOT NULL,
   `medicine_name` varchar(255) DEFAULT NULL,
   `dosage` text DEFAULT NULL,
@@ -1137,6 +1281,7 @@ CREATE TABLE IF NOT EXISTS `prescription_items` (
 
 CREATE TABLE IF NOT EXISTS `prescription_other` (
   `id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `prescription_id` int(11) NOT NULL,
   `referral_consultant` varchar(100) DEFAULT NULL,
   `referral_note` text DEFAULT NULL,
@@ -1158,6 +1303,7 @@ CREATE TABLE IF NOT EXISTS `prescription_other` (
 
 CREATE TABLE IF NOT EXISTS `prescription_vitals` (
   `vital_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `prescription_id` int(11) NOT NULL,
   `pulse` varchar(50) DEFAULT NULL,
   `blood_pressure` varchar(50) DEFAULT NULL,
@@ -1181,6 +1327,7 @@ CREATE TABLE IF NOT EXISTS `prescription_vitals` (
 
 CREATE TABLE IF NOT EXISTS `recentactivity` (
   `activity_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
   `admin_user` varchar(100) DEFAULT NULL,
   `action_title` varchar(50) NOT NULL,
   `action_description` text DEFAULT NULL,
@@ -1196,18 +1343,19 @@ CREATE TABLE IF NOT EXISTS `recentactivity` (
 -- (See below for the actual view)
 --
 CREATE TABLE IF NOT EXISTS `vw_campaign_analytics` (
-`campaign_id` int(11)
-,`campaign_name` varchar(100)
-,`campaign_type` enum('bulk','triggered','scheduled','immediate')
-,`campaign_channel` enum('whatsapp','email','sms','push')
-,`campaign_status` enum('draft','scheduled','processing','completed','failed','paused')
-,`total_triggered` bigint(21)
-,`successful_sends` decimal(22,0)
-,`failed_sends` decimal(22,0)
-,`pending_sends` decimal(22,0)
-,`success_rate` decimal(28,2)
-,`first_trigger` timestamp
-,`last_trigger` timestamp
+`campaign_id` int(11),
+`tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+`campaign_name` varchar(100),
+`campaign_type` enum('bulk','triggered','scheduled','immediate'),
+`campaign_channel` enum('whatsapp','email','sms','push'),
+`campaign_status` enum('draft','scheduled','processing','completed','failed','paused'),
+`total_triggered` bigint(21),
+`successful_sends` decimal(22,0),
+`failed_sends` decimal(22,0),
+`pending_sends` decimal(22,0),
+`success_rate` decimal(28,2),
+`first_trigger` timestamp,
+`last_trigger` timestamp
 );
 
 -- --------------------------------------------------------
@@ -1217,13 +1365,14 @@ CREATE TABLE IF NOT EXISTS `vw_campaign_analytics` (
 -- (See below for the actual view)
 --
 CREATE TABLE IF NOT EXISTS `v_daily_readmission_summary` (
-`admission_date` date
-,`total_admissions` bigint(21)
-,`readmission_count` decimal(25,0)
-,`readmission_rate` decimal(31,2)
-,`slip_type` varchar(100)
-,`slip_department` varchar(20)
-,`slip_doctor` varchar(20)
+`admission_date` date,
+`tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+`total_admissions` bigint(21),
+`readmission_count` decimal(25,0),
+`readmission_rate` decimal(31,2),
+`slip_type` varchar(100),
+`slip_department` varchar(20),
+`slip_doctor` varchar(20)
 );
 
 -- --------------------------------------------------------
@@ -1233,17 +1382,18 @@ CREATE TABLE IF NOT EXISTS `v_daily_readmission_summary` (
 -- (See below for the actual view)
 --
 CREATE TABLE IF NOT EXISTS `v_readmission_analytics` (
-`slip_id` int(11)
-,`slip_uuid` varchar(50)
-,`slip_mrid` varchar(50)
-,`slip_patient_name` varchar(100)
-,`slip_patient_cnic` varchar(15)
-,`created_at` datetime
-,`slip_type` varchar(100)
-,`slip_department` varchar(20)
-,`slip_doctor` varchar(20)
-,`is_readmission` tinyint(1)
-,`readmission_reason` varchar(255)
+`slip_id` int(11),
+`tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+`slip_uuid` varchar(50),
+`slip_mrid` varchar(50),
+`slip_patient_name` varchar(100),
+`slip_patient_cnic` varchar(15),
+`created_at` datetime,
+`slip_type` varchar(100),
+`slip_department` varchar(20),
+`slip_doctor` varchar(20),
+`is_readmission` tinyint(1),
+`readmission_reason` varchar(255)
 );
 
 -- --------------------------------------------------------
@@ -1300,6 +1450,11 @@ ALTER TABLE `nxt_appointment`
   ADD KEY `fk_appointment_department_uuid` (`appointment_department_alias`),
   ADD KEY `fk_appointment_doctor_uuid` (`appointment_doctor_alias`);
 
+ALTER TABLE `nxt_appointment` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_date` (`tenant_id`, `appointment_date`),
+  ADD INDEX `idx_tenant_status` (`tenant_id`, `appointment_status`);
+
 --
 -- Indexes for table `nxt_bed`
 --
@@ -1312,6 +1467,10 @@ ALTER TABLE `nxt_bed`
   ADD KEY `idx_current_bill` (`current_bill_uuid`),
   ADD KEY `idx_room_status` (`room_id`,`bed_status`);
 
+ALTER TABLE `nxt_bed` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_status` (`tenant_id`, `bed_status`);
+
 --
 -- Indexes for table `nxt_bed_history`
 --
@@ -1320,6 +1479,9 @@ ALTER TABLE `nxt_bed_history`
   ADD KEY `idx_bed_history` (`bed_id`,`action_timestamp`),
   ADD KEY `idx_patient_history` (`patient_mrid`,`action_timestamp`),
   ADD KEY `idx_bill_history` (`bill_uuid`);
+
+ALTER TABLE `nxt_bed_history` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`);
 
 --
 -- Indexes for table `nxt_bill`
@@ -1340,6 +1502,10 @@ ALTER TABLE `nxt_bill`
   ADD KEY `idx_bill_death_duration` (`death_duration_hours`),
   ADD KEY `idx_bill_outcome` (`is_referral_case`,`is_death_case`,`created_at`),
   ADD KEY `idx_bill_cnic` (`patient_cnic`);
+
+ALTER TABLE `nxt_bill` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_uuid` (`tenant_id`, `bill_uuid`);
 
 --
 -- Indexes for table `nxt_bootstrap_status`
@@ -1423,6 +1589,10 @@ ALTER TABLE `nxt_department`
   ADD UNIQUE KEY `department_name` (`department_name`),
   ADD UNIQUE KEY `department_alias` (`department_alias`);
 
+ALTER TABLE `nxt_department` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_alias` (`tenant_id`, `department_alias`);
+
 --
 -- Indexes for table `nxt_doctor`
 --
@@ -1432,11 +1602,19 @@ ALTER TABLE `nxt_doctor`
   ADD KEY `fk_doctor_department_uuid` (`doctor_department_alias`),
   ADD KEY `fk_doctor_type_uuid` (`doctor_type_alias`);
 
+ALTER TABLE `nxt_doctor` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_alias` (`tenant_id`, `doctor_alias`);
+
 --
 -- Indexes for table `nxt_doctor_schedule`
 --
 ALTER TABLE `nxt_doctor_schedule`
   ADD PRIMARY KEY (`schedule_id`);
+
+ALTER TABLE `nxt_doctor_schedule` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_doctor_day` (`tenant_id`, `doctor_alias`, `schedule_day`);
 
 --
 -- Indexes for table `nxt_fbr_config`
@@ -1506,6 +1684,11 @@ ALTER TABLE `nxt_patient`
   ADD KEY `idx_patient_cnic` (`patient_cnic`),
   ADD KEY `idx_patient_guardian_cnic` (`guardian_cnic`);
 
+ALTER TABLE `nxt_patient`
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_mrid` (`tenant_id`, `patient_mrid`),
+  ADD INDEX `idx_tenant_mobile` (`tenant_id`, `patient_mobile`);
+
 --
 -- Indexes for table `nxt_patient_audit`
 --
@@ -1540,6 +1723,10 @@ ALTER TABLE `nxt_permission`
 ALTER TABLE `nxt_prescriptions`
   ADD PRIMARY KEY (`prescription_id`);
 
+ALTER TABLE `nxt_prescriptions` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_slip` (`tenant_id`, `slip_uuid`);
+
 --
 -- Indexes for table `nxt_print_design`
 --
@@ -1560,6 +1747,9 @@ ALTER TABLE `nxt_room`
   ADD KEY `idx_room_category` (`room_category`),
   ADD KEY `idx_room_floor` (`room_floor`),
   ADD KEY `idx_room_availability` (`total_beds`,`occupied_beds`);
+
+ALTER TABLE `nxt_room` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`);
 
 --
 -- Indexes for table `nxt_segment`
@@ -1591,6 +1781,12 @@ ALTER TABLE `nxt_slip`
   ADD KEY `idx_slip_readmission` (`is_readmission`),
   ADD KEY `idx_slip_cnic_created` (`slip_patient_cnic`,`created_at`),
   ADD KEY `idx_slip_cnic_disposal` (`slip_patient_cnic`,`slip_disposal`);
+
+ALTER TABLE `nxt_slip` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_uuid` (`tenant_id`, `slip_uuid`),
+  ADD INDEX `idx_tenant_mrid` (`tenant_id`, `slip_mrid`),
+  ADD INDEX `idx_tenant_date` (`tenant_id`, `created_at`);
 
 --
 -- Indexes for table `nxt_slip_type`
@@ -1635,6 +1831,11 @@ ALTER TABLE `nxt_text_message`
 ALTER TABLE `nxt_user`
   ADD PRIMARY KEY (`user_id`);
 
+ALTER TABLE `nxt_user` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_username` (`tenant_id`, `user_username`),
+  ADD INDEX `idx_tenant_email` (`tenant_id`, `user_email`);
+
 --
 -- Indexes for table `nxt_users`
 --
@@ -1665,17 +1866,29 @@ ALTER TABLE `nxt_user_test`
 ALTER TABLE `prescription_items`
   ADD PRIMARY KEY (`item_id`);
 
+ALTER TABLE `prescription_items` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_prescription` (`tenant_id`, `prescription_id`);
+
 --
 -- Indexes for table `prescription_other`
 --
 ALTER TABLE `prescription_other`
   ADD PRIMARY KEY (`id`);
 
+ALTER TABLE `prescription_other` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_prescription` (`tenant_id`, `prescription_id`);
+
 --
 -- Indexes for table `prescription_vitals`
 --
 ALTER TABLE `prescription_vitals`
   ADD PRIMARY KEY (`vital_id`);
+
+ALTER TABLE `prescription_vitals` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_prescription` (`tenant_id`, `prescription_id`);
 
 --
 -- Indexes for table `recentactivity`
@@ -2071,4 +2284,204 @@ ALTER TABLE `nxt_slip`
 --
 ALTER TABLE `nxt_test_component`
   ADD CONSTRAINT `fk_test_code_from_lab_test` FOREIGN KEY (`test_code`) REFERENCES `nxt_lab_test` (`test_code`);
+COMMIT;
+
+-- INDEXES FOR MULTI-TENANCY SUPPORT
+
+-- ====================
+-- LABORATORY
+-- ====================
+
+ALTER TABLE `nxt_lab_test` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_alias` (`tenant_id`, `test_code`);
+
+ALTER TABLE `nxt_test_component` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_test` (`tenant_id`, `test_code`);
+
+ALTER TABLE `nxt_lab_report` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_invoice` (`tenant_id`, `invoice_uuid`);
+
+ALTER TABLE `nxt_lab_invoice` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_uuid` (`tenant_id`, `invoice_uuid`),
+  ADD INDEX `idx_tenant_patient` (`tenant_id`, `patient_mrid`);
+
+ALTER TABLE `nxt_lab_invoice_tests` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_invoice` (`tenant_id`, `invoice_uuid`);
+
+-- ====================
+-- INVENTORY & MEDICINE
+-- ====================
+
+ALTER TABLE `nxt_medicine` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_name` (`tenant_id`, `medicine_name`);
+
+ALTER TABLE `nxt_inventory` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_medicine` (`tenant_id`, `item_id`);
+
+ALTER TABLE `nxt_supplier` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_name` (`tenant_id`, `supplier_name`);
+
+-- ====================
+-- CATEGORIES & SERVICES
+-- ====================
+
+ALTER TABLE `nxt_category` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_type` (`tenant_id`, `category_type`);
+
+ALTER TABLE `nxt_category_type` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_alias` (`tenant_id`, `type_alias`);
+
+ALTER TABLE `nxt_service` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_category` (`tenant_id`, `service_alias`);
+
+ALTER TABLE `nxt_slip_type` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_alias` (`tenant_id`, `slip_type_alias`);
+
+-- ====================
+-- CAMPAIGN SYSTEM
+-- ====================
+
+ALTER TABLE `nxt_campaign` 
+  ADD INDEX `idx_tenant_status` (`tenant_id`, `campaign_status`);
+
+ALTER TABLE `nxt_campaign_log` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_campaign` (`tenant_id`, `campaign_id`),
+  ADD INDEX `idx_tenant_status` (`tenant_id`, `status`);
+
+ALTER TABLE `nxt_campaign_queue` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_status` (`tenant_id`, `status`);
+
+ALTER TABLE `nxt_campaign_triggers` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_event` (`tenant_id`, `trigger_event`);
+
+ALTER TABLE `nxt_segment` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_name` (`tenant_id`, `segment_name`);
+
+ALTER TABLE `nxt_text_message` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_recipient` (`tenant_id`, `message_alias`);
+
+-- ====================
+-- FBR INTEGRATION (Pakistan Tax)
+-- ====================
+
+ALTER TABLE `nxt_fbr_config` 
+  ADD UNIQUE INDEX `idx_unique_tenant_fbr` (`tenant_id`);
+
+ALTER TABLE `nxt_fbr_sync_log` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`);
+
+-- ====================
+-- TAX MANAGEMENT
+-- ====================
+
+ALTER TABLE `nxt_tax_settings` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`);
+
+-- ====================
+-- FINANCIAL
+-- ====================
+
+ALTER TABLE `nxt_daily_expenses` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`);
+
+-- ====================
+-- CONFIGURATION & SETTINGS
+-- ====================
+
+ALTER TABLE `nxt_print_design` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD UNIQUE INDEX `idx_tenant_identifier` (`tenant_id`, `identifier`);
+
+ALTER TABLE `nxt_patient_relationship` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`);
+
+-- ====================
+-- AI FEATURES
+-- ====================
+
+ALTER TABLE `ai_suggestions` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`);
+
+ALTER TABLE `ai_feedback` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`);
+
+ALTER TABLE `nxt_db_backup` 
+  ADD INDEX `idx_tenant_date` (`tenant_id`, `created_at`);
+
+ALTER TABLE `recentactivity` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_user` (`tenant_id`, `admin_user`);
+
+ALTER TABLE `nxt_notification` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_user` (`tenant_id`, `user_id`);
+
+
+-- ====================
+-- PERMISSIONS (Shared or tenant-specific)
+-- ====================
+
+ALTER TABLE `nxt_permission` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`);
+
+-- ====================
+-- BOOTSTRAP STATUS (Per-tenant tracking)
+-- ====================
+
+ALTER TABLE `nxt_bootstrap_status` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`);
+
+-- ====================
+-- ALTUSER MANAGEMENT ADDITIONAL TABLES
+-- ====================
+
+ALTER TABLE `nxt_users` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_username` (`tenant_id`, `user_name`);
+
+ALTER TABLE `nxt_user_available_leaves` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_user` (`tenant_id`, `user_id`);
+
+ALTER TABLE `nxt_user_leave` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_user` (`tenant_id`, `user_id`),
+  ADD INDEX `idx_tenant_status` (`tenant_id`, `leave_status`);
+
+ALTER TABLE `nxt_user_test` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`);
+
+-- ====================
+-- PATIENT AUDIT & TRACKING
+-- ====================
+
+ALTER TABLE `nxt_patient_audit` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`),
+  ADD INDEX `idx_tenant_user` (`tenant_id`, `user_id`),
+  ADD INDEX `idx_tenant_date` (`tenant_id`, `created_at`);
+
+-- ====================
+-- REPORTING
+-- ====================
+
+ALTER TABLE `nxt_report_footer` 
+  ADD INDEX `idx_tenant_id` (`tenant_id`);
+
 COMMIT;
