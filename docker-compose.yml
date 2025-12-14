@@ -7,10 +7,10 @@ services:
     container_name: nxt-hospital
     restart: always
     environment:
-      HMS_BACKEND_URL: "http://hospital-apis:80"  # Internal service name
+      HMS_BACKEND_URL: "/api-server"  # Relative path via nginx reverse proxy
       DEFAULT_PRINT_LAYOUT: "a4"
       DEFAULT_USER_ICON: "https://file-server.nxtwebmasters.com/images/default-user.webp"
-      PATIENT_PORTAL_URL: "http://patient-frontend:80"  # Internal service name
+      PATIENT_PORTAL_URL: "/portal"  # Relative path via nginx reverse proxy
       BLOOD_GROUP: "A,B,AB,O"
       REPORT_OPTION: "Positive,Negative,Reactive,Non-Reactive,Matched,Not-Matched"
       ENABLE_AI_SUGGESTION: false
@@ -27,10 +27,10 @@ services:
     container_name: portal-hospital
     restart: always
     environment:
-      HMS_BACKEND_URL: "http://hospital-apis:80"  # Internal service name
+      HMS_BACKEND_URL: "/api-server"  # Relative path via nginx reverse proxy
       DEFAULT_PRINT_LAYOUT: "thermal"
       DEFAULT_USER_ICON: "https://file-server.nxtwebmasters.com/images/default-user.webp"
-      PORTAL_URL: "http://patient-frontend:80"  # Internal service name
+      PORTAL_URL: "/portal"  # Relative path via nginx reverse proxy
       PATIENT_DEFAULT_PASSWORD: "NxtHospital123"
       DESIGN_IDENTIFIER: "nxtwebmaster"
     networks:
