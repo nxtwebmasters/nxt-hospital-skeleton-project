@@ -2,15 +2,15 @@ services:
 
   hospital-frontend:
     image: pandanxt/hospital-frontend:SR-3.0.1
-    ports:
-      - 6001:80
+    # ports:  # Removed - access via nginx reverse proxy only
+    #   - 6001:80
     container_name: nxt-hospital
     restart: always
     environment:
-      HMS_BACKEND_URL: "http://localhost:5001"
+      HMS_BACKEND_URL: "http://hospital-apis:80"  # Internal service name
       DEFAULT_PRINT_LAYOUT: "a4"
       DEFAULT_USER_ICON: "https://file-server.nxtwebmasters.com/images/default-user.webp"
-      PATIENT_PORTAL_URL: "http://localhost:8001"
+      PATIENT_PORTAL_URL: "http://patient-frontend:80"  # Internal service name
       BLOOD_GROUP: "A,B,AB,O"
       REPORT_OPTION: "Positive,Negative,Reactive,Non-Reactive,Matched,Not-Matched"
       ENABLE_AI_SUGGESTION: false
@@ -22,15 +22,15 @@ services:
 
   patient-frontend:
     image: pandanxt/customer-portal:SR-3.0.2
-    ports:
-      - 8001:80
+    # ports:  # Removed - access via nginx reverse proxy only
+    #   - 8001:80
     container_name: portal-hospital
     restart: always
     environment:
-      HMS_BACKEND_URL: "http://localhost:5001"
+      HMS_BACKEND_URL: "http://hospital-apis:80"  # Internal service name
       DEFAULT_PRINT_LAYOUT: "thermal"
       DEFAULT_USER_ICON: "https://file-server.nxtwebmasters.com/images/default-user.webp"
-      PORTAL_URL: "http://localhost:8001"
+      PORTAL_URL: "http://patient-frontend:80"  # Internal service name
       PATIENT_DEFAULT_PASSWORD: "NxtHospital123"
       DESIGN_IDENTIFIER: "nxtwebmaster"
     networks:
@@ -38,8 +38,8 @@ services:
 
   hospital-apis:
     image: pandanxt/hms-backend:SR-3.0.2
-    ports:
-      - 5001:80
+    # ports:  # Removed - access via nginx reverse proxy only
+    #   - 5001:80
     container_name: api-hospital
     restart: always
     env_file:
@@ -51,7 +51,7 @@ services:
       retries: 3
       start_period: 40s
     volumes:
-      - /usr/share/nginx/html/images:/usr/share/nginx/html/images
+      - /opt/nxt-hms/images:/usr/share/nginx/html/images
     depends_on:
       mysql:
         condition: service_healthy
@@ -74,8 +74,7 @@ services:
       MYSQL_DATABASE: "nxt-hospital"
       MYSQL_USER: "nxt_user"
       MYSQL_PASSWORD: "NxtWebMasters464"
-    ports:
-      - "3306:3306"
+    # Port removed - MySQL only accessible via internal-net for security
     healthcheck:
       test: >
         sh -c 'mysqladmin ping -h localhost -u nxt_user -pNxtWebMasters464 &&
@@ -85,6 +84,7 @@ services:
       retries: 30
       start_period: 30s
     volumes:
+      - mysql-data:/var/lib/mysql
       - ./data/scripts:/docker-entrypoint-initdb.d
     networks:
       - internal-net
@@ -93,16 +93,42 @@ services:
     image: redis:7.2
     container_name: hospital-redis
     restart: always
-    ports:
-      - "6379:6379"
+    # Port removed - Redis only accessible via internal-net for security
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    volumes:
+      - redis-data:/data
+    networks:
+      - internal-net
+
+  nginx:
+    image: nginx:1.25
+    container_name: nginx-reverse-proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /opt/nxt-hms/images:/usr/share/nginx/html/images:ro
+    depends_on:
+      - hospital-apis
+      - hospital-frontend
     networks:
       - internal-net
 
 networks:
   internal-net:
     driver: bridge
+
+volumes:
+  mysql-data:
+    driver: local
+  redis-data:
+    driver: local

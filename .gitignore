@@ -79,6 +79,9 @@ web_modules/
 .env.production.local
 .env.local
 
+# Disabled nginx configs (HTTPS configs disabled for testing)
+nginx/conf.d/*.disabled
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
