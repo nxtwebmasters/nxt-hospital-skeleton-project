@@ -1,7 +1,7 @@
 services:
 
   hospital-frontend:
-    image: pandanxt/hospital-frontend:SR-3.0.1
+    image: pandanxt/hospital-frontend:develop-224-5d78b376
     # ports:  # Removed - access via nginx reverse proxy only
     #   - 6001:80
     container_name: nxt-hospital
@@ -21,7 +21,7 @@ services:
       - internal-net  
 
   patient-frontend:
-    image: pandanxt/customer-portal:SR-3.0.2
+    image: pandanxt/customer-portal:develop-67-4271f99f
     # ports:  # Removed - access via nginx reverse proxy only
     #   - 8001:80
     container_name: portal-hospital
@@ -37,7 +37,7 @@ services:
       - internal-net  
 
   hospital-apis:
-    image: pandanxt/hms-backend:SR-3.0.2
+    image: pandanxt/hms-backend-apis:develop-254-a640df9a
     # ports:  # Removed - access via nginx reverse proxy only
     #   - 5001:80
     container_name: api-hospital
