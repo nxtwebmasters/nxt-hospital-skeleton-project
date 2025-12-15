@@ -409,7 +409,8 @@ CREATE TABLE IF NOT EXISTS `nxt_category_type` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
+  `updated_by` varchar(100) DEFAULT NULL,
+  UNIQUE KEY `unique_type_per_tenant` (`tenant_id`, `type_alias`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -688,7 +689,8 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
 CREATE TABLE IF NOT EXISTS `nxt_medicine` (
   `id` int(11) NOT NULL,
   `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
-  `medicine_name` varchar(255) NOT NULL
+  `medicine_name` varchar(255) NOT NULL,
+  UNIQUE KEY `unique_medicine_per_tenant` (`tenant_id`, `medicine_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -799,7 +801,8 @@ CREATE TABLE IF NOT EXISTS `nxt_permission` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` varchar(100) DEFAULT NULL
+  `updated_by` varchar(100) DEFAULT NULL,
+  UNIQUE KEY `unique_permission_per_tenant` (`tenant_id`, `permission_alias`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -930,7 +933,8 @@ CREATE TABLE IF NOT EXISTS `nxt_service` (
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `updated_by` varchar(100) DEFAULT NULL,
-  `pct_code` varchar(20) DEFAULT NULL COMMENT 'Pakistan Customs Tariff code for FBR compliance'
+  `pct_code` varchar(20) DEFAULT NULL COMMENT 'Pakistan Customs Tariff code for FBR compliance',
+  UNIQUE KEY `unique_service_per_tenant` (`tenant_id`, `service_alias`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -1009,7 +1013,8 @@ CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
   `print_layout` ENUM('thermal', 'a4') NOT NULL DEFAULT 'thermal' COMMENT 'Slip print layout: thermal (80mm) or a4 (210mm)',
   `bill_print_layout` ENUM('thermal', 'a4') NULL DEFAULT NULL COMMENT 'Bill print layout: thermal (80mm) or a4 (210mm) - only for slip types with isBill=1',
   `enable_fbr_sync` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Enable FBR synchronization for this slip type',
-  `fbr_invoice_type` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Fiscal, 2=Non-Fiscal invoice type for FBR'
+  `fbr_invoice_type` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Fiscal, 2=Non-Fiscal invoice type for FBR',
+  UNIQUE KEY `unique_slip_type_per_tenant` (`tenant_id`, `slip_type_alias`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -1519,7 +1524,7 @@ ALTER TABLE `nxt_bootstrap_status`
 --
 ALTER TABLE `nxt_campaign`
   ADD PRIMARY KEY (`campaign_id`),
-  ADD UNIQUE KEY `campaign_alias` (`campaign_alias`),
+  ADD UNIQUE KEY `unique_campaign_per_tenant` (`tenant_id`, `campaign_alias`),
   ADD KEY `campaign_segment` (`campaign_segment`),
   ADD KEY `campaign_message` (`campaign_message`),
   ADD KEY `idx_campaign_status` (`campaign_status`),
@@ -1561,7 +1566,7 @@ ALTER TABLE `nxt_campaign_triggers`
 --
 ALTER TABLE `nxt_category`
   ADD PRIMARY KEY (`category_id`),
-  ADD UNIQUE KEY `unique_category_alias` (`category_alias`);
+  ADD UNIQUE KEY `unique_category_per_tenant` (`tenant_id`, `category_alias`);
 
 --
 -- Indexes for table `nxt_category_type`
@@ -1586,8 +1591,8 @@ ALTER TABLE `nxt_db_backup`
 --
 ALTER TABLE `nxt_department`
   ADD PRIMARY KEY (`department_id`),
-  ADD UNIQUE KEY `department_name` (`department_name`),
-  ADD UNIQUE KEY `department_alias` (`department_alias`);
+  ADD UNIQUE KEY `unique_department_name_per_tenant` (`tenant_id`, `department_name`),
+  ADD UNIQUE KEY `unique_department_per_tenant` (`tenant_id`, `department_alias`);
 
 ALTER TABLE `nxt_department` 
   ADD INDEX `idx_tenant_id` (`tenant_id`),
@@ -1660,7 +1665,7 @@ ALTER TABLE `nxt_lab_report`
 --
 ALTER TABLE `nxt_lab_test`
   ADD PRIMARY KEY (`test_id`),
-  ADD UNIQUE KEY `test_code` (`test_code`);
+  ADD UNIQUE KEY `unique_test_per_tenant` (`tenant_id`, `test_code`);
 
 --
 -- Indexes for table `nxt_medicine`
@@ -1756,7 +1761,7 @@ ALTER TABLE `nxt_room`
 --
 ALTER TABLE `nxt_segment`
   ADD PRIMARY KEY (`segment_id`),
-  ADD UNIQUE KEY `segment_alias` (`segment_alias`),
+  ADD UNIQUE KEY `unique_segment_per_tenant` (`tenant_id`, `segment_alias`),
   ADD KEY `idx_segment_status` (`segment_status`);
 
 --
@@ -1805,8 +1810,8 @@ ALTER TABLE `nxt_supplier`
 --
 ALTER TABLE `nxt_tax_settings`
   ADD PRIMARY KEY (`tax_id`),
-  ADD UNIQUE KEY `unique_tax_alias` (`tax_alias`),
-  ADD UNIQUE KEY `unique_tax_code` (`tax_code`),
+  ADD UNIQUE KEY `unique_tax_per_tenant` (`tenant_id`, `tax_alias`),
+  ADD UNIQUE KEY `unique_tax_code_per_tenant` (`tenant_id`, `tax_code`),
   ADD KEY `idx_slip_type` (`apply_to_slip_type`),
   ADD KEY `idx_tax_status` (`tax_status`),
   ADD KEY `idx_effective_dates` (`effective_from`,`effective_to`);
@@ -1816,14 +1821,14 @@ ALTER TABLE `nxt_tax_settings`
 --
 ALTER TABLE `nxt_test_component`
   ADD PRIMARY KEY (`component_id`),
-  ADD KEY `fk_test_code_from_lab_test` (`test_code`);
+  ADD KEY `idx_test_component_test_code` (`test_code`);
 
 --
 -- Indexes for table `nxt_text_message`
 --
 ALTER TABLE `nxt_text_message`
   ADD PRIMARY KEY (`message_id`),
-  ADD UNIQUE KEY `message_alias` (`message_alias`);
+  ADD UNIQUE KEY `unique_message_per_tenant` (`tenant_id`, `message_alias`);
 
 --
 -- Indexes for table `nxt_user`
@@ -2216,8 +2221,8 @@ ALTER TABLE `recentactivity`
 -- Constraints for table `nxt_bed`
 --
 ALTER TABLE `nxt_bed`
-  ADD CONSTRAINT `fk_bed_bill` FOREIGN KEY (`current_bill_uuid`) REFERENCES `nxt_bill` (`bill_uuid`) ON DELETE SET NULL,
-  ADD CONSTRAINT `fk_bed_patient` FOREIGN KEY (`current_patient_mrid`) REFERENCES `nxt_patient` (`patient_mrid`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_bed_bill` FOREIGN KEY (`tenant_id`, `current_bill_uuid`) REFERENCES `nxt_bill` (`tenant_id`, `bill_uuid`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_bed_patient` FOREIGN KEY (`tenant_id`, `current_patient_mrid`) REFERENCES `nxt_patient` (`tenant_id`, `patient_mrid`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_bed_room` FOREIGN KEY (`room_id`) REFERENCES `nxt_room` (`room_id`) ON DELETE CASCADE;
 
 --
@@ -2270,7 +2275,7 @@ ALTER TABLE `nxt_patient_relationship`
 -- Constraints for table `nxt_room`
 --
 ALTER TABLE `nxt_room`
-  ADD CONSTRAINT `fk_room_category` FOREIGN KEY (`room_category`) REFERENCES `nxt_category` (`category_alias`) ON UPDATE CASCADE;
+  ADD CONSTRAINT `fk_room_category` FOREIGN KEY (`tenant_id`, `room_category`) REFERENCES `nxt_category` (`tenant_id`, `category_alias`) ON UPDATE CASCADE;
 
 --
 -- Constraints for table `nxt_slip`
@@ -2283,7 +2288,7 @@ ALTER TABLE `nxt_slip`
 -- Constraints for table `nxt_test_component`
 --
 ALTER TABLE `nxt_test_component`
-  ADD CONSTRAINT `fk_test_code_from_lab_test` FOREIGN KEY (`test_code`) REFERENCES `nxt_lab_test` (`test_code`);
+  ADD CONSTRAINT `fk_test_code_from_lab_test` FOREIGN KEY (`tenant_id`, `test_code`) REFERENCES `nxt_lab_test` (`tenant_id`, `test_code`);
 COMMIT;
 
 -- INDEXES FOR MULTI-TENANCY SUPPORT

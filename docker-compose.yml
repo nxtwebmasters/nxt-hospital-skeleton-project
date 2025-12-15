@@ -37,7 +37,7 @@ services:
       - internal-net  
 
   hospital-apis:
-    image: pandanxt/hms-backend-apis:develop-259-f4aa1bc8
+    image: pandanxt/hms-backend-apis:develop-268-c77f0292
     # ports:  # Removed - access via nginx reverse proxy only
     #   - 5001:80
     container_name: api-hospital
