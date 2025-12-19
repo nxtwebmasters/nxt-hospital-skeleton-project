@@ -106,7 +106,7 @@ echo "6. Quick Multi-Tenancy Verification"
 echo "-------------------------------------------"
 echo -n "Checking default tenant setup... "
 DEFAULT_TENANT=$(docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 -sN -e "SELECT tenant_id FROM nxt_tenant WHERE tenant_subdomain='default'" nxt-hospital 2>/dev/null)
-if [ "$DEFAULT_TENANT" = "tenant_system_default" ]; then
+if [ "$DEFAULT_TENANT" = "system_default_tenant" ]; then
     echo -e "${GREEN}✓ Default tenant configured${NC}"
 else
     echo -e "${YELLOW}⚠ Default tenant not found${NC}"

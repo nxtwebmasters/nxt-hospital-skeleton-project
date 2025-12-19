@@ -82,7 +82,7 @@ INSERT INTO `nxt_tenant` (
   `created_at`,
   `created_by`
 ) VALUES (
-  'tenant_system_default',
+  'system_default_tenant',
   'System Default Hospital',
   'default',
   'active',
@@ -94,10 +94,10 @@ INSERT INTO `nxt_tenant` (
 
 -- Insert default configurations for system tenant
 INSERT INTO `nxt_tenant_config` (`tenant_id`, `config_key`, `config_value`, `config_type`) VALUES
-  ('tenant_system_default', 'hospital_name', 'Default Hospital', 'string'),
-  ('tenant_system_default', 'timezone', 'Asia/Karachi', 'string'),
-  ('tenant_system_default', 'currency', 'PKR', 'string'),
-  ('tenant_system_default', 'date_format', 'DD/MM/YYYY', 'string')
+  ('system_default_tenant', 'hospital_name', 'Default Hospital', 'string'),
+  ('system_default_tenant', 'timezone', 'Asia/Karachi', 'string'),
+  ('system_default_tenant', 'currency', 'PKR', 'string'),
+  ('system_default_tenant', 'date_format', 'DD/MM/YYYY', 'string')
 ON DUPLICATE KEY UPDATE config_value=config_value;
 
 --
@@ -106,7 +106,7 @@ ON DUPLICATE KEY UPDATE config_value=config_value;
 
 CREATE TABLE IF NOT EXISTS `ai_feedback` (
   `feedback_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `doctor_alias` varchar(255) NOT NULL,
   `ai_suggestion_id` int(11) NOT NULL,
   `rating` int(11) DEFAULT NULL CHECK (`rating` between 1 and 5),
@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS `ai_feedback` (
 
 CREATE TABLE IF NOT EXISTS `ai_suggestions` (
   `suggestion_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `input` text DEFAULT NULL,
   `suggestions` text DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS `ai_suggestions` (
 
 CREATE TABLE IF NOT EXISTS `nxt_appointment` (
   `appointment_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `appointment_uuid` varchar(50) NOT NULL,
   `appointment_patient_mrid` varchar(50) NOT NULL,
   `appointment_patient_name` varchar(255) DEFAULT NULL,
@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS `nxt_appointment` (
 
 CREATE TABLE IF NOT EXISTS `nxt_bed` (
   `bed_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `bed_number` varchar(50) NOT NULL COMMENT 'Display number like "101-A", "Ward-1-B2"',
   `room_id` int(11) NOT NULL,
   `bed_status` enum('available','occupied','maintenance','reserved') DEFAULT 'available',
@@ -190,7 +190,7 @@ CREATE TABLE IF NOT EXISTS `nxt_bed` (
 
 CREATE TABLE IF NOT EXISTS `nxt_bed_history` (
   `history_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `bed_id` int(11) NOT NULL,
   `patient_mrid` varchar(100) NOT NULL,
   `bill_uuid` varchar(100) DEFAULT NULL,
@@ -208,7 +208,7 @@ CREATE TABLE IF NOT EXISTS `nxt_bed_history` (
 
 CREATE TABLE IF NOT EXISTS `nxt_bill` (
   `bill_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `bill_uuid` varchar(50) NOT NULL,
   `slip_uuid` varchar(50) DEFAULT NULL,
   `patient_mrid` varchar(50) NOT NULL,
@@ -270,7 +270,7 @@ CREATE TABLE IF NOT EXISTS `nxt_bill` (
 
 CREATE TABLE IF NOT EXISTS `nxt_bootstrap_status` (
   `id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `component` varchar(50) NOT NULL,
   `status` enum('started','completed','failed') NOT NULL,
   `completed_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -285,7 +285,7 @@ CREATE TABLE IF NOT EXISTS `nxt_bootstrap_status` (
 
 CREATE TABLE IF NOT EXISTS `nxt_campaign` (
   `campaign_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `campaign_name` varchar(100) NOT NULL,
   `campaign_alias` varchar(100) NOT NULL,
   `campaign_segment` int(11) NOT NULL,
@@ -322,7 +322,7 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign` (
 
 CREATE TABLE IF NOT EXISTS `nxt_campaign_log` (
   `log_id` bigint(20) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `campaign_id` int(11) NOT NULL,
   `contact_id` varchar(100) NOT NULL COMMENT 'Reference to your contacts table',
   `status` enum('pending','sent','delivered','read','failed') DEFAULT 'pending',
@@ -341,7 +341,7 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign_log` (
 
 CREATE TABLE IF NOT EXISTS `nxt_campaign_queue` (
   `queue_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `campaign_id` int(11) NOT NULL,
   `patient_mrid` varchar(50) NOT NULL,
   `contact_info` varchar(255) NOT NULL,
@@ -364,7 +364,7 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign_queue` (
 
 CREATE TABLE IF NOT EXISTS `nxt_campaign_triggers` (
   `trigger_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `campaign_id` int(11) NOT NULL,
   `trigger_event` varchar(100) NOT NULL,
   `trigger_conditions` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`trigger_conditions`)),
@@ -381,7 +381,7 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign_triggers` (
 
 CREATE TABLE IF NOT EXISTS `nxt_category` (
   `category_id` int(10) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `category_type` varchar(100) NOT NULL,
   `category_name` varchar(100) NOT NULL,
   `category_alias` varchar(100) NOT NULL,
@@ -401,7 +401,7 @@ CREATE TABLE IF NOT EXISTS `nxt_category` (
 
 CREATE TABLE IF NOT EXISTS `nxt_category_type` (
   `type_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `type_name` varchar(100) NOT NULL,
   `type_alias` varchar(100) NOT NULL,
   `type_description` longtext DEFAULT NULL,
@@ -421,7 +421,7 @@ CREATE TABLE IF NOT EXISTS `nxt_category_type` (
 
 CREATE TABLE IF NOT EXISTS `nxt_daily_expenses` (
   `expense_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `expense_name` varchar(100) NOT NULL,
   `expense_amount` decimal(10,2) NOT NULL,
   `expense_date` datetime NOT NULL,
@@ -440,7 +440,7 @@ CREATE TABLE IF NOT EXISTS `nxt_daily_expenses` (
 
 CREATE TABLE IF NOT EXISTS `nxt_db_backup` (
   `id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `db_name` varchar(255) DEFAULT NULL,
   `step_message` text DEFAULT NULL,
   `step_action` varchar(100) DEFAULT NULL,
@@ -456,7 +456,7 @@ CREATE TABLE IF NOT EXISTS `nxt_db_backup` (
 
 CREATE TABLE IF NOT EXISTS `nxt_department` (
   `department_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `department_name` varchar(100) NOT NULL,
   `department_alias` varchar(100) NOT NULL,
   `department_description` text NOT NULL,
@@ -475,7 +475,7 @@ CREATE TABLE IF NOT EXISTS `nxt_department` (
 
 CREATE TABLE IF NOT EXISTS `nxt_doctor` (
   `doctor_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `doctor_name` varchar(100) NOT NULL,
   `doctor_alias` varchar(100) NOT NULL,
   `doctor_mobile` varchar(15) DEFAULT NULL,
@@ -504,7 +504,7 @@ CREATE TABLE IF NOT EXISTS `nxt_doctor` (
 
 CREATE TABLE IF NOT EXISTS `nxt_doctor_schedule` (
   `schedule_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `doctor_alias` varchar(100) NOT NULL,
   `schedule_day` enum('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL,
   `schedule_slots` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -522,7 +522,7 @@ CREATE TABLE IF NOT EXISTS `nxt_doctor_schedule` (
 
 CREATE TABLE IF NOT EXISTS `nxt_fbr_config` (
   `fbr_config_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `hospital_name` varchar(255) NOT NULL COMMENT 'Hospital name registered with FBR',
   `hospital_ntn` varchar(50) DEFAULT NULL COMMENT 'Hospital National Tax Number',
   `hospital_address` text DEFAULT NULL COMMENT 'Hospital registered address',
@@ -547,7 +547,7 @@ CREATE TABLE IF NOT EXISTS `nxt_fbr_config` (
 
 CREATE TABLE IF NOT EXISTS `nxt_fbr_sync_log` (
   `log_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `invoice_type` enum('slip','bill') NOT NULL COMMENT 'Type of invoice synced',
   `invoice_id` int(11) NOT NULL COMMENT 'ID of the slip or bill',
   `invoice_number` varchar(255) NOT NULL COMMENT 'Internal invoice number',
@@ -568,7 +568,7 @@ CREATE TABLE IF NOT EXISTS `nxt_fbr_sync_log` (
 
 CREATE TABLE IF NOT EXISTS `nxt_inventory` (
   `item_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `item_name` varchar(255) NOT NULL,
   `item_category` varchar(100) NOT NULL DEFAULT 'Other',
   `item_quantity` int(11) NOT NULL DEFAULT 0,
@@ -591,7 +591,7 @@ CREATE TABLE IF NOT EXISTS `nxt_inventory` (
 
 CREATE TABLE IF NOT EXISTS `nxt_lab_invoice` (
   `invoice_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `invoice_uuid` varchar(50) NOT NULL,
   `invoice_tests` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`invoice_tests`)),
   `patient_mrid` varchar(50) NOT NULL,
@@ -619,7 +619,7 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_invoice` (
 
 CREATE TABLE IF NOT EXISTS `nxt_lab_invoice_tests` (
   `id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `invoice_uuid` varchar(50) NOT NULL,
   `test_description` varchar(255) NOT NULL,
   `report_datetime` datetime NOT NULL,
@@ -638,7 +638,7 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_invoice_tests` (
 
 CREATE TABLE IF NOT EXISTS `nxt_lab_report` (
   `report_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `report_uuid` varchar(50) NOT NULL,
   `invoice_uuid` varchar(50) NOT NULL,
   `patient_mrid` varchar(50) NOT NULL,
@@ -661,7 +661,7 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_report` (
 
 CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
   `test_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `test_name` varchar(100) NOT NULL,
   `test_code` varchar(20) NOT NULL,
   `test_description` text DEFAULT NULL,
@@ -688,7 +688,7 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
 
 CREATE TABLE IF NOT EXISTS `nxt_medicine` (
   `id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `medicine_name` varchar(255) NOT NULL,
   UNIQUE KEY `unique_medicine_per_tenant` (`tenant_id`, `medicine_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -701,7 +701,7 @@ CREATE TABLE IF NOT EXISTS `nxt_medicine` (
 
 CREATE TABLE IF NOT EXISTS `nxt_notification` (
   `id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `type` varchar(100) NOT NULL,
   `description` text NOT NULL,
   `affected_table` varchar(255) DEFAULT NULL,
@@ -720,7 +720,7 @@ CREATE TABLE IF NOT EXISTS `nxt_notification` (
 
 CREATE TABLE IF NOT EXISTS `nxt_patient` (
   `patient_id` int(10) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `patient_mrid` varchar(50) NOT NULL,
   `patient_name` varchar(100) NOT NULL,
   `patient_mobile` varchar(15) NOT NULL,
@@ -749,7 +749,7 @@ CREATE TABLE IF NOT EXISTS `nxt_patient` (
 
 CREATE TABLE IF NOT EXISTS `nxt_patient_audit` (
   `audit_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `action` varchar(50) NOT NULL COMMENT 'Action performed (create, match, confirm, etc.)',
   `patient_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT 'Patient data involved in the action' CHECK (json_valid(`patient_data`)),
   `matching_criteria` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Search criteria used for matching' CHECK (json_valid(`matching_criteria`)),
@@ -770,7 +770,7 @@ CREATE TABLE IF NOT EXISTS `nxt_patient_audit` (
 
 CREATE TABLE IF NOT EXISTS `nxt_patient_relationship` (
   `relationship_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `primary_patient_id` int(11) NOT NULL COMMENT 'Main patient record',
   `related_patient_id` int(11) NOT NULL COMMENT 'Related patient record',
   `relationship_type` enum('family_member','duplicate_cnic','guardian_dependent') DEFAULT NULL,
@@ -789,7 +789,7 @@ CREATE TABLE IF NOT EXISTS `nxt_patient_relationship` (
 
 CREATE TABLE IF NOT EXISTS `nxt_permission` (
   `permission_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `permission_name` varchar(100) NOT NULL,
   `permission_alias` varchar(100) NOT NULL,
   `permission_description` text NOT NULL,
@@ -813,7 +813,7 @@ CREATE TABLE IF NOT EXISTS `nxt_permission` (
 
 CREATE TABLE IF NOT EXISTS `nxt_prescriptions` (
   `prescription_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `slip_uuid` varchar(50) DEFAULT NULL,
   `patient_mrid` varchar(50) NOT NULL,
   `patient_mobile` varchar(100) NOT NULL,
@@ -838,7 +838,7 @@ CREATE TABLE IF NOT EXISTS `nxt_prescriptions` (
 
 CREATE TABLE IF NOT EXISTS `nxt_print_design` (
   `id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `identifier` varchar(100) NOT NULL,
   `header_logo` longtext DEFAULT NULL,
   `header_title` varchar(255) NOT NULL,
@@ -863,7 +863,7 @@ CREATE TABLE IF NOT EXISTS `nxt_print_design` (
 
 CREATE TABLE IF NOT EXISTS `nxt_report_footer` (
   `footer_id` int(10) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `footer_title` varchar(255) DEFAULT NULL,
   `footer_details` text DEFAULT NULL,
   `footer_no` int(10) NOT NULL
@@ -877,7 +877,7 @@ CREATE TABLE IF NOT EXISTS `nxt_report_footer` (
 
 CREATE TABLE IF NOT EXISTS `nxt_room` (
   `room_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `room_name` varchar(100) NOT NULL,
   `room_alias` varchar(100) NOT NULL,
   `room_description` text DEFAULT NULL,
@@ -902,7 +902,7 @@ CREATE TABLE IF NOT EXISTS `nxt_room` (
 
 CREATE TABLE IF NOT EXISTS `nxt_segment` (
   `segment_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `segment_name` varchar(100) NOT NULL,
   `segment_alias` varchar(100) NOT NULL,
   `segment_filter` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -923,7 +923,7 @@ CREATE TABLE IF NOT EXISTS `nxt_segment` (
 
 CREATE TABLE IF NOT EXISTS `nxt_service` (
   `service_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `service_name` varchar(100) NOT NULL,
   `service_alias` varchar(100) NOT NULL,
   `service_description` text DEFAULT NULL,
@@ -945,7 +945,7 @@ CREATE TABLE IF NOT EXISTS `nxt_service` (
 
 CREATE TABLE IF NOT EXISTS `nxt_slip` (
   `slip_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `slip_uuid` varchar(50) NOT NULL,
   `slip_mrid` varchar(50) NOT NULL,
   `slip_patient_name` varchar(100) NOT NULL,
@@ -997,7 +997,7 @@ CREATE TABLE IF NOT EXISTS `nxt_slip` (
 
 CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
   `slip_type_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `slip_type_name` varchar(100) NOT NULL,
   `slip_type_alias` varchar(100) NOT NULL,
   `fields` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`fields`)),
@@ -1025,7 +1025,7 @@ CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
 
 CREATE TABLE IF NOT EXISTS `nxt_supplier` (
   `supplier_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `supplier_name` varchar(255) NOT NULL,
   `supplier_alias` varchar(255) NOT NULL,
   `supplier_contact` varchar(50) DEFAULT NULL,
@@ -1045,7 +1045,7 @@ CREATE TABLE IF NOT EXISTS `nxt_supplier` (
 
 CREATE TABLE IF NOT EXISTS `nxt_tax_settings` (
   `tax_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `tax_name` varchar(100) NOT NULL COMMENT 'User-friendly name, e.g., "General Sales Tax"',
   `tax_alias` varchar(100) NOT NULL COMMENT 'Unique identifier like other NXT tables',
   `tax_code` varchar(20) NOT NULL COMMENT 'Short code like GST, VAT, etc.',
@@ -1075,7 +1075,7 @@ CREATE TABLE IF NOT EXISTS `nxt_tax_settings` (
 
 CREATE TABLE IF NOT EXISTS `nxt_test_component` (
   `component_id` int(10) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `component_title` varchar(100) DEFAULT NULL,
   `component_ranges` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`component_ranges`)),
   `test_code` varchar(100) NOT NULL,
@@ -1093,7 +1093,7 @@ CREATE TABLE IF NOT EXISTS `nxt_test_component` (
 
 CREATE TABLE IF NOT EXISTS `nxt_text_message` (
   `message_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `message_name` varchar(100) NOT NULL,
   `message_alias` varchar(100) NOT NULL,
   `message_text` text NOT NULL,
@@ -1115,7 +1115,7 @@ CREATE TABLE IF NOT EXISTS `nxt_text_message` (
 
 CREATE TABLE IF NOT EXISTS `nxt_user` (
   `user_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `user_name` varchar(100) NOT NULL,
   `user_email` varchar(50) DEFAULT NULL,
   `user_mobile` varchar(15) DEFAULT NULL,
@@ -1146,7 +1146,7 @@ CREATE TABLE IF NOT EXISTS `nxt_user` (
 
 CREATE TABLE IF NOT EXISTS `nxt_users` (
   `user_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `user_name` varchar(100) NOT NULL,
   `user_alias` varchar(100) DEFAULT NULL,
   `user_email` varchar(50) DEFAULT NULL,
@@ -1184,7 +1184,7 @@ CREATE TABLE IF NOT EXISTS `nxt_users` (
 
 CREATE TABLE IF NOT EXISTS `nxt_user_available_leaves` (
   `available_leave_id` int(10) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `user_id` int(10) NOT NULL,
   `leave_alias` varchar(100) NOT NULL,
   `available_balance` int(10) NOT NULL,
@@ -1200,7 +1200,7 @@ CREATE TABLE IF NOT EXISTS `nxt_user_available_leaves` (
 
 CREATE TABLE IF NOT EXISTS `nxt_user_leave` (
   `leave_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `user_id` int(11) NOT NULL,
   `leave_type` enum('earn','sick','annual','compensation') NOT NULL DEFAULT 'earn',
   `leave_start_date` date NOT NULL,
@@ -1223,7 +1223,7 @@ CREATE TABLE IF NOT EXISTS `nxt_user_leave` (
 
 CREATE TABLE IF NOT EXISTS `nxt_user_test` (
   `user_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `user_type` enum('doctor','nurse','staff','admin') NOT NULL,
   `user_name` varchar(100) NOT NULL,
   `user_alias` varchar(100) DEFAULT NULL,
@@ -1262,7 +1262,7 @@ CREATE TABLE IF NOT EXISTS `nxt_user_test` (
 
 CREATE TABLE IF NOT EXISTS `prescription_items` (
   `item_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `prescription_id` int(11) NOT NULL,
   `medicine_name` varchar(255) DEFAULT NULL,
   `dosage` text DEFAULT NULL,
@@ -1286,7 +1286,7 @@ CREATE TABLE IF NOT EXISTS `prescription_items` (
 
 CREATE TABLE IF NOT EXISTS `prescription_other` (
   `id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `prescription_id` int(11) NOT NULL,
   `referral_consultant` varchar(100) DEFAULT NULL,
   `referral_note` text DEFAULT NULL,
@@ -1308,7 +1308,7 @@ CREATE TABLE IF NOT EXISTS `prescription_other` (
 
 CREATE TABLE IF NOT EXISTS `prescription_vitals` (
   `vital_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `prescription_id` int(11) NOT NULL,
   `pulse` varchar(50) DEFAULT NULL,
   `blood_pressure` varchar(50) DEFAULT NULL,
@@ -1332,7 +1332,7 @@ CREATE TABLE IF NOT EXISTS `prescription_vitals` (
 
 CREATE TABLE IF NOT EXISTS `recentactivity` (
   `activity_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `admin_user` varchar(100) DEFAULT NULL,
   `action_title` varchar(50) NOT NULL,
   `action_description` text DEFAULT NULL,
@@ -1349,7 +1349,7 @@ CREATE TABLE IF NOT EXISTS `recentactivity` (
 --
 CREATE TABLE IF NOT EXISTS `vw_campaign_analytics` (
 `campaign_id` int(11),
-`tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+`tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
 `campaign_name` varchar(100),
 `campaign_type` enum('bulk','triggered','scheduled','immediate'),
 `campaign_channel` enum('whatsapp','email','sms','push'),
@@ -1371,7 +1371,7 @@ CREATE TABLE IF NOT EXISTS `vw_campaign_analytics` (
 --
 CREATE TABLE IF NOT EXISTS `v_daily_readmission_summary` (
 `admission_date` date,
-`tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+`tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
 `total_admissions` bigint(21),
 `readmission_count` decimal(25,0),
 `readmission_rate` decimal(31,2),
@@ -1388,7 +1388,7 @@ CREATE TABLE IF NOT EXISTS `v_daily_readmission_summary` (
 --
 CREATE TABLE IF NOT EXISTS `v_readmission_analytics` (
 `slip_id` int(11),
-`tenant_id` VARCHAR(50) NOT NULL DEFAULT 'tenant_system_default',
+`tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
 `slip_uuid` varchar(50),
 `slip_mrid` varchar(50),
 `slip_patient_name` varchar(100),

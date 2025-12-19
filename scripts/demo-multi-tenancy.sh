@@ -61,11 +61,11 @@ INSERT INTO nxt_patient (
   tenant_id, patient_name, patient_mobile, patient_mrid, 
   patient_gender, patient_age, created_at
 ) VALUES (
-  'tenant_system_default', 'John Default', '03001234567', 'MR-DEFAULT-001',
+  'system_default_tenant', 'John Default', '03001234567', 'MR-DEFAULT-001',
   'Male', 45, NOW()
 ) ON DUPLICATE KEY UPDATE patient_name=patient_name;
 EOF
-echo -e "${GREEN}✓ John Default added to tenant_system_default${NC}"
+echo -e "${GREEN}✓ John Default added to system_default_tenant${NC}"
 
 echo "Adding patient to Hospital A..."
 docker exec hospital-mysql mysql -u $DB_USER -p$DB_PASS $DB_NAME 2>/dev/null <<EOF
@@ -106,7 +106,7 @@ echo ""
 echo -e "${YELLOW}Query 2: Default Tenant Only (WITH tenant_id filter - GOOD!)${NC}"
 docker exec hospital-mysql mysql -u $DB_USER -p$DB_PASS -t \
   -e "SELECT patient_name, patient_mrid, tenant_id FROM nxt_patient 
-      WHERE tenant_id = 'tenant_system_default' 
+      WHERE tenant_id = 'system_default_tenant' 
       ORDER BY created_at DESC LIMIT 10" $DB_NAME 2>/dev/null
 echo -e "${GREEN}✓ Only shows default tenant's patients${NC}"
 echo ""

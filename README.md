@@ -28,7 +28,7 @@ bash scripts/verify-deployment.sh
 - All services run in HTTP-only mode (no TLS certificates required)
 - Internal communication uses Docker service names (hospital-apis:80, patient-frontend:80, etc.)
 - MySQL initializes with multi-tenant schema (58 tables with `tenant_id` columns)
-- Default tenant: `tenant_system_default` (subdomain: `default`)
+- Default tenant: `system_default_tenant` (subdomain: `default`)
 - Bootstrap data auto-seeded on first start
 - Services accessible only via nginx reverse proxy (ports 5001/6001/8001 not exposed)
 
@@ -104,7 +104,7 @@ Notes and gotchas:
 
 ## 🧪 Testing Multi-Tenancy
 
-The deployment includes a **default tenant** (`tenant_system_default`) ready for testing. Here's how to verify multi-tenancy is working:
+The deployment includes a **default tenant** (`system_default_tenant`) ready for testing. Here's how to verify multi-tenancy is working:
 
 ### Quick Verification
 
@@ -115,7 +115,7 @@ docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 \
 
 # Expected output:
 # tenant_id              | tenant_name            | tenant_subdomain
-# tenant_system_default  | System Default Hospital| default
+# system_default_tenant  | System Default Hospital| default
 
 # 2. Verify all tables have tenant_id column
 docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 \
@@ -128,7 +128,7 @@ docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 \
 docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 \
   -e "DESCRIBE nxt_patient" nxt-hospital | grep tenant_id
 
-# Expected: tenant_id | varchar(50) | NO | | tenant_system_default
+# Expected: tenant_id | varchar(50) | NO | | system_default_tenant
 ```
 
 ### Create a Test Tenant
@@ -160,7 +160,7 @@ docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 \
 # Create a patient in default tenant
 docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 nxt-hospital <<EOF
 INSERT INTO nxt_patient (tenant_id, patient_name, patient_mobile, patient_mrid)
-VALUES ('tenant_system_default', 'John Doe', '1234567890', 'MR-00001');
+VALUES ('system_default_tenant', 'John Doe', '1234567890', 'MR-00001');
 EOF
 
 # Create a patient in test tenant
@@ -171,7 +171,7 @@ EOF
 
 # Query with tenant isolation
 docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 \
-  -e "SELECT patient_name, tenant_id FROM nxt_patient WHERE tenant_id='tenant_system_default'" nxt-hospital
+  -e "SELECT patient_name, tenant_id FROM nxt_patient WHERE tenant_id='system_default_tenant'" nxt-hospital
 
 # Should only show John Doe, not Jane Smith
 ```
@@ -183,7 +183,7 @@ docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 \
 docker compose logs -f api-hospital | grep "tenant_id"
 
 # You should see queries like:
-# SELECT * FROM nxt_patient WHERE tenant_id = 'tenant_system_default' AND ...
+# SELECT * FROM nxt_patient WHERE tenant_id = 'system_default_tenant' AND ...
 ```
 
 ### Known Limitations (Testing Mode)
