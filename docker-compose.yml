@@ -1,13 +1,13 @@
 services:
 
   hospital-frontend:
-    image: pandanxt/hospital-frontend:develop-224-5d78b376
+    image: pandanxt/hospital-frontend:develop-226-9481390b
     # ports:  # Removed - access via nginx reverse proxy only
     #   - 6001:80
     container_name: nxt-hospital
     restart: always
     environment:
-      HMS_BACKEND_URL: "/api-server"  # Relative path via nginx reverse proxy
+      HMS_BACKEND_URL: ""  # Relative path via nginx reverse proxy
       DEFAULT_PRINT_LAYOUT: "a4"
       DEFAULT_USER_ICON: "https://file-server.nxtwebmasters.com/images/default-user.webp"
       PATIENT_PORTAL_URL: "/portal"  # Relative path via nginx reverse proxy
@@ -21,13 +21,13 @@ services:
       - internal-net  
 
   patient-frontend:
-    image: pandanxt/customer-portal:develop-67-4271f99f
+    image: pandanxt/customer-portal:develop-latest
     # ports:  # Removed - access via nginx reverse proxy only
     #   - 8001:80
     container_name: portal-hospital
     restart: always
     environment:
-      HMS_BACKEND_URL: "/api-server"  # Relative path via nginx reverse proxy
+      HMS_BACKEND_URL: ""  # Relative path via nginx reverse proxy
       DEFAULT_PRINT_LAYOUT: "thermal"
       DEFAULT_USER_ICON: "https://file-server.nxtwebmasters.com/images/default-user.webp"
       PORTAL_URL: "/portal"  # Relative path via nginx reverse proxy
@@ -37,7 +37,7 @@ services:
       - internal-net  
 
   hospital-apis:
-    image: pandanxt/hms-backend-apis:develop-268-c77f0292
+    image: pandanxt/hms-backend-apis:develop-276-8d769d95
     # ports:  # Removed - access via nginx reverse proxy only
     #   - 5001:80
     container_name: api-hospital

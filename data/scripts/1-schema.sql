@@ -2221,8 +2221,11 @@ ALTER TABLE `recentactivity`
 -- Constraints for table `nxt_bed`
 --
 ALTER TABLE `nxt_bed`
-  ADD CONSTRAINT `fk_bed_bill` FOREIGN KEY (`tenant_id`, `current_bill_uuid`) REFERENCES `nxt_bill` (`tenant_id`, `bill_uuid`) ON DELETE SET NULL,
-  ADD CONSTRAINT `fk_bed_patient` FOREIGN KEY (`tenant_id`, `current_patient_mrid`) REFERENCES `nxt_patient` (`tenant_id`, `patient_mrid`) ON DELETE SET NULL,
+  -- Note: composite FK including `tenant_id` with ON DELETE SET NULL is invalid when
+  -- `tenant_id` is NOT NULL. Change to reference only the nullable UUID/mrid columns
+  -- so ON DELETE SET NULL can operate correctly without changing tenant_id nullability.
+  ADD CONSTRAINT `fk_bed_bill` FOREIGN KEY (`current_bill_uuid`) REFERENCES `nxt_bill` (`bill_uuid`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_bed_patient` FOREIGN KEY (`current_patient_mrid`) REFERENCES `nxt_patient` (`patient_mrid`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_bed_room` FOREIGN KEY (`room_id`) REFERENCES `nxt_room` (`room_id`) ON DELETE CASCADE;
 
 --

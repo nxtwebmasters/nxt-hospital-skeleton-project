@@ -1,310 +1,123 @@
 # nxt-hospital-skeleton-project
 
-## 🚀 Quick Start (Testing/Development)
+## nxt-hospital-skeleton-project — Project README (Pitch & Technical Summary)
 
-**Clone and run on Ubuntu VM in under 5 minutes:**
+This repository is a compact, production-oriented Docker Compose skeleton for the NXT Hospital Management System (HMS). It is built for multi-tenant hospital deployments and automates common hospital operations — patient lifecycle, appointment booking, billing, printing, campaigns, and background processing — while providing secure file storage and tenant isolation.
 
+This README highlights core architecture, major product features, the tenant-aware file upload system, developer quick start, and a short business pitch you can use when presenting the project.
+
+**Why this repo?**
+- Designed for multi-tenant SaaS: tenant-aware schemas, per-tenant file storage, and request-level tenant enforcement patterns.
+- Built-in automation: scheduled jobs, messaging/campaign system, and background workers for asynchronous integrations (tax authority, notifications).
+- Practical production patterns: cluster-aware server, BullMQ queues, Redis DB separation, and PM2-friendly process model.
+
+**Audience:** technical reviewers, potential customers, and platform engineers evaluating an HMS foundation for multi-site hospital networks.
+
+--
+
+**Core components (quick)**
+- `hms-backend/` — Node/Express API with controllers, services, BullMQ queues and workers. Key files: `server.js`, `bootstrap/index.js`, `config/`, `queues/`, `workers/`.
+- `hospital-frontend/` — Angular admin UI (single HTTP surface at `src/app/services/http.service.ts`).
+- `customer-portal/` — Patient portal + print templates under `src/assets/print/` (uses short-url pattern for secure printing).
+- `appointment-ivr/` — FreeSWITCH Lua IVR integrations for phone-based appointment flows.
+- `nxt-hospital-skeleton-project/` — Docker Compose orchestrator and example deployment for local/VM testing.
+
+## Major HMS Features (detailed)
+
+1) Multi-Tenancy (First-class)
+- Schema: MySQL schema is multi-tenant ready — the majority of tables include `tenant_id` defaulting to `system_default_tenant`.
+- Request flow: `X-Tenant-Id` header and `ensureTenant` middleware derive and validate tenant context. Pattern: controllers/services must include `tenant_id` in all queries.
+- File storage: tenant-isolated host folders and tenant-scoped public URLs (see File Upload Mechanism below).
+- Note: the repo includes an audit and docs for outstanding tenant isolation work; fix lists are in `docs/` for production hardening.
+
+2) Automation & Background Processing
+- Queues: BullMQ (Redis) for deferred work — campaign delivery, FBR tax sync, report generation.
+- Scheduler: `scheduledJobsService.js` uses node-schedule for daily/recurring tasks; can run as standalone process for resilience.
+- Workers: separate Node workers process jobs from queues; workers can be disabled via env flags during dev.
+
+3) Patient Matching & Duplicate Prevention
+- Service `PatientMatchingService` implements multi-factor matching (CNIC exact, mobile + fuzzy name, Levenshtein) to reduce duplicate MRIDs and improve front-desk workflow.
+
+4) ID Generation System
+- Structured, deterministic IDs (MRID, slips) with a reserve/commit pattern to avoid collisions across tenants. See `hms-backend/controllers/idGeneratorController.js` and frontend counterpart.
+
+5) Print System (Secure)
+- Short-URL flow: UI requests a short URL from the backend (tiny-url service). `customer-portal` print templates (A4/thermal) resolve hash → fetch print data → auto-print. Reduces leakage of sensitive query params.
+
+6) Campaigns & Multi-channel Messaging
+- Generic campaign service routes events (`new_patient`, `appointment_created`, etc.) into channel adapters (WhatsApp, Email, SMS) and enqueues jobs for delivery with telemetry.
+
+7) IVR Integration
+- FreeSWITCH Lua scripts under `appointment-ivr/ivr_scripts/` provide automated phone interactions and call flows that can use REST APIs and DB queries.
+
+8) Bootstrap & Data Seeding
+- Safe bootstrap: `hms-backend/bootstrap/index.js` provides idempotent seeding of baseline data (permissions, departments, lab tests). Always check with `npm run bootstrap:status` before making changes.
+
+## File Upload Mechanism (Tenant-aware, secure)
+
+This is a critical part of the HMS pitch: secure storage of patient files (images, reports, DICOM) with tenant isolation and scalable patterns.
+
+How it works
+- Upload flow: backend routes use `tenantMiddleware` to set `req.tenant_id`; file uploads are handled by `multer` (see `hms-backend/examples/tenant-aware-upload-example.js`).
+- Storage layout (host): `/opt/nxt-hms/images/<tenant_id>/<category>/<file>` — this maps 1:1 to S3/MinIO keys if migrating later.
+- Public URLs: served by `nginx` as `/images/<tenant_id>/...` with caching headers. Backend generates signed/validated URLs by verifying tenant ownership before returning paths.
+
+Security rules (enforced)
+- Never accept `tenant_id` from request body/query — always derive from JWT/subdomain or middleware.
+- Validate file deletions and reads by confirming `req.tenant_id` matches the file path.
+- Use read-only mounts in the `nginx` container to prevent direct writes.
+
+Migration & scaling
+- Small deployments: host filesystem with tenant folders.
+- Scale: switch to MinIO/S3 with the same logical keys and enable CDN and lifecycle policies.
+
+Backup & retention
+- Example cron-based tar backups or disk snapshots; recommend lifecycle policies in object storage for large archives.
+
+## Developer Quick Start (condensed)
+
+1. Local dev (PowerShell on Windows recommended):
+```powershell
+cd hms-backend; npm install; npm start
+cd hospital-frontend; npm install; npm start
+cd customer-portal; npm install; npm start
+```
+
+2. Full stack (Docker Compose - VM):
 ```bash
-# 1. Clone the repository
-git clone <your-repo-url>
 cd nxt-hospital-skeleton-project
-
-# 2. Start all services
 docker compose up -d
-
-# 3. Wait for services to initialize (~30 seconds)
-docker compose ps
-
-# 4. Verify deployment health
 bash scripts/verify-deployment.sh
-
-# 5. Access the application
-# Admin Interface:  http://localhost/
-# Patient Portal:   http://localhost/portal/
-# API Health:       http://localhost/api-server/health
 ```
 
-**Default Configuration:**
-- All services run in HTTP-only mode (no TLS certificates required)
-- Internal communication uses Docker service names (hospital-apis:80, patient-frontend:80, etc.)
-- MySQL initializes with multi-tenant schema (58 tables with `tenant_id` columns)
-- Default tenant: `system_default_tenant` (subdomain: `default`)
-- Bootstrap data auto-seeded on first start
-- Services accessible only via nginx reverse proxy (ports 5001/6001/8001 not exposed)
+Health endpoints:
+- API health: `http://localhost/api-server/health` (or mapped host port)
 
-**Prerequisites:**
-- Docker Engine 20.10+
-- Docker Compose v2.0+
-- Minimum 4GB RAM
-- 10GB disk space
+## Architecture & Integration Points
 
-**For Production Deployment:**
-See "Wildcard TLS (Let's Encrypt)" section below for HTTPS setup.
+- MySQL (no ORM) — direct `mysql2` queries, connection pooling in `hms-backend/config/connection.js`.
+- Redis: 4 logical DBs — DB0=queues, DB1=tiny-url cache, DB2=app cache, DB3=sessions.
+- BullMQ job queues and BullBoard UI for monitoring at `/admin/queues`.
+- PM2 or Docker process model: `server.js` supports cluster mode; recommended PM2 config provided in docs.
+
+## Business Pitch (one-paragraph for stakeholders)
+
+NXT HMS is a multi-tenant hospital management platform designed to accelerate digital transformation for hospital networks and clinic groups. It bundles patient lifecycle automation (intake, matching, slips, billing), secure per-tenant file handling, multi-channel patient communications, and modern background processing for compliance integrations (tax/FBR) — all deployable via Docker Compose or container orchestration. The platform's tenant-first design and secure print/file patterns make it ideal for SaaS deployments where data isolation, auditability, and automation are must-haves.
+
+## Next steps / How we can present this repo
+
+1. Create a 5-slide pitch deck: Problem → Solution (NXT HMS) → Architecture → Demo plan → Ask (pilot customers).
+2. Prepare a short demo script: start the compose stack, create a tenant, upload a patient image, generate a print short-url, and show a queued campaign.
+3. Harden tenant-isolation hotspots listed under `docs/` before production proposals.
+
+## Where to look first (developer checklist)
+- `hms-backend/server.js` — entry, cluster and health endpoints
+- `hms-backend/bootstrap/index.js` — bootstrap & seed logic
+- `hms-backend/controllers/idGeneratorController.js` — ID reservation/commit patterns
+- `hms-backend/services/PatientMatchingService.js` — deduplication
+- `hospital-frontend/src/app/services/http.service.ts` — single source of API endpoints
+- `customer-portal/src/assets/print/` — print templates and short-url flow
 
 ---
 
-## Overview
-
-This repository contains a small Docker Compose skeleton used to run the HMS services locally or on a VM. It includes an `nginx` reverse-proxy service that expects host-managed TLS certificates (Let’s Encrypt wildcard) mounted into the container at `/etc/letsencrypt`.
-
-## Wildcard TLS (Let’s Encrypt) — quick guide
-
-These instructions explain how to obtain a wildcard certificate via DNS-01 (manual TXT) and make it available to the Dockerized `nginx` service. The repository includes a helper script at `scripts/obtain_wildcard_cert.sh` to run `certbot` in manual DNS mode.
-
-Prerequisites:
-- A domain managed in HosterPK (or another DNS provider where you can add TXT records).
-- A server (e.g., Contabo VM) with a public IP reachable from the internet.
-- `certbot` installed on the host where you will request the certificate.
-
-Steps:
-
-1. Add a wildcard A record for your domain in your DNS panel:
-
-	- Host: `*`
-	- Value: your server IP (e.g., `203.0.113.45`)
-
-2. On the VM (one-time, interactive) run the helper to request a wildcard certificate:
-
-```bash
-cd /opt/nxt-hms/nxt-hospital-skeleton-project/scripts
-sudo bash ./obtain_wildcard_cert.sh example.com you@example.com
-```
-
-	- Replace `example.com` and `you@example.com` with your domain and email.
-	- The script calls `certbot` in manual DNS mode and will prompt you with one or more `_acme-challenge` TXT records to add to your DNS.
-	- Add the TXT records in HosterPK (or your DNS provider), wait for propagation, then press Enter to allow certbot to validate.
-
-3. After successful issuance, cert files will be under `/etc/letsencrypt/live/example.com/` on the host. The Compose file mounts `/etc/letsencrypt` into the `nginx` container (read-only). Restart or bring up the stack so `nginx` picks up the certificates:
-
-```bash
-cd /opt/nxt-hms/nxt-hospital-skeleton-project
-docker compose up -d
-docker compose exec nginx nginx -t
-docker compose exec nginx nginx -s reload
-```
-
-4. Renewals
-
- - Use `certbot renew` on the host. You can schedule a daily or weekly cron. When renewal succeeds, run a deploy-hook to reload the containerized `nginx` so it picks up new certs.
-
-Example cron entry (edit to match your paths):
-
-```cron
-# Run renewal daily at 02:00 and reload nginx in the compose stack when a cert is renewed
-0 2 * * * /usr/bin/certbot renew --deploy-hook "docker compose -f /opt/nxt-hms/nxt-hospital-skeleton-project/docker-compose.yml exec nginx nginx -s reload" >> /var/log/certbot-renew.log 2>&1
-```
-
-Notes and gotchas:
-- The helper uses the manual DNS flow: you must add TXT records yourself in the DNS panel during the interactive request. DNS-API automation is intentionally avoided here.
-- Ensure ports `80` and `443` on the VM are reachable from the internet while performing issuance.
-- The `nginx` container expects the certificates to be present at `/etc/letsencrypt`. The Compose service mounts the host path into the container as read-only.
-- If you prefer automated DNS updates, replace the manual certbot flow with an appropriate DNS plugin and adjust the script accordingly.
-
----
-
-## 🧪 Testing Multi-Tenancy
-
-The deployment includes a **default tenant** (`system_default_tenant`) ready for testing. Here's how to verify multi-tenancy is working:
-
-### Quick Verification
-
-```bash
-# 1. Check default tenant exists
-docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 \
-  -e "SELECT tenant_id, tenant_name, tenant_subdomain FROM nxt_tenant" nxt-hospital
-
-# Expected output:
-# tenant_id              | tenant_name            | tenant_subdomain
-# system_default_tenant  | System Default Hospital| default
-
-# 2. Verify all tables have tenant_id column
-docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 \
-  -e "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.COLUMNS 
-      WHERE TABLE_SCHEMA='nxt-hospital' AND COLUMN_NAME='tenant_id'" nxt-hospital
-
-# Expected: 50+ tables listed
-
-# 3. Test tenant isolation in patient table
-docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 \
-  -e "DESCRIBE nxt_patient" nxt-hospital | grep tenant_id
-
-# Expected: tenant_id | varchar(50) | NO | | system_default_tenant
-```
-
-### Create a Test Tenant
-
-```bash
-# Add a second tenant for isolation testing
-docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 nxt-hospital <<EOF
-INSERT INTO nxt_tenant (
-  tenant_id, 
-  tenant_name, 
-  tenant_subdomain, 
-  tenant_status
-) VALUES (
-  'tenant_test_clinic', 
-  'Test Clinic Hospital', 
-  'test-clinic', 
-  'active'
-);
-EOF
-
-# Verify it was created
-docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 \
-  -e "SELECT * FROM nxt_tenant WHERE tenant_id='tenant_test_clinic'" nxt-hospital
-```
-
-### Test Data Isolation
-
-```bash
-# Create a patient in default tenant
-docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 nxt-hospital <<EOF
-INSERT INTO nxt_patient (tenant_id, patient_name, patient_mobile, patient_mrid)
-VALUES ('system_default_tenant', 'John Doe', '1234567890', 'MR-00001');
-EOF
-
-# Create a patient in test tenant
-docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 nxt-hospital <<EOF
-INSERT INTO nxt_patient (tenant_id, patient_name, patient_mobile, patient_mrid)
-VALUES ('tenant_test_clinic', 'Jane Smith', '9876543210', 'MR-00002');
-EOF
-
-# Query with tenant isolation
-docker exec hospital-mysql mysql -u nxt_user -pNxtWebMasters464 \
-  -e "SELECT patient_name, tenant_id FROM nxt_patient WHERE tenant_id='system_default_tenant'" nxt-hospital
-
-# Should only show John Doe, not Jane Smith
-```
-
-### Monitor Tenant Queries
-
-```bash
-# Watch backend logs for tenant-aware queries
-docker compose logs -f api-hospital | grep "tenant_id"
-
-# You should see queries like:
-# SELECT * FROM nxt_patient WHERE tenant_id = 'system_default_tenant' AND ...
-```
-
-### Known Limitations (Testing Mode)
-
-⚠️ **Current deployment has 65 tenant-isolation vulnerabilities** in the application layer (controllers/services). While the database schema is multi-tenant ready, some queries don't enforce `tenant_id` filters.
-
-**Tables with known isolation issues:**
-- `nxt_bed` - 13 queries missing tenant_id
-- `nxt_bill` - 8 queries missing tenant_id  
-- `nxt_slip` - 8 queries missing tenant_id
-- `nxt_user` - 8 queries missing tenant_id
-
-**For production use**, these must be fixed. For testing tenant schema/flows, the default tenant works fine.
-
----
-
-## Multi-Tenant Image Storage
-
-### Overview
-
-The HMS deployment uses **tenant-isolated folder structure** on the host for storing patient images, reports, X-rays, and other files. Each tenant's files are stored under a separate directory to ensure data isolation and security.
-
-### Folder Structure
-
-On the Contabo VM (or any host running the stack):
-
-```
-/opt/nxt-hms/images/
- ├── tenant_a/
- │    ├── patients/
- │    ├── reports/
- │    └── profile/
- ├── tenant_b/
- │    ├── patients/
- │    └── bills/
- └── tenant_c/
-      └── xrays/
-```
-
-### How It Works
-
-1. **Backend writes files** using `tenant_id` derived from subdomain/JWT (see `hms-backend/examples/tenant-aware-upload-example.js`)
-2. **Nginx serves files** via `/images/` location with 30-day caching
-3. **URLs are tenant-scoped**: `https://tenant.yourdomain.com/images/tenant_a/patients/xray_123.png`
-
-### Security Rules
-
-**❌ CRITICAL - DO NOT:**
-- Accept `tenant_id` from request body or query parameters
-- Allow cross-tenant file access via URL manipulation
-- Store tenant files in a shared root folder
-
-**✅ ALWAYS:**
-- Derive `tenant_id` from `req.tenant_id` (set by `tenantMiddleware`)
-- Validate file paths contain the current tenant's ID before deletion
-- Use read-only mount for nginx (`/opt/nxt-hms/images:/usr/share/nginx/html/images:ro`)
-
-### Migration from Single-Tenant Setup
-
-If you have existing images in `/usr/share/nginx/html/images`, migrate them to the new structure:
-
-```bash
-# Create base directory
-sudo mkdir -p /opt/nxt-hms/images
-
-# Set ownership (adjust UID/GID to match container user)
-sudo chown -R 1000:1000 /opt/nxt-hms/images
-
-# Move existing images to default tenant folder
-sudo rsync -av /usr/share/nginx/html/images/ /opt/nxt-hms/images/default_tenant/
-
-# Verify structure
-ls -la /opt/nxt-hms/images/
-
-# Update database paths (if needed - adjust table/column names)
-mysql -u root -p nxt-hospital -e "UPDATE nxt_patient SET patient_image = REPLACE(patient_image, '/images/', '/images/default_tenant/');"
-```
-
-After migration, restart the stack:
-
-```bash
-cd /opt/nxt-hms/nxt-hospital-skeleton-project
-docker compose down
-docker compose up -d
-docker compose exec nginx nginx -s reload
-```
-
-### Backup Strategy
-
-**Option 1: Daily tar.gz archive**
-
-```bash
-# Add to crontab
-0 3 * * * tar -czf /backups/nxt-hms-images-$(date +\%F).tar.gz /opt/nxt-hms/images >> /var/log/image-backup.log 2>&1
-```
-
-**Option 2: Contabo disk snapshot**
-
-Use Contabo panel to create weekly snapshots of the entire disk (recommended for production).
-
-### When to Move to MinIO/S3
-
-Consider migrating to object storage when:
-- File sizes exceed 100GB total
-- You need CDN integration
-- Horizontal scaling across multiple backend servers
-- DICOM images or video files (large medical imaging)
-
-**Migration will be easy** because the folder structure (`<tenant_id>/category/file`) maps 1:1 to S3 object keys.
-
----
-
-## Backend Implementation
-
-See `hms-backend/examples/tenant-aware-upload-example.js` for complete code examples including:
-- Multer configuration with tenant isolation
-- Secure file upload controller
-- File deletion with tenant verification
-- Router setup with middleware
-
-Key points:
-- Always apply `tenantMiddleware` before upload routes
-- Generate public URLs using `/images/<tenant_id>/...` format
-- Validate tenant ownership before file deletion
+If you want, I can also generate the 5-slide pitch deck and a short demo script from the repo. Tell me which audience to target (technical, product, or executive) and I'll draft it.
