@@ -435,6 +435,10 @@ EOF
     sed -i "s/MYSQL_ROOT_PASSWORD: \".*\"/MYSQL_ROOT_PASSWORD: \"$MYSQL_ROOT_PASSWORD\"/" docker-compose.yml
     sed -i "s/MYSQL_PASSWORD: \".*\"/MYSQL_PASSWORD: \"$MYSQL_DB_PASSWORD\"/" docker-compose.yml
     
+    # CRITICAL: Update hardcoded passwords in healthcheck commands
+    sed -i "s/-pNxtWebMasters464/-p$MYSQL_DB_PASSWORD/g" docker-compose.yml
+    log "✓ Updated MySQL passwords in environment AND healthcheck"
+    
     # Save credentials to a secure file
     CREDS_FILE="$HOME/.hms_credentials_$(date +%Y%m%d).txt"
     cat > "$CREDS_FILE" << EOF
@@ -494,10 +498,22 @@ deploy_application() {
         
         # Check if critical images exist locally
         MISSING_IMAGES=0
-        for img in "nginx:1.25" "mysql:latest" "redis:7.2"; do
-            if ! docker images | grep -q "$(echo $img | cut -d: -f1)"; then
+        REQUIRED_IMAGES=(
+            "nginx:1.25"
+            "mysql:latest"
+            "redis:7.2"
+            "pandanxt/hospital-frontend:develop-235-0c0ff35d"
+            "pandanxt/customer-portal:develop-78-24a5986b"
+            "pandanxt/hms-backend-apis:develop-296-9bae757b"
+        )
+        
+        for img in "${REQUIRED_IMAGES[@]}"; do
+            img_name=$(echo $img | cut -d: -f1)
+            if ! docker images | grep -q "$img_name"; then
                 log_error "Critical image missing: $img"
                 MISSING_IMAGES=1
+            else
+                log "✓ Found: $img_name"
             fi
         done
         
