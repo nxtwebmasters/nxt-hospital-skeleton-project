@@ -511,22 +511,36 @@ deploy_application() {
 
     echo ""
     log "Starting Docker containers..."
-    if $DOCKER_COMPOSE_CMD up -d >> "$LOG_FILE" 2>&1; then
+    log "This may take 5-10 minutes on first run (MySQL schema initialization)..."
+    echo ""
+    
+    # Start containers with live output
+    $DOCKER_COMPOSE_CMD up -d 2>&1 | tee -a "$LOG_FILE"
+    
+    if [ ${PIPESTATUS[0]} -eq 0 ]; then
         log "✓ Docker containers started"
     else
         log_error "Failed to start containers. Check log: $LOG_FILE"
-        tail -30 "$LOG_FILE"
         exit 1
     fi
     
     echo ""
-    log "Waiting for services to initialize..."
-    echo "This may take up to 60 seconds..."
+    log "Waiting for services to fully initialize..."
+    log "MySQL may take 2-3 minutes to create all database tables..."
+    echo ""
     
-    # Show a progress indicator
-    for i in {1..12}; do
-        echo -n "."
+    # Show progress with container status checks
+    for i in {1..24}; do
         sleep 5
+        RUNNING=$(docker compose ps --services --filter "status=running" 2>/dev/null | wc -l)
+        echo -n "[$i/24] Containers running: $RUNNING/6  "
+        
+        # Check if MySQL is ready
+        if docker exec hospital-mysql mysqladmin ping -h localhost --silent 2>/dev/null; then
+            echo "✓ MySQL ready"
+        else
+            echo "⏳ Initializing..."
+        fi
     done
     echo ""
     
