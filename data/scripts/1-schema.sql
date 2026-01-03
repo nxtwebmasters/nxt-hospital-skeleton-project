@@ -1038,6 +1038,7 @@ CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
   `bill_print_layout` ENUM('thermal', 'a4') NULL DEFAULT NULL COMMENT 'Bill print layout: thermal (80mm) or a4 (210mm) - only for slip types with isBill=1',
   `enable_fbr_sync` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Enable FBR synchronization for this slip type',
   `fbr_invoice_type` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Fiscal, 2=Non-Fiscal invoice type for FBR',
+  `enable_prescription` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1 to enable prescription records auto-creation',
   UNIQUE KEY `unique_slip_type_per_tenant` (`tenant_id`, `slip_type_alias`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

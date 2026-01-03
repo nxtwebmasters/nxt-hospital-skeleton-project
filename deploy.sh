@@ -23,6 +23,7 @@ NC='\033[0m' # No Color
 # Log file
 LOG_FILE="deployment_$(date +%Y%m%d_%H%M%S).log"
 DEPLOYMENT_DIR="$(pwd)"  # Use current directory
+DOCKER_COMPOSE_CMD="docker compose"  # Default, will be updated in preflight_checks
 
 ################################################################################
 # Helper Functions
@@ -70,6 +71,17 @@ generate_jwt_secret() {
     openssl rand -hex 32
 }
 
+# Wrapper for sudo that handles root user
+sudo_wrapper() {
+    if [ "$EUID" -eq 0 ]; then
+        # Already root, execute directly
+        "$@"
+    else
+        # Not root, use sudo
+        sudo "$@"
+    fi
+}
+
 ################################################################################
 # Phase 1: Pre-flight Checks
 ################################################################################
@@ -88,8 +100,8 @@ preflight_checks() {
 
     # Check if running as root
     if [ "$EUID" -eq 0 ]; then 
-        log_error "Please do not run this script as root. Run as regular user with sudo privileges."
-        exit 1
+        log_warning "Running as root user. This is acceptable for VPS/VM deployments."
+        log_warning "Note: sudo commands will run directly without password prompts."
     fi
 
     # Check required commands
@@ -130,13 +142,13 @@ preflight_checks() {
     fi
 
     # Check if ports 80 and 443 are available
-    if sudo netstat -tlnp 2>/dev/null | grep -E ':80 |:443 ' > /dev/null; then
+    if sudo_wrapper netstat -tlnp 2>/dev/null | grep -E ':80 |:443 ' > /dev/null; then
         log_warning "Ports 80 or 443 are already in use"
         if prompt_yes_no "Attempt to stop conflicting services (apache2/nginx)?"; then
-            sudo systemctl stop apache2 2>/dev/null || true
-            sudo systemctl disable apache2 2>/dev/null || true
-            sudo systemctl stop nginx 2>/dev/null || true
-            sudo systemctl disable nginx 2>/dev/null || true
+            sudo_wrapper systemctl stop apache2 2>/dev/null || true
+            sudo_wrapper systemctl disable apache2 2>/dev/null || true
+            sudo_wrapper systemctl stop nginx 2>/dev/null || true
+            sudo_wrapper systemctl disable nginx 2>/dev/null || true
             log "✓ Stopped conflicting web servers"
         fi
     else
@@ -157,28 +169,32 @@ system_setup() {
 
     # Update package lists
     log "Updating package lists..."
-    sudo apt update >> "$LOG_FILE" 2>&1
+    sudo_wrapper apt update >> "$LOG_FILE" 2>&1
 
     # Install essential utilities
     log "Installing essential utilities..."
-    sudo apt install -y curl wget nano htop net-tools ufw openssl >> "$LOG_FILE" 2>&1
+    sudo_wrapper apt install -y curl wget nano htop net-tools ufw openssl >> "$LOG_FILE" 2>&1
 
     # Configure firewall
     if prompt_yes_no "Configure UFW firewall (allow SSH, HTTP, HTTPS)?"; then
         log "Configuring firewall..."
-        sudo ufw allow 22/tcp >> "$LOG_FILE" 2>&1
-        sudo ufw allow 80/tcp >> "$LOG_FILE" 2>&1
-        sudo ufw allow 443/tcp >> "$LOG_FILE" 2>&1
-        echo "y" | sudo ufw enable >> "$LOG_FILE" 2>&1
+        sudo_wrapper ufw allow 22/tcp >> "$LOG_FILE" 2>&1
+        sudo_wrapper ufw allow 80/tcp >> "$LOG_FILE" 2>&1
+        sudo_wrapper ufw allow 443/tcp >> "$LOG_FILE" 2>&1
+        echo "y" | sudo_wrapper ufw enable >> "$LOG_FILE" 2>&1
         log "✓ Firewall configured"
     fi
 
-    # Configure Docker permissions
-    log "Configuring Docker permissions..."
-    if ! groups | grep -q docker; then
-        sudo usermod -aG docker "$USER"
-        log_warning "Docker group added. You may need to log out and back in for this to take effect."
-        log "Attempting to continue with newgrp docker..."
+    # Configure Docker permissions (skip if root)
+    if [ "$EUID" -ne 0 ]; then
+        log "Configuring Docker permissions..."
+        if ! groups | grep -q docker; then
+            sudo usermod -aG docker "$USER"
+            log_warning "Docker group added. You may need to log out and back in for this to take effect."
+            log "Attempting to continue with newgrp docker..."
+        fi
+    else
+        log "✓ Running as root, Docker permissions not needed"
     fi
 
     log "✓ System setup completed"
@@ -225,8 +241,8 @@ configure_environment() {
     echo "Please provide the following information:"
     echo ""
 
-    # Get VM IP automatically
-    VM_IP=$(curl -s -4 ifconfig.me 2>/dev/null || echo "localhost")
+    # Get VM IP automatically (make it global)
+    export VM_IP=$(curl -s -4 ifconfig.me 2>/dev/null || echo "localhost")
     
     # Domain or IP
     echo "─────────────────────────────────────────"
@@ -236,10 +252,10 @@ configure_environment() {
     read -p "Enter your domain name (or press Enter to use VM IP): " USER_DOMAIN
     
     if [ -z "$USER_DOMAIN" ]; then
-        DOMAIN_OR_IP="$VM_IP"
+        export DOMAIN_OR_IP="$VM_IP"
         log "Using VM IP: $DOMAIN_OR_IP"
     else
-        DOMAIN_OR_IP="$USER_DOMAIN"
+        export DOMAIN_OR_IP="$USER_DOMAIN"
         log "Using domain: $DOMAIN_OR_IP"
     fi
     
@@ -250,6 +266,7 @@ configure_environment() {
     echo "2. Email Configuration (for notifications)"
     echo "─────────────────────────────────────────"
     read -p "SMTP Email (e.g., admin@yourdomain.com): " SMTP_EMAIL
+    export SSL_EMAIL="$SMTP_EMAIL"  # Use same email for SSL
     
     if [ -z "$SMTP_EMAIL" ]; then
         log_warning "No email provided. Email notifications will be disabled."
@@ -609,33 +626,36 @@ production_hardening() {
 
     # Create backup script
     log "Creating backup script..."
-    sudo mkdir -p /opt/hms-backups
+    sudo_wrapper mkdir -p /opt/hms-backups
     
     DB_PASSWORD=$(grep "DB_PASSWORD=" hms-backend.env | cut -d'=' -f2)
     
-    sudo tee /usr/local/bin/hms-backup.sh > /dev/null << 'EOFBACKUP'
+    sudo_wrapper tee /usr/local/bin/hms-backup.sh > /dev/null << EOFBACKUP
 #!/bin/bash
 BACKUP_DIR="/opt/hms-backups"
-DATE=$(date +%Y%m%d_%H%M%S)
+DATE=\$(date +%Y%m%d_%H%M%S)
 CONTAINER="hospital-mysql"
 DB_USER="nxt_user"
-DB_PASS="DB_PASSWORD_PLACEHOLDER"
+DB_PASS="$DB_PASSWORD"
 DB_NAME="nxt-hospital"
-PROJECT_DIR="/opt/nxt-hospital-skeleton-project"
+PROJECT_DIR="$DEPLOYMENT_DIR"
 
-mkdir -p "$BACKUP_DIR"
+mkdir -p "\$BACKUP_DIR"
 
 # Backup database
-docker exec $CONTAINER mysqldump -u $DB_USER -p$DB_PASS $DB_NAME | gzip > "$BACKUP_DIR/db_$DATE.sql.gz"
+docker exec \$CONTAINER mysqldump -u \$DB_USER -p\$DB_PASS \$DB_NAME | gzip > "\$BACKUP_DIR/db_\$DATE.sql.gz"
 
 # Backup images folder
-tar -czf "$BACKUP_DIR/images_$DATE.tar.gz" -C "$PROJECT_DIR" images/
+tar -czf "\$BACKUP_DIR/images_\$DATE.tar.gz" -C "\$PROJECT_DIR" images/
 
 # Keep only last 7 days of backups
-find "$BACKUP_DIR" -type f -mtime +7 -delete
+find "\$BACKUP_DIR" -type f -mtime +7 -delete
 
-echo "$(date): Backup completed: $DATE" >> /var/log/hms-backup.log
+echo "\$(date): Backup completed: \$DATE" >> /var/log/hms-backup.log
 EOFBACKUP
+
+    sudo_wrapper chmod +x /usr/local/bin/hms-backup.sh
+    log "✓ Backup script created and made executable"
 
     echo ""
     if prompt_yes_no "Setup automated backups and health checks (recommended)?"; then
@@ -668,31 +688,31 @@ EOFBACKUP
 
     # Create health check script
     log "Creating health check script..."
-    sudo tee /usr/local/bin/hms-health-check.sh > /dev/null << 'EOFHEALTH'
+    sudo_wrapper tee /usr/local/bin/hms-health-check.sh > /dev/null << EOFHEALTH
 #!/bin/bash
 LOG_FILE="/var/log/hms-health.log"
-PROJECT_DIR="/opt/nxt-hospital-skeleton-project"
+PROJECT_DIR="$DEPLOYMENT_DIR"
 
-cd "$PROJECT_DIR" || exit 1
+cd "\$PROJECT_DIR" || exit 1
 
 # Check container status
 EXPECTED=6
-RUNNING=$(docker compose ps --services --filter "status=running" | wc -l)
+RUNNING=\$(docker compose ps --services --filter "status=running" | wc -l)
 
-if [ "$RUNNING" -lt "$EXPECTED" ]; then
-    echo "$(date): ALERT - Only $RUNNING/$EXPECTED containers running. Restarting..." >> "$LOG_FILE"
-    docker compose up -d >> "$LOG_FILE" 2>&1
+if [ "\$RUNNING" -lt "\$EXPECTED" ]; then
+    echo "\$(date): ALERT - Only \$RUNNING/\$EXPECTED containers running. Restarting..." >> "\$LOG_FILE"
+    docker compose up -d >> "\$LOG_FILE" 2>&1
 fi
 
 # Check API health
 if ! curl -f http://localhost/api-server/health > /dev/null 2>&1; then
-    echo "$(date): ALERT - API health check failed. Restarting backend..." >> "$LOG_FILE"
-    docker compose restart hospital-apis >> "$LOG_FILE" 2>&1
+    echo "\$(date): ALERT - API health check failed. Restarting backend..." >> "\$LOG_FILE"
+    docker compose restart hospital-apis >> "\$LOG_FILE" 2>&1
 fi
 EOFHEALTH
 
-    sudo chmod +x /usr/local/bin/hms-health-check.sh
-    log "✓ Health check script created"
+    sudo_wrapper chmod +x /usr/local/bin/hms-health-check.sh
+    log "✓ Health check script created and made executable"
 
     log "✓ Production hardening completed"
 }
@@ -707,7 +727,7 @@ setup_ssl() {
     # Install certbot if not present
     if ! command -v certbot &> /dev/null; then
         log "Installing certbot..."
-        sudo apt install -y certbot >> "$LOG_FILE" 2>&1
+        sudo_wrapper apt install -y certbot >> "$LOG_FILE" 2>&1
     fi
 
     echo ""
@@ -725,7 +745,7 @@ setup_ssl() {
 
     # Generate certificate
     log "Requesting SSL certificate from Let's Encrypt..."
-    sudo certbot certonly --standalone -d "$SSL_DOMAIN" --non-interactive --agree-tos --email "$SSL_EMAIL" >> "$LOG_FILE" 2>&1
+    sudo_wrapper certbot certonly --standalone -d "$SSL_DOMAIN" --non-interactive --agree-tos --email "$SSL_EMAIL" >> "$LOG_FILE" 2>&1
     
     if [ $? -eq 0 ]; then
         log "✓ SSL certificate generated successfully"
