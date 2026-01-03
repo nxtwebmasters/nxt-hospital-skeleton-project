@@ -77,8 +77,8 @@ services:
     # Port removed - MySQL only accessible via internal-net for security
     healthcheck:
       test: >
-        sh -c 'mysqladmin ping -h localhost -u nxt_user -pNxtWebMasters464 &&
-        mysql -u nxt_user -pNxtWebMasters464 nxt-hospital -e "SELECT 1 FROM information_schema.tables WHERE table_schema=\"nxt-hospital\" LIMIT 1" || exit 1'
+        sh -c 'mysqladmin ping -h localhost -u nxt_user -p$$MYSQL_PASSWORD &&
+        mysql -u nxt_user -p$$MYSQL_PASSWORD nxt-hospital -e "SELECT 1 FROM information_schema.tables WHERE table_schema=\"nxt-hospital\" LIMIT 1" || exit 1'
       interval: 10s
       timeout: 5s
       retries: 30

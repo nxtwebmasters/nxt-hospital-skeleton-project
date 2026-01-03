@@ -431,13 +431,11 @@ EOF
     log "✓ Environment configuration completed"
     
     # Update docker-compose.yml with passwords
-    log "Updating docker-compose.yml..."
+    log "Updating docker-compose.yml with generated passwords..."
     sed -i "s/MYSQL_ROOT_PASSWORD: \".*\"/MYSQL_ROOT_PASSWORD: \"$MYSQL_ROOT_PASSWORD\"/" docker-compose.yml
     sed -i "s/MYSQL_PASSWORD: \".*\"/MYSQL_PASSWORD: \"$MYSQL_DB_PASSWORD\"/" docker-compose.yml
     
-    # CRITICAL: Update hardcoded passwords in healthcheck commands
-    sed -i "s/-pNxtWebMasters464/-p$MYSQL_DB_PASSWORD/g" docker-compose.yml
-    log "✓ Updated MySQL passwords in environment AND healthcheck"
+    log "✓ Docker Compose configuration updated with secure passwords"
     
     # Save credentials to a secure file
     CREDS_FILE="$HOME/.hms_credentials_$(date +%Y%m%d).txt"
