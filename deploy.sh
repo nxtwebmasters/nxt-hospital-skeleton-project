@@ -450,17 +450,57 @@ EOF
     echo ""
     read -p "Press Enter to continue with deployment..."
 }
+
+################################################################################
+# Phase 5: Deployment
+################################################################################
+
+deploy_application() {
+    log "=========================================="
+    log "Phase 5: Application Deployment"
+    log "=========================================="
+
+    echo ""
+    log "Pulling Docker images (this may take 5-10 minutes)..."
+    echo "Please wait..."
     
     if $DOCKER_COMPOSE_CMD pull >> "$LOG_FILE" 2>&1; then
         log "✓ Docker images pulled successfully"
     else
-        log_error "Failed to pull Docker images. Check your internet connection."
-        exit 1
+        log_warning "Failed to pull some images. Checking if images exist locally..."
+        
+        # Show actual error from log
+        echo ""
+        echo "Last 20 lines from log:"
+        tail -20 "$LOG_FILE"
+        echo ""
+        
+        # Check if critical images exist locally
+        MISSING_IMAGES=0
+        for img in "nginx:1.25" "mysql:latest" "redis:7.2"; do
+            if ! docker images | grep -q "$(echo $img | cut -d: -f1)"; then
+                log_error "Critical image missing: $img"
+                MISSING_IMAGES=1
+            fi
+        done
+        
+        if [ $MISSING_IMAGES -eq 1 ]; then
+            log_error "Some critical images are missing. Cannot continue."
+            exit 1
+        fi
+        
+        log "✓ Required images found locally, continuing deployment..."
     fi
 
     echo ""
     log "Starting Docker containers..."
-    $DOCKER_COMPOSE_CMD up -d >> "$LOG_FILE" 2>&1
+    if $DOCKER_COMPOSE_CMD up -d >> "$LOG_FILE" 2>&1; then
+        log "✓ Docker containers started"
+    else
+        log_error "Failed to start containers. Check log: $LOG_FILE"
+        tail -30 "$LOG_FILE"
+        exit 1
+    fi
     
     echo ""
     log "Waiting for services to initialize..."
