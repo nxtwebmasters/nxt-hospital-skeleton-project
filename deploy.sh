@@ -752,40 +752,165 @@ EOFHEALTH
 ################################################################################
 
 setup_ssl() {
-    log "Setting up SSL certificate..."
-
-    # Install certbot if not present
-    if ! command -v certbot &> /dev/null; then
-        log "Installing certbot..."
-        sudo_wrapper apt install -y certbot >> "$LOG_FILE" 2>&1
-    fi
+    log "Setting up SSL certificate for Multi-Tenant System..."
 
     echo ""
-    log_info "Enter your domain name for SSL certificate:"
-    read -p "Domain (e.g., hms.yourhospital.com): " SSL_DOMAIN
+    log_info "For multi-tenant HMS, you need a WILDCARD SSL certificate"
+    log_info "This requires DNS validation (not HTTP validation)"
+    echo ""
+    
+    read -p "Enter your BASE domain (e.g., hms.yourdomain.com): " SSL_DOMAIN
 
     if [ -z "$SSL_DOMAIN" ]; then
         log_warning "No domain provided. Skipping SSL setup."
         return
     fi
 
-    # Stop nginx temporarily for certbot standalone
-    log "Stopping nginx temporarily for certificate generation..."
-    $DOCKER_COMPOSE_CMD stop nginx
-
-    # Generate certificate
-    log "Requesting SSL certificate from Let's Encrypt..."
-    sudo_wrapper certbot certonly --standalone -d "$SSL_DOMAIN" --non-interactive --agree-tos --email "$SSL_EMAIL" >> "$LOG_FILE" 2>&1
+    echo ""
+    log_info "Wildcard certificate will cover: $SSL_DOMAIN AND *.$SSL_DOMAIN"
+    echo ""
     
-    if [ $? -eq 0 ]; then
-        log "✓ SSL certificate generated successfully"
-        log_info "Certificate stored in: /etc/letsencrypt/live/$SSL_DOMAIN/"
-    else
-        log_warning "SSL certificate generation failed. Check log file."
-    fi
+    # Ask for DNS provider
+    echo "Select your DNS provider:"
+    echo "  1) Cloudflare (recommended)"
+    echo "  2) Manual DNS (you'll add TXT records manually)"
+    echo "  3) Skip wildcard - single domain only"
+    read -p "Choice (1-3): " DNS_CHOICE
 
-    # Start nginx again
-    $DOCKER_COMPOSE_CMD start nginx
+    case $DNS_CHOICE in
+        1)
+            # Cloudflare DNS challenge
+            log "Setting up Cloudflare DNS challenge..."
+            
+            # Install certbot cloudflare plugin
+            if ! dpkg -l | grep -q python3-certbot-dns-cloudflare; then
+                log "Installing Cloudflare DNS plugin..."
+                sudo_wrapper apt install -y python3-certbot-dns-cloudflare >> "$LOG_FILE" 2>&1
+            fi
+            
+            echo ""
+            log_info "You need Cloudflare API Token with Zone:DNS:Edit permissions"
+            log_info "Get it from: https://dash.cloudflare.com/profile/api-tokens"
+            echo ""
+            read -p "Enter Cloudflare API Token: " CF_TOKEN
+            
+            if [ -z "$CF_TOKEN" ]; then
+                log_error "API Token required for Cloudflare DNS challenge"
+                return
+            fi
+            
+            # Create credentials file
+            sudo_wrapper mkdir -p /root/.secrets
+            sudo_wrapper tee /root/.secrets/cloudflare.ini > /dev/null << EOF
+dns_cloudflare_api_token = $CF_TOKEN
+EOF
+            sudo_wrapper chmod 600 /root/.secrets/cloudflare.ini
+            
+            # Request wildcard certificate
+            log "Requesting wildcard SSL certificate from Let's Encrypt..."
+            log "This may take 1-2 minutes for DNS propagation..."
+            
+            sudo_wrapper certbot certonly \
+                --dns-cloudflare \
+                --dns-cloudflare-credentials /root/.secrets/cloudflare.ini \
+                -d "$SSL_DOMAIN" \
+                -d "*.$SSL_DOMAIN" \
+                --non-interactive \
+                --agree-tos \
+                --email "$SSL_EMAIL" >> "$LOG_FILE" 2>&1
+            
+            if [ $? -eq 0 ]; then
+                log "✓ Wildcard SSL certificate generated successfully"
+                log_info "Certificate covers: $SSL_DOMAIN and *.$SSL_DOMAIN"
+                log_info "Stored in: /etc/letsencrypt/live/$SSL_DOMAIN/"
+            else
+                log_error "Certificate generation failed. Check log: $LOG_FILE"
+                tail -20 "$LOG_FILE"
+            fi
+            ;;
+            
+        2)
+            # Manual DNS challenge
+            log "Starting manual DNS challenge..."
+            
+            # Install certbot if not present
+            if ! command -v certbot &> /dev/null; then
+                log "Installing certbot..."
+                sudo_wrapper apt install -y certbot >> "$LOG_FILE" 2>&1
+            fi
+            
+            log_info "Starting certificate request. You'll need to add TXT records to your DNS."
+            echo ""
+            
+            sudo_wrapper certbot certonly \
+                --manual \
+                --preferred-challenges dns \
+                -d "$SSL_DOMAIN" \
+                -d "*.$SSL_DOMAIN" \
+                --agree-tos \
+                --email "$SSL_EMAIL"
+            
+            if [ $? -eq 0 ]; then
+                log "✓ Wildcard SSL certificate generated successfully"
+            else
+                log_warning "Certificate generation failed or was cancelled"
+            fi
+            ;;
+            
+        3)
+            # Single domain standalone
+            log "Setting up single-domain SSL (non-wildcard)..."
+            
+            if ! command -v certbot &> /dev/null; then
+                log "Installing certbot..."
+                sudo_wrapper apt install -y certbot >> "$LOG_FILE" 2>&1
+            fi
+            
+            # Stop nginx for standalone challenge
+            log "Stopping nginx temporarily..."
+            $DOCKER_COMPOSE_CMD stop nginx
+            
+            sudo_wrapper certbot certonly \
+                --standalone \
+                -d "$SSL_DOMAIN" \
+                --non-interactive \
+                --agree-tos \
+                --email "$SSL_EMAIL" >> "$LOG_FILE" 2>&1
+            
+            if [ $? -eq 0 ]; then
+                log "✓ SSL certificate generated for $SSL_DOMAIN"
+                log_warning "Note: This does NOT cover subdomains (*.domain)"
+            fi
+            
+            # Start nginx again
+            $DOCKER_COMPOSE_CMD start nginx
+            ;;
+            
+        *)
+            log_warning "Invalid choice. Skipping SSL setup."
+            return
+            ;;
+    esac
+    
+    echo ""
+    log_info "Next steps to enable HTTPS:"
+    log_info "1. Update nginx/conf.d/reverse-proxy-http.conf to use SSL"
+    log_info "2. Add SSL certificate paths to nginx config"
+    log_info "3. Restart nginx: docker compose restart nginx"
+    echo ""
+    
+    # Setup auto-renewal for Let's Encrypt
+    if [ $? -eq 0 ]; then
+        log "Setting up SSL certificate auto-renewal..."
+        
+        # Add certbot renewal to crontab (runs twice daily)
+        (crontab -l 2>/dev/null | grep -v "certbot renew"; \
+         echo "0 0,12 * * * certbot renew --quiet --post-hook 'docker compose -f $DEPLOYMENT_DIR/docker-compose.yml restart nginx' >> /var/log/certbot-renewal.log 2>&1") | crontab -
+        
+        log "✓ SSL auto-renewal configured (checks twice daily)"
+        log_info "Renewal logs: /var/log/certbot-renewal.log"
+    fi
+    
     log "✓ SSL setup completed"
 }
 
@@ -820,6 +945,30 @@ deployment_summary() {
     echo "  📝 Deployment Log:     $LOG_FILE"
     echo ""
     echo "┌──────────────────────────────────────────────────────────┐"
+    echo "│  🏢 MULTI-TENANT ARCHITECTURE                            │"
+    echo "└──────────────────────────────────────────────────────────┘"
+    echo ""
+    echo "  This deployment supports UNLIMITED hospital tenants:"
+    echo ""
+    echo "  🌐 DNS Setup:"
+    echo "     • Main domain:    $DOMAIN_OR_IP"
+    echo "     • Wildcard:       *.$DOMAIN_OR_IP (all subdomains)"
+    echo ""
+    echo "  🏥 Tenant Access Pattern:"
+    echo "     • hospital-a.$DOMAIN_OR_IP → Tenant A"
+    echo "     • hospital-b.$DOMAIN_OR_IP → Tenant B"
+    echo "     • clinic-xyz.$DOMAIN_OR_IP → Tenant XYZ"
+    echo ""
+    echo "  📂 File Storage:"
+    echo "     • Tenant-isolated: $DEPLOYMENT_DIR/images/<tenant_id>/"
+    echo "     • Auto-served via: http://$DOMAIN_OR_IP/images/<tenant_id>/"
+    echo ""
+    echo "  🔒 Security:"
+    echo "     • JWT-based authentication"
+    echo "     • Tenant ID in every DB query"
+    echo "     • Isolated file storage per tenant"
+    echo ""
+    echo "┌──────────────────────────────────────────────────────────┐"
     echo "│  🔧 USEFUL COMMANDS                                      │"
     echo "└──────────────────────────────────────────────────────────┘"
     echo ""
@@ -833,18 +982,22 @@ deployment_summary() {
     echo "│  📚 NEXT STEPS                                           │"
     echo "└──────────────────────────────────────────────────────────┘"
     echo ""
-    echo "  1. Open browser and access: http://$DOMAIN_OR_IP/"
-    echo "  2. Create your first admin user"
-    echo "  3. Add your first tenant (see docs/TENANT_ONBOARDING.md)"
-    echo "  4. Configure integrations if needed (FBR, WhatsApp, etc.)"
+    echo "  1. Open browser: http://$DOMAIN_OR_IP/"
+    echo "  2. Create first admin user in default tenant"
+    echo "  3. Add hospitals: See docs/TENANT_ONBOARDING.md"
+    echo "  4. Configure DNS: See docs/MULTI_TENANT_DNS_SETUP.md"
+    echo "  5. Enable HTTPS: Update nginx config with SSL certificates"
+    echo "  6. Test tenant: http://hospital-name.$DOMAIN_OR_IP/"
     echo ""
     echo "┌──────────────────────────────────────────────────────────┐"
     echo "│  📖 DOCUMENTATION                                        │"
     echo "└──────────────────────────────────────────────────────────┘"
     echo ""
-    echo "  • docs/PRODUCTION_DEPLOYMENT.md  - Production guide"
-    echo "  • docs/TENANT_ONBOARDING.md      - Add new hospitals"
-    echo "  • README.md                      - Architecture overview"
+    echo "  • docs/PRODUCTION_DEPLOYMENT.md     - Production setup guide"
+    echo "  • docs/TENANT_ONBOARDING.md         - Add new hospitals (SQL)"
+    echo "  • docs/MULTI_TENANT_DNS_SETUP.md    - Wildcard DNS config"
+    echo "  • README.md                         - Architecture overview"
+    echo "  • .github/copilot-instructions.md   - Developer guide"
     echo ""
     echo "══════════════════════════════════════════════════════════════"
     echo ""
