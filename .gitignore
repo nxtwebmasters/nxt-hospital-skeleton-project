@@ -131,3 +131,10 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Tenant images - exclude uploaded files but track folder structure
+# Backend auto-creates tenant folders on first upload
+images/**/*
+!images/.gitkeep
+!images/system_default_tenant/
+images/system_default_tenant/**/*

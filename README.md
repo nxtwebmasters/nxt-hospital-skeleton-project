@@ -59,7 +59,7 @@ This is a critical part of the HMS pitch: secure storage of patient files (image
 
 How it works
 - Upload flow: backend routes use `tenantMiddleware` to set `req.tenant_id`; file uploads are handled by `multer` (see `hms-backend/examples/tenant-aware-upload-example.js`).
-- Storage layout (host): `/opt/nxt-hms/images/<tenant_id>/<category>/<file>` — this maps 1:1 to S3/MinIO keys if migrating later.
+-- Storage layout (host): `./images/<tenant_id>/<category>/<file>` (repo-relative bind mount) — this maps 1:1 to S3/MinIO keys if migrating later.
 - Public URLs: served by `nginx` as `/images/<tenant_id>/...` with caching headers. Backend generates signed/validated URLs by verifying tenant ownership before returning paths.
 
 Security rules (enforced)
