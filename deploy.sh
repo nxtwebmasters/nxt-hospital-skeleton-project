@@ -521,24 +521,7 @@ deploy_application() {
     echo "Container Status:"
     echo "─────────────────────────────────────────"
     $DOCKER_COMPOSE_CMD ps
-    echo "─────────────────────────────────────────
-    # Pull Docker images
-    log "Pulling Docker images (this may take several minutes)..."
-    $DOCKER_COMPOSE_CMD pull >> "$LOG_FILE" 2>&1
-    log "✓ Docker images pulled successfully"
-
-    # Start the stack
-    log "Starting Docker stack..."
-    $DOCKER_COMPOSE_CMD up -d >> "$LOG_FILE" 2>&1
-    
-    log "Waiting for services to initialize (60 seconds)..."
-    sleep 60
-
-    # Check container status
-    log "Checking container status..."
-    $DOCKER_COMPOSE_CMD ps
-
-    log "✓ Application deployment completed"
+    echo "─────────────────────────────────────────"
 }
 
 ################################################################################
