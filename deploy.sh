@@ -210,46 +210,6 @@ configure_environment() {
     log "Phase 4: Environment Configuration"
     log "=========================================="
 
-    cd "$DEPLOYMENT_DIR"
-
-    # Backup original env file
-    if [ -f "hms-backend.env" ]; then
-        cp hms-backend.env "hms-backend.env.backup.$(date +%Y%m%d_%H%M%S)"
-        log "✓ Backed up original environment file"
-    fi
-
-    echo ""
-    log_info "=== Production Configuration ==="
-    echo ""
-
-    # Generate secure passwords
-    log "Generating secure passwords..."
-    MYSQL_ROOT_PASSWORD=$(generate_password)
-    MYSQL_DB_PASSWORD=$(generate_password)
-    JWT_SECRET=$(generate_jwt_secret)
-    
-    echo ""
-    log_info "Generated Credentials (SAVE THESE SECURELY):"
-    echo "=============================================="
-    echo "MySQL Root Password: $MYSQL_ROOT_PASSWORD"
-    echo "MySQL DB Password:   $MYSQL_DB_PASSWORD"
-    echo "JWT Secret:          $JWT_SECRET"
-    echo "=============================================="
-    echo ""
-    
-    read -p "Press Enter to continue after saving these credentials..."
-
-    # Get domain/IP configuration
-    echo ""
-    log_info "Enter your domain name or VM IP address:"
-    read -p "Domain/IP [$(curl -s -4 ifconfig.me)]: " DOMAIN_OR_IP
-    DOMAIN_OR_IP=${DOMAIN_OR_IP:-$(curl -s -4 ifconfig.me)}
-
-    # Get email configuration
-    echo ""
-    log_info "Email Configuration (for notifications):"
-    read -p "SMTP Email: " SMTP_EMAIL
-    read -p "SMTP Password/App Key: " -s SMTP_PASSWORD
     # Backup original env file
     if [ -f "hms-backend.env" ]; then
         cp hms-backend.env "hms-backend.env.backup.$(date +%Y%m%d_%H%M%S)"
@@ -320,21 +280,21 @@ configure_environment() {
     MYSQL_DB_PASSWORD=$(generate_password)
     JWT_SECRET=$(generate_jwt_secret)
     
-    echo ""$ENABLE_WHATSAPP
-MSGPK_WHATSAPP_API_URL=https://msgpk.com/api/send.php
-MSGPK_WHATSAPP_API_KEY=$WHATSAPP_API_KEY
-MSGPK_WHATSAPP_GROUP_API_URL=https://msgpk.com/apps/check_group.php
-MSGPK_WHATSAPP_CHECK_API_URL=https://msgpk.com/api/whatsapp_numbers.php
-WHATSAPP_MAX_RETRIES=3
-WHATSAPP_RETRY_DELAY_MS=1000
-WHATSAPP_RATE_LIMIT_DELAY_MS=100
-WHATSAPP_IMAGE_URL=
-
-# Reception Share Configuration
-RECEPTION_SHARE={"ENABLED":true,"PERCENTAGE":1.25}
-
-# OpenAI Configuration
-OPENAI_API_KEY=$OPENAI_API_KEYWHATSAPP="true"
+    echo ""
+    echo "✓ Generated secure credentials:"
+    echo "  - MySQL Root Password: ${MYSQL_ROOT_PASSWORD:0:8}..."
+    echo "  - MySQL DB Password:   ${MYSQL_DB_PASSWORD:0:8}..."
+    echo "  - JWT Secret:          ${JWT_SECRET:0:16}..."
+    echo ""
+    
+    # Optional integrations
+    echo "─────────────────────────────────────────"
+    echo "4. Optional Integrations (can configure later)"
+    echo "─────────────────────────────────────────"
+    
+    if prompt_yes_no "Enable WhatsApp integration now?"; then
+        read -p "WhatsApp API Key: " WHATSAPP_API_KEY
+        ENABLE_WHATSAPP="true"
     else
         WHATSAPP_API_KEY=""
         ENABLE_WHATSAPP="false"
@@ -347,6 +307,46 @@ OPENAI_API_KEY=$OPENAI_API_KEYWHATSAPP="true"
     fi
     
     echo ""
+
+    # Update hms-backend.env
+    log "Updating hms-backend.env..."
+    
+    cat > hms-backend.env << EOF
+# Server Configuration
+PORT=80
+LOG_LEVEL=info
+
+# Database Configuration (MySQL)
+DB_HOST=mysql
+SOURCE_DB_NAME=nxt-hospital
+DB_USERNAME=nxt_user
+DB_PASSWORD=$MYSQL_DB_PASSWORD
+DB_CONNECTION_LIMIT=10
+DB_MULTIPLE_STATEMENTS=true
+
+# FBR Integration Configuration
+FBR_INTEGRATION_ENABLED=false
+FBR_API_URL_PRODUCTION=https://api.fbr.gov.pk/v1/pos/invoice
+FBR_API_URL_SANDBOX=https://api.fbr.gov.pk/v1/pos/sandbox/invoice
+FBR_TIMEOUT_MS=30000
+FBR_RETRY_ATTEMPTS=3
+
+# Email Configuration
+EMAIL_USER=$SMTP_EMAIL
+EMAIL_PASSWORD=$SMTP_PASSWORD
+EMAIL_IMAGE_PATH=https://$DOMAIN_OR_IP/images/logo.png
+EMAIL_RECIPIENTS=[$ADMIN_EMAILS]
+
+# JWT Configuration
+JWT_SECRET=$JWT_SECRET
+
+# File Storage Configuration
+IMAGE_STORAGE_PATH=/usr/share/nginx/html/images
+FILE_SERVER_URL=/images
+
+# Webhook Configuration
+WEBHOOK_URL=
+
 # URL Configuration
 CUSTOMER_PORTAL_URL=/assets/print
 BACKEND_URL=/api-server
@@ -363,7 +363,60 @@ LEAVEBALANCE={"sick":8,"earn":16,"annual":5,"compensation":0}
 
 # Redis Configuration
 REDIS_HOST=redis
-REDIS_PORT=Environment configuration completed"
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_MAX_RETRIES=3
+REDIS_CONNECT_TIMEOUT=10000
+REDIS_COMMAND_TIMEOUT=10000
+
+# URL Configuration
+URL_EXPIRATION_MS=900000
+DEFAULT_PRINT_LAYOUT=a4
+PATIENT_DEFAULT_PASSWORD=NxtHospital123
+
+# WhatsApp Configuration
+ENABLE_WHATSAPP=$ENABLE_WHATSAPP
+MSGPK_WHATSAPP_API_URL=https://msgpk.com/api/send.php
+MSGPK_WHATSAPP_API_KEY=$WHATSAPP_API_KEY
+MSGPK_WHATSAPP_GROUP_API_URL=https://msgpk.com/apps/check_group.php
+MSGPK_WHATSAPP_CHECK_API_URL=https://msgpk.com/api/whatsapp_numbers.php
+WHATSAPP_MAX_RETRIES=3
+WHATSAPP_RETRY_DELAY_MS=1000
+WHATSAPP_RATE_LIMIT_DELAY_MS=100
+WHATSAPP_IMAGE_URL=
+
+# Reception Share Configuration
+RECEPTION_SHARE={"ENABLED":true,"PERCENTAGE":1.25}
+
+# OpenAI Configuration
+OPENAI_API_KEY=$OPENAI_API_KEY
+OPENAI_MODEL=gpt-4-turbo
+MAX_TOKENS=2500
+TEMPERATURE=0.5
+TOP_P=1.0
+
+# Segment Configuration
+ENABLE_SEGMENT_FALLBACK=true
+DEFAULT_TIMEZONE=Asia/Karachi
+
+# User Configuration
+RETURN_TEMP_PASSWORD=true
+
+# Scheduler Configuration
+SCHED_DISABLE=false
+SCHED_OPD_DAILY_CRON="0 6 * * *"
+SCHED_OPD_WEEKLY_CRON="0 7 * * 1"
+SCHED_OPD_BIMONTHLY_CRON="0 7 1,16 * *"
+SCHED_OPD_MONTHLY_CRON="0 8 1 * *"
+SCHED_DB_BACKUP_CRON="0 2 * * 0"
+EOF
+
+    log "✓ Environment configuration completed"
+    
+    # Update docker-compose.yml with passwords
+    log "Updating docker-compose.yml..."
+    sed -i "s/MYSQL_ROOT_PASSWORD: \".*\"/MYSQL_ROOT_PASSWORD: \"$MYSQL_ROOT_PASSWORD\"/" docker-compose.yml
+    sed -i "s/MYSQL_PASSWORD: \".*\"/MYSQL_PASSWORD: \"$MYSQL_DB_PASSWORD\"/" docker-compose.yml
     
     # Save credentials to a secure file
     CREDS_FILE="$HOME/.hms_credentials_$(date +%Y%m%d).txt"
@@ -395,59 +448,8 @@ EOF
     echo ""
     log "✓ Credentials saved to: $CREDS_FILE"
     echo ""
-    read -p "Press Enter to continue with deployment...
-MSGPK_WHATSAPP_CHECK_API_URL=https://msgpk.com/api/whatsapp_numbers.php
-WHATSAPP_MAX_RETRIES=3
-WHATSAPP_RETRY_DELAY_MS=1000
-WHATSAPP_RATE_LIMIT_DELAY_MS=100
-WHATSAPP_IMAGE_URL=
-
-# Reception Share Configuration
-RECEPTION_SHARE={"ENABLED":true,"PERCENTAGE":1.25}
-
-# OpenAI Configuration
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4-turbo
-MAX_TOKENS=2500
-TEMPERATURE=0.5
-TOP_P=1.0
-
-# Segment Configuration
-ENABLE_SEGMENT_FALLBACK=true
-DEFAULT_TIMEZONE=Asia/Karachi
-
-# User Configuration
-RETURN_TEMP_PASSWORD=true
-
-# Scheduler Configuration
-SCHED_DISABLE=false
-SCHED_OPD_DAILY_CRON="0 6 * * *"
-SCHED_OPD_WEEKLY_CRON="0 7 * * 1"
-SCHED_OPD_BIMONTHLY_CRON="0 7 1,16 * *"
-SCHED_OPD_MONTHLY_CRON="0 8 1 * *"
-SCHED_DB_BACKUP_CRON="0 2 * * 0"
-EOF
-
-    log "✓ Environment file configured"
-
-    # Update docker-compose.yml with passwords
-    log "Updating docker-compose.yml..."
-    sed -i "s/MYSQL_ROOT_PASSWORD: \".*\"/MYSQL_ROOT_PASSWORD: \"$MYSQL_ROOT_PASSWORD\"/" docker-compose.yml
-    sed -i "s/MYSQL_PASSWORD: \".*\"/MYSQL_PASSWORD: \"$MYSQL_DB_PASSWORD\"/" docker-compose.yml
-
-    log "✓ Configuration completed"
-    
-    # Save credentials to a secure file
-    cat > "$HOME/.hms_credentials_$(date +%Y%m%d).txt" << EOF
-HMS Production Credentials - $(date)
-========================================
-MySQL Root Password: $MYSQL_ROOT_PASSWORD
-MySQL DB Password:   $MYSQL_DB_PASSWORD
-JWT Secret:          $JWT_SECRET
-Domain/IP:           $DOMAIN_OR_IP
-SMTPecho ""
-    log "Pulling Docker images (this may take 5-10 minutes)..."
-    echo "Please wait..."
+    read -p "Press Enter to continue with deployment..."
+}
     
     if $DOCKER_COMPOSE_CMD pull >> "$LOG_FILE" 2>&1; then
         log "✓ Docker images pulled successfully"
