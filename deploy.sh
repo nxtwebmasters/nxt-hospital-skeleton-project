@@ -663,7 +663,23 @@ EOFBACKUP
             log_info "You can configure SSL later with: sudo certbot certonly --standalone -d yourdomain.com"
         fi
     else
-        log_info "Skipping SSL setup (using IP address instead of domain)
+        log_info "Skipping SSL setup (using IP address instead of domain)"
+    fi
+
+    # Create health check script
+    log "Creating health check script..."
+    sudo tee /usr/local/bin/hms-health-check.sh > /dev/null << 'EOFHEALTH'
+#!/bin/bash
+LOG_FILE="/var/log/hms-health.log"
+PROJECT_DIR="/opt/nxt-hospital-skeleton-project"
+
+cd "$PROJECT_DIR" || exit 1
+
+# Check container status
+EXPECTED=6
+RUNNING=$(docker compose ps --services --filter "status=running" | wc -l)
+
+if [ "$RUNNING" -lt "$EXPECTED" ]; then
     echo "$(date): ALERT - Only $RUNNING/$EXPECTED containers running. Restarting..." >> "$LOG_FILE"
     docker compose up -d >> "$LOG_FILE" 2>&1
 fi
@@ -676,28 +692,7 @@ fi
 EOFHEALTH
 
     sudo chmod +x /usr/local/bin/hms-health-check.sh
-    log "✓ Health check script created at /usr/local/bin/hms-health-check.sh"
-
-    # Setup cron jobs
-    if prompt_yes_no "Setup automated backups and health checks (cron jobs)?"; then
-        log "Configuring cron jobs..."
-        
-        # Add cron jobs (avoid duplicates)
-        (crontab -l 2>/dev/null | grep -v "hms-backup.sh" | grep -v "hms-health-check.sh"; \
-         echo "0 3 * * * /usr/local/bin/hms-backup.sh >> /var/log/hms-backup.log 2>&1"; \
-         echo "*/5 * * * * /usr/local/bin/hms-health-check.sh") | crontab -
-        
-        log "✓ Cron jobs configured:"
-        log "  - Daily backups at 3 AM"
-        log "  - Health checks every 5 minutes"
-    fi
-
-    # SSL Setup
-    if prompt_yes_no "Setup HTTPS with Let's Encrypt SSL certificate?"; then
-        setup_ssl
-    else
-        log_info "Skipping SSL setup. You can run 'sudo certbot certonly --standalone -d yourdomain.com' later"
-    fi
+    log "✓ Health check script created"
 
     log "✓ Production hardening completed"
 }
