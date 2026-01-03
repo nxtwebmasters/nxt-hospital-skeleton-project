@@ -722,7 +722,29 @@ setup_ssl() {
     # Stop nginx temporarily for certbot standalone
     log "Stopping nginx temporarily for certificate generation..."
     $DOCKER_COMPOSE_CMD stop nginx
-clear
+
+    # Generate certificate
+    log "Requesting SSL certificate from Let's Encrypt..."
+    sudo certbot certonly --standalone -d "$SSL_DOMAIN" --non-interactive --agree-tos --email "$SSL_EMAIL" >> "$LOG_FILE" 2>&1
+    
+    if [ $? -eq 0 ]; then
+        log "✓ SSL certificate generated successfully"
+        log_info "Certificate stored in: /etc/letsencrypt/live/$SSL_DOMAIN/"
+    else
+        log_warning "SSL certificate generation failed. Check log file."
+    fi
+
+    # Start nginx again
+    $DOCKER_COMPOSE_CMD start nginx
+    log "✓ SSL setup completed"
+}
+
+################################################################################
+# Deployment Summary
+################################################################################
+
+deployment_summary() {
+    clear
     
     echo ""
     echo "╔══════════════════════════════════════════════════════════╗"
@@ -779,24 +801,14 @@ clear
     
     log "Deployment completed successfully at $(date)"
     log "Log file: $LOG_FILE"
-    
-    echo ""
-    echo "⚠️  Remember to:"
-    echo "   • Save your credentials from: $HOME/.hms_credentials_*.txt"
-    echo "   • Delete the credentials file after saving"
-    echo "   • Change default passwords on first login"
-    echo "
-    echo "  HMS DEPLOYMENT COMPLETED SUCCESSFULLY!"
-    echo "=========================================="
-    echo ""
-    echo "Access URLs:"
-    echo "  Admin Panel:    http://$DOMAIN_OR_IP/"
-    echo "  Patient Portal: http://$DOMAIN_OR_IP/portal/"
-    echo "  API Health:     http://$DOMAIN_OR_IP/api-server/health"
-    echo ""
-    echo "Container Status:"
-    $DOCKER_COMPOSE_CMD ps
-    echo ""
+}
+
+################################################################################
+# Main Function
+################################################################################
+
+main() {
+    clear
     echo ""
     echo "╔══════════════════════════════════════════════════════════╗"
     echo "║                                                          ║"
@@ -856,47 +868,12 @@ clear
     
     deployment_summary
 
-    log "✅ 
-main() {
-    clear
-    echo "=========================================="
-    echo "  NXT HMS - Production Deployment"
-    echo "  Automated Setup Script v1.0"
-    echo "=========================================="
-    echo ""
-    echo "This script will:"
-    echo "  1. Verify system requirements"
-    echo "  2. Install dependencies"
-    echo "  3. Configure firewall"
-    echo "  4. Clone/setup repository"
-    echo "  5. Configure environment"
-    echo "  6. Deploy application"
-    echo "  7. Setup backups and monitoring"
-    echo ""
-    echo "Estimated time: 10-15 minutes"
-    echo "Log file: $LOG_FILE"
-    echo ""
-
-    if ! prompt_yes_no "Ready to begin deployment?"; then
-        echo "Deployment cancelled."
-        exit 0
-    fi
-
-    echo ""
-    log "Starting deployment at $(date)"
-
-    # Execute deployment phases
-    preflight_checks
-    system_setup
-    repository_setup
-    configure_environment
-    deploy_application
-    verify_deployment
-    production_hardening
-    deployment_summary
-
-    log "Deployment script completed successfully!"
+    log "✅ All deployment phases completed successfully"
 }
+
+################################################################################
+# Script Entry Point
+################################################################################
 
 # Run main function
 main
