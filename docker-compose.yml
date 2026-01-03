@@ -18,7 +18,15 @@ services:
       ENABLE_LOGGING: false
       LOG_PUSHING_URL: "http://localhost:5000"
     networks:
-      - internal-net  
+      - internal-net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M  
 
   patient-frontend:
     image: pandanxt/customer-portal:develop-78-24a5986b
@@ -34,7 +42,15 @@ services:
       PATIENT_DEFAULT_PASSWORD: "NxtHospital123"
       DESIGN_IDENTIFIER: "nxtwebmaster"
     networks:
-      - internal-net  
+      - internal-net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M  
 
   hospital-apis:
     image: pandanxt/hms-backend-apis:develop-296-9bae757b
@@ -59,10 +75,18 @@ services:
         condition: service_healthy
     networks:
       - internal-net
-    # Add startup delay to ensure MySQL schema is fully initialized
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    # Reduced startup delay - healthcheck ensures MySQL is ready
     command: >
       sh -c "echo 'Waiting for MySQL to fully initialize schema...' &&
-             sleep 10 &&
+             sleep 2 &&
              node server.js"
 
   mysql:
@@ -79,20 +103,29 @@ services:
       test: >
         sh -c 'mysqladmin ping -h localhost -u nxt_user -p$$MYSQL_PASSWORD &&
         mysql -u nxt_user -p$$MYSQL_PASSWORD nxt-hospital -e "SELECT 1 FROM information_schema.tables WHERE table_schema=\"nxt-hospital\" LIMIT 1" || exit 1'
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 30s
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 60s
     volumes:
       - mysql-data:/var/lib/mysql
       - ./data/scripts:/docker-entrypoint-initdb.d
     networks:
       - internal-net
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
 
   redis:
     image: redis:7.2
     container_name: hospital-redis
     restart: always
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
     # Port removed - Redis only accessible via internal-net for security
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -103,6 +136,14 @@ services:
       - redis-data:/data
     networks:
       - internal-net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   nginx:
     image: nginx:1.25
@@ -118,10 +159,28 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./images:/usr/share/nginx/html/images:ro
     depends_on:
-      - hospital-apis
-      - hospital-frontend
+      hospital-apis:
+        condition: service_started
+      hospital-frontend:
+        condition: service_started
+      patient-frontend:
+        condition: service_started
     networks:
       - internal-net
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
 networks:
   internal-net:
