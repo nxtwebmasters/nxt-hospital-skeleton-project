@@ -794,6 +794,7 @@ setup_ssl() {
             
             if [ -z "$CF_TOKEN" ]; then
                 log_error "API Token required for Cloudflare DNS challenge"
+                SSL_SUCCESS=0
                 return
             fi
             
@@ -808,20 +809,21 @@ EOF
             log "Requesting wildcard SSL certificate from Let's Encrypt..."
             log "This may take 1-2 minutes for DNS propagation..."
             
-            sudo_wrapper certbot certonly \
+            SSL_SUCCESS=0
+            if sudo_wrapper certbot certonly \
                 --dns-cloudflare \
                 --dns-cloudflare-credentials /root/.secrets/cloudflare.ini \
                 -d "$SSL_DOMAIN" \
                 -d "*.$SSL_DOMAIN" \
                 --non-interactive \
                 --agree-tos \
-                --email "$SSL_EMAIL" >> "$LOG_FILE" 2>&1
-            
-            if [ $? -eq 0 ]; then
+                --email "$SSL_EMAIL" >> "$LOG_FILE" 2>&1; then
+                SSL_SUCCESS=1
                 log "✓ Wildcard SSL certificate generated successfully"
                 log_info "Certificate covers: $SSL_DOMAIN and *.$SSL_DOMAIN"
                 log_info "Stored in: /etc/letsencrypt/live/$SSL_DOMAIN/"
             else
+                SSL_SUCCESS=0
                 log_error "Certificate generation failed. Check log: $LOG_FILE"
                 tail -20 "$LOG_FILE"
             fi
@@ -829,7 +831,7 @@ EOF
             
         2)
             # Manual DNS challenge
-            log "Starting manual DNS challenge..."
+            log "Starting manual DNS challenge for wildcard certificate..."
             
             # Install certbot if not present
             if ! command -v certbot &> /dev/null; then
@@ -837,21 +839,52 @@ EOF
                 sudo_wrapper apt install -y certbot >> "$LOG_FILE" 2>&1
             fi
             
-            log_info "Starting certificate request. You'll need to add TXT records to your DNS."
+            echo ""
+            echo "═══════════════════════════════════════════════════════════════"
+            echo "  IMPORTANT: Manual DNS Challenge Instructions"
+            echo "═══════════════════════════════════════════════════════════════"
+            echo ""
+            echo "Certbot will show you TWO TXT records that you need to add to"
+            echo "your DNS provider (Hoster.pk cPanel)."
+            echo ""
+            echo "For each TXT record:"
+            echo "  1. DON'T press Enter when certbot shows the record"
+            echo "  2. Login to Hoster.pk cPanel → Zone Editor"
+            echo "  3. Add TXT record:"
+            echo "     Name:   _acme-challenge.hms"
+            echo "     Type:   TXT"
+            echo "     Record: [value shown by certbot]"
+            echo "     TTL:    300"
+            echo "  4. Verify with: dig _acme-challenge.$SSL_DOMAIN TXT +short"
+            echo "  5. Only then press Enter in certbot"
+            echo ""
+            echo "You'll need to add TWO records (same name, different values)"
+            echo ""
+            echo "═══════════════════════════════════════════════════════════════"
+            echo ""
+            read -p "Press Enter when ready to start certificate request..."
+            
+            log_info "Starting certificate request. Follow the prompts carefully."
             echo ""
             
-            sudo_wrapper certbot certonly \
+            # Run certbot in interactive mode
+            SSL_SUCCESS=0
+            if sudo_wrapper certbot certonly \
                 --manual \
                 --preferred-challenges dns \
                 -d "$SSL_DOMAIN" \
                 -d "*.$SSL_DOMAIN" \
                 --agree-tos \
-                --email "$SSL_EMAIL"
-            
-            if [ $? -eq 0 ]; then
+                --email "$SSL_EMAIL"; then
+                SSL_SUCCESS=1
                 log "✓ Wildcard SSL certificate generated successfully"
+                log_info "Certificate covers: $SSL_DOMAIN and *.$SSL_DOMAIN"
+                log_info "Stored in: /etc/letsencrypt/live/$SSL_DOMAIN/"
             else
-                log_warning "Certificate generation failed or was cancelled"
+                SSL_SUCCESS=0
+                log_error "Certificate generation failed or was cancelled"
+                log_warning "You can run SSL setup manually later with:"
+                log_warning "  certbot certonly --manual --preferred-challenges dns -d $SSL_DOMAIN -d *.$SSL_DOMAIN"
             fi
             ;;
             
@@ -868,16 +901,19 @@ EOF
             log "Stopping nginx temporarily..."
             $DOCKER_COMPOSE_CMD stop nginx
             
-            sudo_wrapper certbot certonly \
+            SSL_SUCCESS=0
+            if sudo_wrapper certbot certonly \
                 --standalone \
                 -d "$SSL_DOMAIN" \
                 --non-interactive \
                 --agree-tos \
-                --email "$SSL_EMAIL" >> "$LOG_FILE" 2>&1
-            
-            if [ $? -eq 0 ]; then
+                --email "$SSL_EMAIL" >> "$LOG_FILE" 2>&1; then
+                SSL_SUCCESS=1
                 log "✓ SSL certificate generated for $SSL_DOMAIN"
                 log_warning "Note: This does NOT cover subdomains (*.domain)"
+            else
+                SSL_SUCCESS=0
+                log_error "SSL certificate generation failed"
             fi
             
             # Start nginx again
@@ -886,19 +922,25 @@ EOF
             
         *)
             log_warning "Invalid choice. Skipping SSL setup."
+            SSL_SUCCESS=0
             return
             ;;
     esac
     
-    echo ""
-    log_info "Next steps to enable HTTPS:"
-    log_info "1. Update nginx/conf.d/reverse-proxy-http.conf to use SSL"
-    log_info "2. Add SSL certificate paths to nginx config"
-    log_info "3. Restart nginx: docker compose restart nginx"
-    echo ""
-    
-    # Setup auto-renewal for Let's Encrypt
-    if [ $? -eq 0 ]; then
+    # Only show next steps and setup renewal if certificate was successful
+    if [ $SSL_SUCCESS -eq 1 ]; then
+        echo ""
+        echo "═══════════════════════════════════════════════════════════════"
+        echo "  ✅ SSL Certificate Successfully Generated!"
+        echo "═══════════════════════════════════════════════════════════════"
+        echo ""
+        log_info "Next steps to enable HTTPS:"
+        log_info "1. Create nginx HTTPS configuration file"
+        log_info "2. Update docker-compose.yml to mount SSL certificates"
+        log_info "3. Restart nginx: docker compose restart nginx"
+        echo ""
+        
+        # Setup auto-renewal for Let's Encrypt
         log "Setting up SSL certificate auto-renewal..."
         
         # Add certbot renewal to crontab (runs twice daily)
@@ -907,6 +949,26 @@ EOF
         
         log "✓ SSL auto-renewal configured (checks twice daily)"
         log_info "Renewal logs: /var/log/certbot-renewal.log"
+        
+        echo ""
+        log_info "To complete HTTPS setup after deployment, run these commands:"
+        echo ""
+        echo "  # Create HTTPS nginx config"
+        echo "  nano ~/nxt-hospital-skeleton-project/nginx/conf.d/reverse-proxy-https.conf"
+        echo ""
+        echo "  # Update docker-compose.yml"
+        echo "  # Add this line under nginx volumes:"
+        echo "  #   - /etc/letsencrypt:/etc/letsencrypt:ro"
+        echo ""
+        echo "  # Restart nginx"
+        echo "  docker compose restart nginx"
+        echo ""
+    else
+        echo ""
+        log_warning "SSL certificate was not generated. You can set it up manually later."
+        log_info "Manual setup command:"
+        log_info "  certbot certonly --manual --preferred-challenges dns -d $SSL_DOMAIN -d *.$SSL_DOMAIN"
+        echo ""
     fi
     
     log "✓ SSL setup completed"
