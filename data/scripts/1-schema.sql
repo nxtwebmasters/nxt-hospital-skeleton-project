@@ -84,7 +84,7 @@ INSERT INTO `nxt_tenant` (
 ) VALUES (
   'system_default_tenant',
   'System Default Hospital',
-  'default',
+  'hms',
   'active',
   'enterprise',
   '{"fbr":true,"campaigns":true,"ai":true,"health_authority_analytics":true}',

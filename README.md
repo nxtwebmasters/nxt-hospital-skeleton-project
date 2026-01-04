@@ -93,6 +93,8 @@ bash scripts/verify-deployment.sh
 Health endpoints:
 - API health: `http://localhost/api-server/health` (or mapped host port)
 
+**⚠️ Important**: If you encounter 404 "Hospital not found" errors after login, see [docs/TENANT_RESOLUTION_FIX.md](docs/TENANT_RESOLUTION_FIX.md) for the quick fix.
+
 ## Architecture & Integration Points
 
 - MySQL (no ORM) — direct `mysql2` queries, connection pooling in `hms-backend/config/connection.js`.

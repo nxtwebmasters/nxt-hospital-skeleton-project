@@ -277,8 +277,8 @@ WHERE table_schema = 'nxt-hospital';
 # Should return ~58-60
 
 # Check default tenant exists
-SELECT * FROM nxt_tenant WHERE tenant_subdomain = 'default';
-# Should show system_default_tenant
+SELECT * FROM nxt_tenant WHERE tenant_subdomain = 'hms';
+# Should show system_default_tenant with subdomain='hms'
 
 # Exit MySQL
 EXIT;
@@ -816,6 +816,65 @@ sudo /usr/local/bin/hms-backup.sh
 df -h
 du -sh /opt/nxt-hospital-skeleton-project/images/
 ```
+
+---
+
+## Troubleshooting: 404 Tenant Resolution Errors
+
+### Problem: After Login, All API Calls Return 404 "Hospital not found"
+
+**Symptoms:**
+- Login works successfully
+- Browser console shows multiple 404 errors
+- Error message: "Hospital not found. Please check the URL or contact support."
+- Dashboard widgets don't load
+
+**Root Cause:**
+The multi-tenant system extracts a subdomain from your domain to identify the tenant. For `hms.nxtwebmasters.com`, it extracts `'hms'` as the subdomain, but the database might have `subdomain='default'` causing a mismatch.
+
+**Quick Fix:**
+
+```bash
+# 1. Check debug endpoint
+curl https://hms.nxtwebmasters.com/api-server/tenant/debug
+
+# Should show:
+# "extractedSubdomain": "hms"
+# "tenantFound": true
+
+# 2. If tenantFound is false, fix database:
+docker exec -i hospital-mysql mysql -u nxt_user -pNxtWebMasters464 nxt-hospital <<EOF
+UPDATE nxt_tenant 
+SET tenant_subdomain = 'hms' 
+WHERE tenant_id = 'system_default_tenant';
+
+SELECT tenant_id, tenant_subdomain, tenant_status 
+FROM nxt_tenant 
+WHERE tenant_id = 'system_default_tenant';
+EOF
+
+# 3. Clear Redis cache
+docker exec -i hospital-redis redis-cli -n 2 FLUSHDB
+
+# 4. Restart backend
+docker compose restart hms-backend
+
+# 5. Verify fix
+curl https://hms.nxtwebmasters.com/api-server/tenant/debug
+# Now tenantFound should be true
+```
+
+**Environment Configuration:**
+Ensure `hms-backend.env` has:
+```bash
+BASE_SUBDOMAIN=hms
+```
+
+**Domain Structure:**
+- Base domain: `hms.nxtwebmasters.com` → subdomain: `'hms'`
+- New tenants: `hospital1-hms.nxtwebmasters.com` → subdomain: `'hospital1-hms'`
+
+For more details, see the main repository's [PRODUCTION_DEPLOYMENT_FIX.md](../../docs/PRODUCTION_DEPLOYMENT_FIX.md).
 
 ---
 
