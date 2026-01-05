@@ -435,7 +435,11 @@ EOF
     sed -i "s/MYSQL_ROOT_PASSWORD: \".*\"/MYSQL_ROOT_PASSWORD: \"$MYSQL_ROOT_PASSWORD\"/" docker-compose.yml
     sed -i "s/MYSQL_PASSWORD: \".*\"/MYSQL_PASSWORD: \"$MYSQL_DB_PASSWORD\"/" docker-compose.yml
     
-    log "✓ Docker Compose configuration updated with secure passwords"
+    # CRITICAL: Also update hms-backend.env with matching password
+    log "Updating hms-backend.env with matching database password..."
+    sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=$MYSQL_DB_PASSWORD/" hms-backend.env
+    
+    log "✓ Docker Compose and backend environment updated with secure passwords"
     
     # Save credentials to a secure file
     CREDS_FILE="$HOME/.hms_credentials_$(date +%Y%m%d).txt"
