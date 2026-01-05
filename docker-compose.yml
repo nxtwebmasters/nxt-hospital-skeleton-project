@@ -1,9 +1,7 @@
 services:
 
   hospital-frontend:
-    image: pandanxt/hospital-frontend:develop-235-0c0ff35d
-    # ports:  # Removed - access via nginx reverse proxy only
-    #   - 6001:80
+    image: pandanxt/hospital-frontend:develop-256-72560fc5
     container_name: nxt-hospital
     restart: always
     environment:
@@ -19,19 +17,9 @@ services:
       LOG_PUSHING_URL: "http://localhost:5000"
     networks:
       - internal-net
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M  
 
   patient-frontend:
-    image: pandanxt/customer-portal:develop-78-24a5986b
-    # ports:  # Removed - access via nginx reverse proxy only
-    #   - 8001:80
+    image: pandanxt/customer-portal:develop-79-d6664080
     container_name: portal-hospital
     restart: always
     environment:
@@ -43,19 +31,9 @@ services:
       DESIGN_IDENTIFIER: "nxtwebmaster"
     networks:
       - internal-net
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M  
 
   hospital-apis:
-    image: pandanxt/hms-backend-apis:develop-296-9bae757b
-    # ports:  # Removed - access via nginx reverse proxy only
-    #   - 5001:80
+    image: pandanxt/hms-backend-apis:develop-301-732ccc13
     container_name: api-hospital
     restart: always
     env_file:
@@ -63,8 +41,8 @@ services:
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:80/health" ]
       interval: 30s
-      timeout: 10s
-      retries: 3
+      timeout: 15s
+      retries: 5
       start_period: 40s
     volumes:
       - ./images:/usr/share/nginx/html/images
@@ -75,18 +53,10 @@ services:
         condition: service_healthy
     networks:
       - internal-net
-    deploy:
-      resources:
-        limits:
-          cpus: '1.5'
-          memory: 1G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-    # Reduced startup delay - healthcheck ensures MySQL is ready
+    # Add startup delay to ensure MySQL schema is fully initialized
     command: >
       sh -c "echo 'Waiting for MySQL to fully initialize schema...' &&
-             sleep 2 &&
+             sleep 10 &&
              node server.js"
 
   mysql:
@@ -98,35 +68,24 @@ services:
       MYSQL_DATABASE: "nxt-hospital"
       MYSQL_USER: "nxt_user"
       MYSQL_PASSWORD: "NxtWebMasters464"
-    # Port removed - MySQL only accessible via internal-net for security
     healthcheck:
       test: >
         sh -c 'mysqladmin ping -h localhost -u nxt_user -p$$MYSQL_PASSWORD &&
         mysql -u nxt_user -p$$MYSQL_PASSWORD nxt-hospital -e "SELECT 1 FROM information_schema.tables WHERE table_schema=\"nxt-hospital\" LIMIT 1" || exit 1'
-      interval: 5s
-      timeout: 3s
-      retries: 60
-      start_period: 60s
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     volumes:
       - mysql-data:/var/lib/mysql
       - ./data/scripts:/docker-entrypoint-initdb.d
     networks:
       - internal-net
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 2G
-        reservations:
-          cpus: '1.0'
-          memory: 1G
 
   redis:
     image: redis:7.2
     container_name: hospital-redis
     restart: always
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
-    # Port removed - Redis only accessible via internal-net for security
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -136,14 +95,6 @@ services:
       - redis-data:/data
     networks:
       - internal-net
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
 
   nginx:
     image: nginx:1.25
@@ -159,28 +110,11 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./images:/usr/share/nginx/html/images:ro
     depends_on:
-      hospital-apis:
-        condition: service_started
-      hospital-frontend:
-        condition: service_started
-      patient-frontend:
-        condition: service_started
+      - hospital-apis
+      - hospital-frontend
+      # - patient-frontend
     networks:
       - internal-net
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
 
 networks:
   internal-net:

@@ -4,6 +4,10 @@
 CREATE DATABASE IF NOT EXISTS `nxt-hospital`;
 
 USE `nxt-hospital`;
+
+-- Disable foreign key checks to allow tables to be created in any order
+SET FOREIGN_KEY_CHECKS=0;
+
 -- --------------------------------------------------------
 
 --
@@ -233,7 +237,7 @@ CREATE TABLE IF NOT EXISTS `nxt_bill` (
   `created_by` varchar(50) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `updated_by` varchar(50) DEFAULT NULL,
-  `bill_tax_details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON array of applied taxes for audit trail' CHECK (json_valid(`bill_tax_details`)),
+  `bill_tax_details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON array of applied taxes for audit trail',
   `fbr_invoice_number` varchar(255) DEFAULT NULL COMMENT 'FBR-generated unique invoice number',
   `fbr_qr_code_url` text DEFAULT NULL COMMENT 'FBR QR code URL for invoice verification',
   `fbr_sync_status` enum('pending','synced','failed','skipped','disabled') NOT NULL DEFAULT 'pending' COMMENT 'FBR synchronization status',
@@ -274,7 +278,7 @@ CREATE TABLE IF NOT EXISTS `nxt_bootstrap_status` (
   `component` varchar(50) NOT NULL,
   `status` enum('started','completed','failed') NOT NULL,
   `completed_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `metadata` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`metadata`))
+  `metadata` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -293,8 +297,8 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign` (
   `campaign_channel` enum('whatsapp','email','sms','push') DEFAULT 'whatsapp',
   `campaign_type` enum('bulk','triggered','scheduled','immediate') DEFAULT 'bulk',
   `trigger_event` varchar(100) DEFAULT NULL,
-  `trigger_conditions` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`trigger_conditions`)),
-  `message_template` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`message_template`)),
+  `trigger_conditions` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `message_template` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `priority` int(11) DEFAULT 20,
   `campaign_status` enum('draft','scheduled','processing','completed','failed','paused') DEFAULT 'draft',
   `scheduled_at` datetime NOT NULL COMMENT 'When to start sending messages',
@@ -307,7 +311,7 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign` (
   `failure_count` int(11) DEFAULT 0,
   `approved_by` varchar(100) DEFAULT NULL,
   `approved_at` datetime DEFAULT NULL,
-  `tags` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Array of tags for categorization' CHECK (json_valid(`tags`)),
+  `tags` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Array of tags for categorization',
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
@@ -345,7 +349,7 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign_queue` (
   `campaign_id` int(11) NOT NULL,
   `patient_mrid` varchar(50) NOT NULL,
   `contact_info` varchar(255) NOT NULL,
-  `message_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`message_data`)),
+  `message_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `status` enum('pending','processing','sent','failed','cancelled') DEFAULT 'pending',
   `scheduled_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `processed_at` timestamp NULL DEFAULT NULL,
@@ -367,7 +371,7 @@ CREATE TABLE IF NOT EXISTS `nxt_campaign_triggers` (
   `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `campaign_id` int(11) NOT NULL,
   `trigger_event` varchar(100) NOT NULL,
-  `trigger_conditions` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`trigger_conditions`)),
+  `trigger_conditions` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
@@ -484,8 +488,8 @@ CREATE TABLE IF NOT EXISTS `nxt_doctor` (
   `doctor_share` int(11) NOT NULL DEFAULT 0,
   `doctor_address` varchar(255) DEFAULT NULL,
   `doctor_cnic` varchar(255) DEFAULT NULL,
-  `doctor_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`doctor_degree`)),
-  `doctor_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`doctor_experience`)),
+  `doctor_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `doctor_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `doctor_photo` varchar(255) DEFAULT NULL,
   `doctor_type_alias` varchar(100) NOT NULL,
   `doctor_department_alias` varchar(100) NOT NULL,
@@ -553,8 +557,8 @@ CREATE TABLE IF NOT EXISTS `nxt_fbr_sync_log` (
   `invoice_number` varchar(255) NOT NULL COMMENT 'Internal invoice number',
   `fbr_invoice_number` varchar(255) DEFAULT NULL COMMENT 'FBR-generated invoice number',
   `sync_status` enum('pending','success','failed') NOT NULL DEFAULT 'pending',
-  `request_payload` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON payload sent to FBR' CHECK (json_valid(`request_payload`)),
-  `response_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON response from FBR' CHECK (json_valid(`response_data`)),
+  `request_payload` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON payload sent to FBR',
+  `response_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON response from FBR',
   `error_message` text DEFAULT NULL COMMENT 'Error message if sync failed',
   `sync_duration_ms` int(11) DEFAULT NULL COMMENT 'Time taken for sync in milliseconds',
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
@@ -574,14 +578,230 @@ CREATE TABLE IF NOT EXISTS `nxt_inventory` (
   `item_quantity` int(11) NOT NULL DEFAULT 0,
   `item_price_one` decimal(10,2) NOT NULL,
   `item_price_all` decimal(10,2) NOT NULL,
-  `item_supplier` varchar(255) DEFAULT NULL,
+  `supplier_id` int(11) DEFAULT NULL COMMENT 'FK to nxt_supplier',
+  `item_supplier` varchar(255) DEFAULT NULL COMMENT 'Legacy field, use supplier_id',
   `item_expiry_date` date DEFAULT NULL,
   `item_status` enum('In Stock','Out of Stock','Expired') NOT NULL DEFAULT 'In Stock',
+  `reorder_level` int(11) DEFAULT 10 COMMENT 'Low stock threshold',
+  `reorder_quantity` int(11) DEFAULT 50 COMMENT 'Standard reorder amount',
+  `unit_of_measure` varchar(20) DEFAULT 'PCS' COMMENT 'PCS, BOX, STRIP, KG, LITER, etc',
+  `storage_location` varchar(100) DEFAULT NULL COMMENT 'Rack/Shelf/Room location',
+  `last_purchase_date` date DEFAULT NULL COMMENT 'Date of last stock purchase',
+  `last_purchase_price` decimal(10,2) DEFAULT NULL COMMENT 'Unit cost of last purchase',
+  `min_stock_level` int(11) DEFAULT 5 COMMENT 'Absolute minimum stock (critical level)',
+  `max_stock_level` int(11) DEFAULT 500 COMMENT 'Maximum stock capacity',
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `updated_by` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `nxt_inventory_transactions`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_inventory_transactions` (
+  `transaction_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
+  `item_id` int(11) NOT NULL COMMENT 'FK to nxt_inventory',
+  `transaction_type` enum('PURCHASE','DISPENSE','ADJUSTMENT','RETURN','WASTAGE','TRANSFER') NOT NULL,
+  `transaction_reference` varchar(100) DEFAULT NULL COMMENT 'PO number, Bill UUID, etc',
+  `quantity_change` int(11) NOT NULL COMMENT 'Positive for IN, negative for OUT',
+  `quantity_before` int(11) NOT NULL,
+  `quantity_after` int(11) NOT NULL,
+  `unit_cost` decimal(10,2) DEFAULT NULL,
+  `total_cost` decimal(12,2) DEFAULT NULL,
+  `supplier_id` int(11) DEFAULT NULL COMMENT 'FK to nxt_supplier if applicable',
+  `batch_number` varchar(100) DEFAULT NULL,
+  `expiry_date` date DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Audit trail for all inventory stock movements with transaction history';
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `nxt_inventory_alerts`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_inventory_alerts` (
+  `alert_id` int(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
+  `item_id` int(11) NOT NULL,
+  `reorder_level` int(11) NOT NULL DEFAULT 10 COMMENT 'Minimum stock before alert',
+  `reorder_quantity` int(11) NOT NULL DEFAULT 50 COMMENT 'Suggested reorder quantity',
+  `max_stock_level` int(11) DEFAULT NULL COMMENT 'Maximum stock capacity',
+  `alert_enabled` tinyint(1) DEFAULT 1,
+  `alert_recipients` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON array of email addresses',
+  `last_alert_sent` datetime DEFAULT NULL COMMENT 'Timestamp of last alert notification',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Configuration for inventory alerts and reorder notifications';
+
+-- --------------------------------------------------------
+
+--
+-- PHASE 2: Pharmacy Management Tables
+-- Purchase Orders, Pharmacy Stock (FIFO), Dispensing
+--
+
+--
+-- Table structure for table `nxt_purchase_orders`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_purchase_orders` (
+  `po_id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
+  `po_number` varchar(50) NOT NULL COMMENT 'Human-readable PO reference (e.g., PO-2026-001)',
+  `supplier_id` int(11) NOT NULL COMMENT 'FK to nxt_supplier',
+  `po_date` date NOT NULL COMMENT 'Date PO was created',
+  `expected_delivery_date` date DEFAULT NULL COMMENT 'Expected delivery date',
+  `actual_delivery_date` date DEFAULT NULL COMMENT 'Actual delivery date (when received)',
+  `po_status` enum('DRAFT','PENDING_APPROVAL','APPROVED','RECEIVED','CANCELLED','PARTIALLY_RECEIVED') NOT NULL DEFAULT 'DRAFT',
+  `total_amount` decimal(12,2) NOT NULL DEFAULT 0.00 COMMENT 'Total PO value (sum of line items)',
+  `total_tax` decimal(10,2) DEFAULT 0.00 COMMENT 'Total tax amount if applicable',
+  `grand_total` decimal(12,2) NOT NULL DEFAULT 0.00 COMMENT 'Total amount + tax',
+  `payment_terms` varchar(255) DEFAULT NULL COMMENT 'Payment terms (e.g., Net 30, COD, etc)',
+  `shipping_address` text DEFAULT NULL COMMENT 'Delivery address',
+  `notes` text DEFAULT NULL COMMENT 'Internal notes/instructions',
+  `approved_by` varchar(100) DEFAULT NULL COMMENT 'User who approved PO',
+  `approved_at` datetime DEFAULT NULL COMMENT 'Approval timestamp',
+  `rejection_reason` text DEFAULT NULL COMMENT 'Reason if PO was rejected',
+  `received_by` varchar(100) DEFAULT NULL COMMENT 'User who received goods',
+  `received_at` datetime DEFAULT NULL COMMENT 'Timestamp when goods received',
+  `grn_number` varchar(50) DEFAULT NULL COMMENT 'Generated GRN reference (e.g., GRN-2026-001)',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  UNIQUE KEY `unique_tenant_po_number` (`tenant_id`, `po_number`),
+  INDEX `idx_tenant_id` (`tenant_id`),
+  INDEX `idx_supplier_id` (`supplier_id`),
+  INDEX `idx_po_status` (`po_status`),
+  INDEX `idx_po_date` (`po_date`),
+  INDEX `idx_grn_number` (`grn_number`),
+  FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant`(`tenant_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Purchase order workflow with approval and receiving tracking';
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `nxt_purchase_order_items`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_purchase_order_items` (
+  `po_item_id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
+  `po_id` int(11) NOT NULL COMMENT 'FK to nxt_purchase_orders',
+  `item_id` int(11) DEFAULT NULL COMMENT 'FK to nxt_inventory (optional if new item)',
+  `item_name` varchar(255) NOT NULL COMMENT 'Item name (for display/new items)',
+  `item_description` text DEFAULT NULL COMMENT 'Additional item details',
+  `quantity_ordered` int(11) NOT NULL COMMENT 'Quantity ordered',
+  `quantity_received` int(11) NOT NULL DEFAULT 0 COMMENT 'Quantity received so far',
+  `unit_price` decimal(10,2) NOT NULL COMMENT 'Price per unit',
+  `tax_percentage` decimal(5,2) DEFAULT 0.00 COMMENT 'Tax percentage if applicable',
+  `tax_amount` decimal(10,2) DEFAULT 0.00 COMMENT 'Calculated tax amount',
+  `line_total` decimal(12,2) NOT NULL COMMENT 'quantity_ordered * unit_price',
+  `line_total_with_tax` decimal(12,2) NOT NULL COMMENT 'line_total + tax_amount',
+  `unit_of_measure` varchar(20) DEFAULT 'PCS' COMMENT 'Unit (PCS, BOX, STRIP, etc)',
+  `notes` text DEFAULT NULL COMMENT 'Line item specific notes',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  INDEX `idx_tenant_id` (`tenant_id`),
+  INDEX `idx_po_id` (`po_id`),
+  INDEX `idx_item_id` (`item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Line items for purchase orders with received quantity tracking';
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `nxt_pharmacy_stock`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_pharmacy_stock` (
+  `stock_id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
+  `item_id` int(11) NOT NULL COMMENT 'FK to nxt_inventory',
+  `batch_number` varchar(100) NOT NULL COMMENT 'Manufacturer batch/lot number',
+  `expiry_date` date NOT NULL COMMENT 'Batch expiry date',
+  `quantity_received` int(11) NOT NULL COMMENT 'Original received quantity',
+  `quantity_in_stock` int(11) NOT NULL COMMENT 'Current available quantity (FIFO decremented)',
+  `unit_cost` decimal(10,2) NOT NULL COMMENT 'Purchase cost per unit (for FIFO valuation)',
+  `supplier_id` int(11) DEFAULT NULL COMMENT 'FK to nxt_supplier',
+  `po_id` int(11) DEFAULT NULL COMMENT 'FK to nxt_purchase_orders (source)',
+  `grn_number` varchar(50) DEFAULT NULL COMMENT 'Goods Receipt Note reference',
+  `received_date` date NOT NULL COMMENT 'Date goods received (FIFO sort key)',
+  `storage_location` varchar(100) DEFAULT NULL COMMENT 'Physical location',
+  `status` enum('ACTIVE','EXPIRED','DEPLETED','QUARANTINE') NOT NULL DEFAULT 'ACTIVE',
+  `notes` text DEFAULT NULL COMMENT 'Batch-specific notes',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  UNIQUE KEY `unique_tenant_item_batch` (`tenant_id`, `item_id`, `batch_number`),
+  INDEX `idx_tenant_id` (`tenant_id`),
+  INDEX `idx_item_id` (`item_id`),
+  INDEX `idx_batch_number` (`batch_number`),
+  INDEX `idx_expiry_date` (`expiry_date`),
+  INDEX `idx_received_date` (`received_date`),
+  INDEX `idx_status` (`status`),
+  INDEX `idx_fifo_query` (`item_id`, `status`, `received_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='FIFO-enabled pharmacy batch/lot tracking with quantity_in_stock for consumption';
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `nxt_pharmacy_dispensing`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_pharmacy_dispensing` (
+  `dispensing_id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
+  `dispensing_reference` varchar(50) NOT NULL COMMENT 'Unique dispensing reference (e.g., DISP-2026-001)',
+  `patient_mrid` varchar(50) NOT NULL COMMENT 'Patient MR ID',
+  `patient_name` varchar(255) NOT NULL COMMENT 'Patient name (denormalized for reports)',
+  `prescription_id` int(11) DEFAULT NULL COMMENT 'FK to prescription table (if linked)',
+  `bill_uuid` varchar(50) DEFAULT NULL COMMENT 'FK to billing (if dispensed via invoice payment)',
+  `item_id` int(11) NOT NULL COMMENT 'FK to nxt_inventory (medicine dispensed)',
+  `item_name` varchar(255) NOT NULL COMMENT 'Medicine name (denormalized)',
+  `quantity_dispensed` int(11) NOT NULL COMMENT 'Total quantity dispensed',
+  `unit_of_measure` varchar(20) DEFAULT 'PCS' COMMENT 'Unit (PCS, STRIP, BOTTLE, etc)',
+  `batch_details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON array of batches used: [{stock_id, batch_number, qty_from_batch, unit_cost}]',
+  `total_cost` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT 'FIFO calculated total cost',
+  `dispensed_by` varchar(100) NOT NULL COMMENT 'User who dispensed medicine',
+  `dispensed_at` datetime NOT NULL DEFAULT current_timestamp() COMMENT 'Dispensing timestamp',
+  `patient_signature` text DEFAULT NULL COMMENT 'Patient/representative signature (base64/path)',
+  `notes` text DEFAULT NULL COMMENT 'Dispensing notes/instructions',
+  `return_status` enum('NOT_RETURNED','PARTIALLY_RETURNED','FULLY_RETURNED') NOT NULL DEFAULT 'NOT_RETURNED',
+  `return_quantity` int(11) DEFAULT 0 COMMENT 'Quantity returned (if any)',
+  `return_date` date DEFAULT NULL COMMENT 'Date of return',
+  `return_notes` text DEFAULT NULL COMMENT 'Reason for return',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(100) NOT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  UNIQUE KEY `unique_tenant_dispensing_ref` (`tenant_id`, `dispensing_reference`),
+  INDEX `idx_tenant_id` (`tenant_id`),
+  INDEX `idx_patient_mrid` (`patient_mrid`),
+  INDEX `idx_prescription_id` (`prescription_id`),
+  INDEX `idx_bill_uuid` (`bill_uuid`),
+  INDEX `idx_item_id` (`item_id`),
+  INDEX `idx_dispensed_at` (`dispensed_at`),
+  INDEX `idx_dispensed_by` (`dispensed_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Pharmacy dispensing records with prescription link and FIFO batch consumption';
 
 -- --------------------------------------------------------
 
@@ -593,7 +813,7 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_invoice` (
   `invoice_id` int(11) NOT NULL,
   `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `invoice_uuid` varchar(50) NOT NULL,
-  `invoice_tests` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`invoice_tests`)),
+  `invoice_tests` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `patient_mrid` varchar(50) NOT NULL,
   `report_date` datetime NOT NULL,
   `reference` varchar(100) DEFAULT NULL,
@@ -671,13 +891,13 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
   `category` varchar(100) NOT NULL,
   `performed_days` varchar(50) DEFAULT NULL,
   `report_title` varchar(255) DEFAULT NULL,
-  `clinical_interpretation` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`clinical_interpretation`)),
+  `clinical_interpretation` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `status` tinyint(1) NOT NULL DEFAULT 1,
   `created_by` varchar(100) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_by` varchar(100) DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `note` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`note`))
+  `note` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -751,8 +971,8 @@ CREATE TABLE IF NOT EXISTS `nxt_patient_audit` (
   `audit_id` int(11) NOT NULL,
   `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `action` varchar(50) NOT NULL COMMENT 'Action performed (create, match, confirm, etc.)',
-  `patient_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT 'Patient data involved in the action' CHECK (json_valid(`patient_data`)),
-  `matching_criteria` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Search criteria used for matching' CHECK (json_valid(`matching_criteria`)),
+  `patient_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT 'Patient data involved in the action',
+  `matching_criteria` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Search criteria used for matching',
   `decision_made` varchar(100) DEFAULT NULL COMMENT 'Decision outcome (new_patient, reuse_mrid, user_confirmation, etc.)',
   `confidence_score` decimal(3,2) DEFAULT NULL COMMENT 'Matching confidence (0.00-1.00)',
   `user_id` int(11) DEFAULT NULL COMMENT 'User who made the decision',
@@ -995,7 +1215,7 @@ CREATE TABLE IF NOT EXISTS `nxt_slip` (
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `updated_by` varchar(100) DEFAULT NULL,
-  `slip_tax_details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON array of applied taxes for audit trail' CHECK (json_valid(`slip_tax_details`)),
+  `slip_tax_details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON array of applied taxes for audit trail',
   `fbr_invoice_number` varchar(255) DEFAULT NULL COMMENT 'FBR-generated unique invoice number',
   `fbr_qr_code_url` text DEFAULT NULL COMMENT 'FBR QR code URL for invoice verification',
   `fbr_sync_status` enum('pending','synced','failed','skipped','disabled') NOT NULL DEFAULT 'pending' COMMENT 'FBR synchronization status',
@@ -1024,7 +1244,7 @@ CREATE TABLE IF NOT EXISTS `nxt_slip_type` (
   `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `slip_type_name` varchar(100) NOT NULL,
   `slip_type_alias` varchar(100) NOT NULL,
-  `fields` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`fields`)),
+  `fields` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `isBill` tinyint(1) NOT NULL,
   `slip_type_status` int(10) NOT NULL DEFAULT 1,
   `slip_type_description` text DEFAULT NULL,
@@ -1102,7 +1322,7 @@ CREATE TABLE IF NOT EXISTS `nxt_test_component` (
   `component_id` int(10) NOT NULL,
   `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `component_title` varchar(100) DEFAULT NULL,
-  `component_ranges` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`component_ranges`)),
+  `component_ranges` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `test_code` varchar(100) NOT NULL,
   `created_by` varchar(50) NOT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
@@ -1124,7 +1344,7 @@ CREATE TABLE IF NOT EXISTS `nxt_text_message` (
   `message_text` text NOT NULL,
   `media_url` varchar(255) DEFAULT NULL COMMENT 'URL of attached image/media',
   `media_type` enum('image','video','document','none') DEFAULT 'none',
-  `variables` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Available variables in message_text' CHECK (json_valid(`variables`)),
+  `variables` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Available variables in message_text',
   `message_status` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
@@ -1151,8 +1371,8 @@ CREATE TABLE IF NOT EXISTS `nxt_user` (
   `user_photo` varchar(255) DEFAULT NULL,
   `user_address` varchar(255) DEFAULT NULL,
   `user_cnic` varchar(255) DEFAULT NULL,
-  `user_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`user_degree`)),
-  `user_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`user_experience`)),
+  `user_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `user_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `user_cnic_front` varchar(255) DEFAULT NULL,
   `user_cnic_back` varchar(255) DEFAULT NULL,
   `user_salary` decimal(10,2) DEFAULT NULL,
@@ -1180,15 +1400,15 @@ CREATE TABLE IF NOT EXISTS `nxt_users` (
   `user_address` varchar(255) DEFAULT NULL,
   `user_cnic` varchar(255) DEFAULT NULL,
   `reports_to` varchar(100) DEFAULT NULL,
-  `direct_reports` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`direct_reports`)),
+  `direct_reports` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `user_password` varchar(100) NOT NULL,
   `user_status` int(10) NOT NULL DEFAULT 1,
   `user_permission` varchar(100) NOT NULL,
   `user_title` varchar(255) DEFAULT NULL,
   `user_department_alias` varchar(100) DEFAULT NULL,
   `user_type_alias` varchar(100) DEFAULT NULL,
-  `user_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`user_degree`)),
-  `user_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`user_experience`)),
+  `user_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `user_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `user_cnic_front` varchar(255) DEFAULT NULL,
   `user_cnic_back` varchar(255) DEFAULT NULL,
   `user_salary` decimal(10,2) DEFAULT NULL,
@@ -1266,8 +1486,8 @@ CREATE TABLE IF NOT EXISTS `nxt_user_test` (
   `user_title` varchar(255) DEFAULT NULL,
   `user_department_alias` varchar(100) DEFAULT NULL,
   `user_type_alias` varchar(100) DEFAULT NULL,
-  `user_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`user_degree`)),
-  `user_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`user_experience`)),
+  `user_degree` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `user_experience` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `user_cnic_front` varchar(255) DEFAULT NULL,
   `user_cnic_back` varchar(255) DEFAULT NULL,
   `user_salary` decimal(10,2) DEFAULT NULL,
@@ -1384,8 +1604,8 @@ CREATE TABLE IF NOT EXISTS `vw_campaign_analytics` (
 `failed_sends` decimal(22,0),
 `pending_sends` decimal(22,0),
 `success_rate` decimal(28,2),
-`first_trigger` timestamp,
-`last_trigger` timestamp
+`first_trigger` datetime,
+`last_trigger` datetime
 );
 
 -- --------------------------------------------------------
@@ -1665,7 +1885,50 @@ ALTER TABLE `nxt_fbr_sync_log`
 -- Indexes for table `nxt_inventory`
 --
 ALTER TABLE `nxt_inventory`
-  ADD PRIMARY KEY (`item_id`);
+  ADD PRIMARY KEY (`item_id`),
+  ADD KEY `idx_tenant_id` (`tenant_id`),
+  ADD KEY `idx_supplier_id` (`supplier_id`),
+  ADD KEY `idx_item_status` (`item_status`),
+  ADD KEY `idx_expiry_date` (`item_expiry_date`);
+
+--
+-- Indexes for table `nxt_inventory_transactions`
+--
+ALTER TABLE `nxt_inventory_transactions`
+  ADD PRIMARY KEY (`transaction_id`),
+  ADD KEY `idx_item_id` (`item_id`),
+  ADD KEY `idx_tenant_transaction` (`tenant_id`,`transaction_type`),
+  ADD KEY `idx_created_at` (`created_at`),
+  ADD KEY `idx_transaction_reference` (`transaction_reference`),
+  ADD KEY `idx_supplier_id` (`supplier_id`);
+
+--
+-- Indexes for table `nxt_inventory_alerts`
+--
+ALTER TABLE `nxt_inventory_alerts`
+  ADD PRIMARY KEY (`alert_id`),
+  ADD UNIQUE KEY `unique_alert_per_item` (`tenant_id`,`item_id`),
+  ADD KEY `idx_alert_enabled` (`alert_enabled`);
+
+--
+-- Indexes for table `nxt_purchase_orders` (Phase 2)
+--
+-- Already defined inline in CREATE TABLE statement
+
+--
+-- Indexes for table `nxt_purchase_order_items` (Phase 2)
+--
+-- Already defined inline in CREATE TABLE statement
+
+--
+-- Indexes for table `nxt_pharmacy_stock` (Phase 2)
+--
+-- Already defined inline in CREATE TABLE statement
+
+--
+-- Indexes for table `nxt_pharmacy_dispensing` (Phase 2)
+--
+-- Already defined inline in CREATE TABLE statement
 
 --
 -- Indexes for table `nxt_lab_invoice`
@@ -1829,6 +2092,10 @@ ALTER TABLE `nxt_slip_type`
 --
 ALTER TABLE `nxt_supplier`
   ADD PRIMARY KEY (`supplier_id`);
+
+-- Add supplier FK to purchase orders after supplier PK exists
+ALTER TABLE `nxt_purchase_orders`
+  ADD CONSTRAINT `fk_po_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `nxt_supplier` (`supplier_id`) ON DELETE RESTRICT;
 
 --
 -- Indexes for table `nxt_tax_settings`
@@ -2057,6 +2324,18 @@ ALTER TABLE `nxt_inventory`
   MODIFY `item_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `nxt_inventory_transactions`
+--
+ALTER TABLE `nxt_inventory_transactions`
+  MODIFY `transaction_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_inventory_alerts`
+--
+ALTER TABLE `nxt_inventory_alerts`
+  MODIFY `alert_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `nxt_lab_invoice`
 --
 ALTER TABLE `nxt_lab_invoice`
@@ -2169,6 +2448,30 @@ ALTER TABLE `nxt_slip_type`
 --
 ALTER TABLE `nxt_supplier`
   MODIFY `supplier_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_purchase_orders` (Phase 2)
+--
+ALTER TABLE `nxt_purchase_orders`
+  MODIFY `po_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_purchase_order_items` (Phase 2)
+--
+ALTER TABLE `nxt_purchase_order_items`
+  MODIFY `po_item_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_pharmacy_stock` (Phase 2)
+--
+ALTER TABLE `nxt_pharmacy_stock`
+  MODIFY `stock_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_pharmacy_dispensing` (Phase 2)
+--
+ALTER TABLE `nxt_pharmacy_dispensing`
+  MODIFY `dispensing_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `nxt_tax_settings`
@@ -2300,6 +2603,52 @@ ALTER TABLE `nxt_patient_relationship`
   ADD CONSTRAINT `nxt_patient_relationship_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `nxt_user` (`user_id`) ON DELETE SET NULL;
 
 --
+-- Constraints for table `nxt_inventory`
+--
+ALTER TABLE `nxt_inventory`
+  ADD CONSTRAINT `fk_inventory_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_inventory_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `nxt_supplier` (`supplier_id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `nxt_purchase_order_items`
+--
+ALTER TABLE `nxt_purchase_order_items`
+  ADD CONSTRAINT `fk_po_items_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_po_items_po` FOREIGN KEY (`po_id`) REFERENCES `nxt_purchase_orders` (`po_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_po_items_inventory` FOREIGN KEY (`item_id`) REFERENCES `nxt_inventory` (`item_id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `nxt_pharmacy_stock`
+--
+ALTER TABLE `nxt_pharmacy_stock`
+  ADD CONSTRAINT `fk_pharmacy_stock_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_pharmacy_stock_inventory` FOREIGN KEY (`item_id`) REFERENCES `nxt_inventory` (`item_id`) ON DELETE RESTRICT,
+  ADD CONSTRAINT `fk_pharmacy_stock_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `nxt_supplier` (`supplier_id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_pharmacy_stock_po` FOREIGN KEY (`po_id`) REFERENCES `nxt_purchase_orders` (`po_id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `nxt_pharmacy_dispensing`
+--
+ALTER TABLE `nxt_pharmacy_dispensing`
+  ADD CONSTRAINT `fk_pharmacy_dispensing_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_pharmacy_dispensing_inventory` FOREIGN KEY (`item_id`) REFERENCES `nxt_inventory` (`item_id`) ON DELETE RESTRICT;
+
+--
+-- Constraints for table `nxt_inventory_transactions`
+--
+ALTER TABLE `nxt_inventory_transactions`
+  ADD CONSTRAINT `fk_inv_trans_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_inv_trans_item` FOREIGN KEY (`item_id`) REFERENCES `nxt_inventory` (`item_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_inv_trans_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `nxt_supplier` (`supplier_id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `nxt_inventory_alerts`
+--
+ALTER TABLE `nxt_inventory_alerts`
+  ADD CONSTRAINT `fk_inv_alert_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_inv_alert_item` FOREIGN KEY (`item_id`) REFERENCES `nxt_inventory` (`item_id`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `nxt_room`
 --
 ALTER TABLE `nxt_room`
@@ -2319,204 +2668,6 @@ ALTER TABLE `nxt_test_component`
   ADD CONSTRAINT `fk_test_code_from_lab_test` FOREIGN KEY (`tenant_id`, `test_code`) REFERENCES `nxt_lab_test` (`tenant_id`, `test_code`);
 COMMIT;
 
--- INDEXES FOR MULTI-TENANCY SUPPORT
-
--- ====================
--- LABORATORY
--- ====================
-
-ALTER TABLE `nxt_lab_test` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_alias` (`tenant_id`, `test_code`);
-
-ALTER TABLE `nxt_test_component` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_test` (`tenant_id`, `test_code`);
-
-ALTER TABLE `nxt_lab_report` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_invoice` (`tenant_id`, `invoice_uuid`);
-
-ALTER TABLE `nxt_lab_invoice` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_uuid` (`tenant_id`, `invoice_uuid`),
-  ADD INDEX `idx_tenant_patient` (`tenant_id`, `patient_mrid`);
-
-ALTER TABLE `nxt_lab_invoice_tests` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_invoice` (`tenant_id`, `invoice_uuid`);
-
--- ====================
--- INVENTORY & MEDICINE
--- ====================
-
-ALTER TABLE `nxt_medicine` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_name` (`tenant_id`, `medicine_name`);
-
-ALTER TABLE `nxt_inventory` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_medicine` (`tenant_id`, `item_id`);
-
-ALTER TABLE `nxt_supplier` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_name` (`tenant_id`, `supplier_name`);
-
--- ====================
--- CATEGORIES & SERVICES
--- ====================
-
-ALTER TABLE `nxt_category` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_type` (`tenant_id`, `category_type`);
-
-ALTER TABLE `nxt_category_type` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_alias` (`tenant_id`, `type_alias`);
-
-ALTER TABLE `nxt_service` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_category` (`tenant_id`, `service_alias`);
-
-ALTER TABLE `nxt_slip_type` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_alias` (`tenant_id`, `slip_type_alias`);
-
--- ====================
--- CAMPAIGN SYSTEM
--- ====================
-
-ALTER TABLE `nxt_campaign` 
-  ADD INDEX `idx_tenant_status` (`tenant_id`, `campaign_status`);
-
-ALTER TABLE `nxt_campaign_log` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_campaign` (`tenant_id`, `campaign_id`),
-  ADD INDEX `idx_tenant_status` (`tenant_id`, `status`);
-
-ALTER TABLE `nxt_campaign_queue` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_status` (`tenant_id`, `status`);
-
-ALTER TABLE `nxt_campaign_triggers` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_event` (`tenant_id`, `trigger_event`);
-
-ALTER TABLE `nxt_segment` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_name` (`tenant_id`, `segment_name`);
-
-ALTER TABLE `nxt_text_message` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_recipient` (`tenant_id`, `message_alias`);
-
--- ====================
--- FBR INTEGRATION (Pakistan Tax)
--- ====================
-
-ALTER TABLE `nxt_fbr_config` 
-  ADD UNIQUE INDEX `idx_unique_tenant_fbr` (`tenant_id`);
-
-ALTER TABLE `nxt_fbr_sync_log` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`);
-
--- ====================
--- TAX MANAGEMENT
--- ====================
-
-ALTER TABLE `nxt_tax_settings` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`);
-
--- ====================
--- FINANCIAL
--- ====================
-
-ALTER TABLE `nxt_daily_expenses` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`);
-
--- ====================
--- CONFIGURATION & SETTINGS
--- ====================
-
-ALTER TABLE `nxt_print_design` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD UNIQUE INDEX `idx_tenant_identifier` (`tenant_id`, `identifier`);
-
-ALTER TABLE `nxt_patient_relationship` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`);
-
--- ====================
--- AI FEATURES
--- ====================
-
-ALTER TABLE `ai_suggestions` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`);
-
-ALTER TABLE `ai_feedback` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`);
-
-ALTER TABLE `nxt_db_backup` 
-  ADD INDEX `idx_tenant_date` (`tenant_id`, `created_at`);
-
-ALTER TABLE `recentactivity` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_user` (`tenant_id`, `admin_user`);
-
-ALTER TABLE `nxt_notification` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_user` (`tenant_id`, `user_id`);
-
-
--- ====================
--- PERMISSIONS (Shared or tenant-specific)
--- ====================
-
-ALTER TABLE `nxt_permission` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`);
-
--- ====================
--- BOOTSTRAP STATUS (Per-tenant tracking)
--- ====================
-
-ALTER TABLE `nxt_bootstrap_status` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`);
-
--- ====================
--- ALTUSER MANAGEMENT ADDITIONAL TABLES
--- ====================
-
-ALTER TABLE `nxt_users` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_username` (`tenant_id`, `user_name`);
-
-ALTER TABLE `nxt_user_available_leaves` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_user` (`tenant_id`, `user_id`);
-
-ALTER TABLE `nxt_user_leave` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_user` (`tenant_id`, `user_id`),
-  ADD INDEX `idx_tenant_status` (`tenant_id`, `leave_status`);
-
-ALTER TABLE `nxt_user_test` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`);
-
--- ====================
--- PATIENT AUDIT & TRACKING
--- ====================
-
-ALTER TABLE `nxt_patient_audit` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`),
-  ADD INDEX `idx_tenant_user` (`tenant_id`, `user_id`),
-  ADD INDEX `idx_tenant_date` (`tenant_id`, `created_at`);
-
--- ====================
--- REPORTING
--- ====================
-
-ALTER TABLE `nxt_report_footer` 
-  ADD INDEX `idx_tenant_id` (`tenant_id`);
-
 -- Deferred foreign keys: add constraints after all tables created
 ALTER TABLE `nxt_patient_match_audit`
   ADD CONSTRAINT `fk_patient_match_audit_tenant`
@@ -2525,5 +2676,76 @@ ALTER TABLE `nxt_patient_match_audit`
     FOREIGN KEY (`user_id`) REFERENCES `nxt_user`(`user_id`) ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_patient_match_audit_patient`
     FOREIGN KEY (`matched_patient_id`) REFERENCES `nxt_patient`(`patient_id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- ====================
+-- INVENTORY VIEWS
+-- ====================
+
+--
+-- View for low stock items
+--
+CREATE OR REPLACE VIEW `v_low_stock_items` AS
+SELECT 
+  i.item_id,
+  i.tenant_id,
+  i.item_name,
+  i.item_quantity,
+  COALESCE(ia.reorder_level, i.reorder_level, 10) AS alert_threshold,
+  COALESCE(ia.reorder_quantity, i.reorder_quantity, 50) AS suggested_reorder,
+  (i.item_quantity - COALESCE(ia.reorder_level, i.reorder_level, 10)) AS stock_difference,
+  i.item_price_one,
+  i.item_status,
+  s.supplier_name,
+  i.created_at
+FROM nxt_inventory i
+LEFT JOIN nxt_inventory_alerts ia ON i.item_id = ia.item_id AND i.tenant_id = ia.tenant_id
+LEFT JOIN nxt_supplier s ON i.supplier_id = s.supplier_id
+WHERE i.item_quantity <= COALESCE(ia.reorder_level, i.reorder_level, 10)
+  AND i.item_status = 'In Stock'
+ORDER BY stock_difference ASC;
+
+--
+-- View for expiring items
+--
+CREATE OR REPLACE VIEW `v_expiring_items` AS
+SELECT 
+  i.item_id,
+  i.tenant_id,
+  i.item_name,
+  i.item_quantity,
+  i.item_expiry_date AS expiry_date,
+  DATEDIFF(i.item_expiry_date, CURDATE()) AS days_until_expiry,
+  CASE 
+    WHEN DATEDIFF(i.item_expiry_date, CURDATE()) <= 0 THEN 'EXPIRED'
+    WHEN DATEDIFF(i.item_expiry_date, CURDATE()) <= 30 THEN 'CRITICAL'
+    WHEN DATEDIFF(i.item_expiry_date, CURDATE()) <= 60 THEN 'WARNING'
+    ELSE 'NORMAL'
+  END AS expiry_status,
+  i.item_price_one,
+  (i.item_quantity * i.item_price_one) AS potential_loss_value
+FROM nxt_inventory i
+WHERE i.item_expiry_date IS NOT NULL
+  AND i.item_expiry_date <= DATE_ADD(CURDATE(), INTERVAL 90 DAY)
+  AND i.item_status = 'In Stock'
+ORDER BY i.item_expiry_date ASC;
+
+--
+-- View for inventory valuation summary
+--
+CREATE OR REPLACE VIEW `v_inventory_valuation` AS
+SELECT 
+  i.tenant_id,
+  COUNT(DISTINCT i.item_id) AS total_items,
+  SUM(i.item_quantity) AS total_quantity,
+  SUM(i.item_quantity * i.item_price_one) AS total_value,
+  SUM(CASE WHEN i.item_quantity <= COALESCE(ia.reorder_level, i.reorder_level, 10) THEN 1 ELSE 0 END) AS low_stock_count,
+  SUM(CASE WHEN i.item_expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS expiring_soon_count
+FROM nxt_inventory i
+LEFT JOIN nxt_inventory_alerts ia ON i.item_id = ia.item_id AND i.tenant_id = ia.tenant_id
+WHERE i.item_status = 'In Stock'
+GROUP BY i.tenant_id;
+
+-- Re-enable foreign key checks
+SET FOREIGN_KEY_CHECKS=1;
 
 COMMIT;
