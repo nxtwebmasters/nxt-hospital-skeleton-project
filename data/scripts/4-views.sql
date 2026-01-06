@@ -35,9 +35,9 @@ CREATE OR REPLACE VIEW v_pharmacy_stock_fifo AS
 SELECT 
     ps.stock_id,
     ps.tenant_id,
-    ps.item_id,
-    i.item_name,
-    i.item_category,
+    ps.medicine_id,
+    m.medicine_name,
+    m.therapeutic_class,
     ps.batch_number,
     ps.expiry_date,
     DATEDIFF(ps.expiry_date, CURDATE()) AS days_until_expiry,
@@ -59,10 +59,10 @@ SELECT
     ps.grn_number,
     ps.po_id
 FROM nxt_pharmacy_stock ps
-INNER JOIN nxt_inventory i ON ps.item_id = i.item_id AND ps.tenant_id = i.tenant_id
+INNER JOIN nxt_medicine m ON ps.medicine_id = m.medicine_id AND ps.tenant_id = m.tenant_id
 LEFT JOIN nxt_supplier s ON ps.supplier_id = s.supplier_id
 WHERE ps.status = 'ACTIVE' AND ps.quantity_in_stock > 0
-ORDER BY ps.tenant_id, ps.item_id, ps.received_date ASC, ps.expiry_date ASC;
+ORDER BY ps.tenant_id, ps.medicine_id, ps.received_date ASC, ps.expiry_date ASC;
 
 --
 -- View: v_purchase_order_summary
@@ -99,8 +99,8 @@ SELECT
     pd.dispensing_reference,
     pd.patient_mrid,
     pd.patient_name,
-    pd.item_id,
-    pd.item_name,
+    pd.medicine_id,
+    pd.medicine_name,
     pd.quantity_dispensed,
     pd.unit_of_measure,
     pd.total_cost,
@@ -127,9 +127,9 @@ ORDER BY pd.tenant_id, pd.patient_mrid, pd.dispensed_at DESC;
 CREATE OR REPLACE VIEW v_pharmacy_stock_valuation_fifo AS
 SELECT 
     ps.tenant_id,
-    ps.item_id,
-    i.item_name,
-    i.item_category,
+    ps.medicine_id,
+    m.medicine_name,
+    m.therapeutic_class,
     COUNT(DISTINCT ps.batch_number) AS total_batches,
     SUM(ps.quantity_in_stock) AS total_quantity,
     SUM(ps.quantity_in_stock * ps.unit_cost) AS total_fifo_value,
@@ -142,9 +142,9 @@ SELECT
     SUM(CASE WHEN ps.expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN ps.quantity_in_stock ELSE 0 END) AS expiring_soon_quantity,
     SUM(CASE WHEN ps.expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN (ps.quantity_in_stock * ps.unit_cost) ELSE 0 END) AS expiring_soon_value
 FROM nxt_pharmacy_stock ps
-INNER JOIN nxt_inventory i ON ps.item_id = i.item_id AND ps.tenant_id = i.tenant_id
+INNER JOIN nxt_medicine m ON ps.medicine_id = m.medicine_id AND ps.tenant_id = m.tenant_id
 WHERE ps.status = 'ACTIVE' AND ps.quantity_in_stock > 0
-GROUP BY ps.tenant_id, ps.item_id, i.item_name, i.item_category;
+GROUP BY ps.tenant_id, ps.medicine_id, m.medicine_name, m.therapeutic_class;
 
 --
 -- View: v_po_receiving_status
