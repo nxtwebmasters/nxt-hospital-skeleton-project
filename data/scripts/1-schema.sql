@@ -701,8 +701,8 @@ CREATE TABLE IF NOT EXISTS `nxt_purchase_order_items` (
   `po_item_id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
   `po_id` int(11) NOT NULL COMMENT 'FK to nxt_purchase_orders',
-  `item_id` int(11) DEFAULT NULL COMMENT 'FK to nxt_inventory (optional if new item)',
-  `item_name` varchar(255) NOT NULL COMMENT 'Item name (for display/new items)',
+  `medicine_id` int(11) DEFAULT NULL COMMENT 'FK to nxt_medicine',
+  `item_name` varchar(255) NOT NULL COMMENT 'Medicine name (for display/new items)',
   `item_description` text DEFAULT NULL COMMENT 'Additional item details',
   `quantity_ordered` int(11) NOT NULL COMMENT 'Quantity ordered',
   `quantity_received` int(11) NOT NULL DEFAULT 0 COMMENT 'Quantity received so far',
@@ -719,7 +719,7 @@ CREATE TABLE IF NOT EXISTS `nxt_purchase_order_items` (
   `updated_by` varchar(100) DEFAULT NULL,
   INDEX `idx_tenant_id` (`tenant_id`),
   INDEX `idx_po_id` (`po_id`),
-  INDEX `idx_item_id` (`item_id`)
+  INDEX `idx_medicine_id` (`medicine_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
 COMMENT='Line items for purchase orders with received quantity tracking';
 
@@ -732,7 +732,7 @@ COMMENT='Line items for purchase orders with received quantity tracking';
 CREATE TABLE IF NOT EXISTS `nxt_pharmacy_stock` (
   `stock_id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
-  `item_id` int(11) NOT NULL COMMENT 'FK to nxt_inventory',
+  `medicine_id` int(11) NOT NULL COMMENT 'FK to nxt_medicine',
   `batch_number` varchar(100) NOT NULL COMMENT 'Manufacturer batch/lot number',
   `expiry_date` date NOT NULL COMMENT 'Batch expiry date',
   `quantity_received` int(11) NOT NULL COMMENT 'Original received quantity',
@@ -749,14 +749,14 @@ CREATE TABLE IF NOT EXISTS `nxt_pharmacy_stock` (
   `created_by` varchar(100) NOT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `updated_by` varchar(100) DEFAULT NULL,
-  UNIQUE KEY `unique_tenant_item_batch` (`tenant_id`, `item_id`, `batch_number`),
+  UNIQUE KEY `unique_tenant_medicine_batch` (`tenant_id`, `medicine_id`, `batch_number`),
   INDEX `idx_tenant_id` (`tenant_id`),
-  INDEX `idx_item_id` (`item_id`),
+  INDEX `idx_medicine_id` (`medicine_id`),
   INDEX `idx_batch_number` (`batch_number`),
   INDEX `idx_expiry_date` (`expiry_date`),
   INDEX `idx_received_date` (`received_date`),
   INDEX `idx_status` (`status`),
-  INDEX `idx_fifo_query` (`item_id`, `status`, `received_date`)
+  INDEX `idx_fifo_query` (`medicine_id`, `status`, `received_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
 COMMENT='FIFO-enabled pharmacy batch/lot tracking with quantity_in_stock for consumption';
 
@@ -774,8 +774,8 @@ CREATE TABLE IF NOT EXISTS `nxt_pharmacy_dispensing` (
   `patient_name` varchar(255) NOT NULL COMMENT 'Patient name (denormalized for reports)',
   `prescription_id` int(11) DEFAULT NULL COMMENT 'FK to prescription table (if linked)',
   `bill_uuid` varchar(50) DEFAULT NULL COMMENT 'FK to billing (if dispensed via invoice payment)',
-  `item_id` int(11) NOT NULL COMMENT 'FK to nxt_inventory (medicine dispensed)',
-  `item_name` varchar(255) NOT NULL COMMENT 'Medicine name (denormalized)',
+  `medicine_id` int(11) NOT NULL COMMENT 'FK to nxt_medicine',
+  `medicine_name` varchar(255) NOT NULL COMMENT 'Medicine name (denormalized)',
   `quantity_dispensed` int(11) NOT NULL COMMENT 'Total quantity dispensed',
   `unit_of_measure` varchar(20) DEFAULT 'PCS' COMMENT 'Unit (PCS, STRIP, BOTTLE, etc)',
   `batch_details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'JSON array of batches used: [{stock_id, batch_number, qty_from_batch, unit_cost}]',
@@ -797,7 +797,7 @@ CREATE TABLE IF NOT EXISTS `nxt_pharmacy_dispensing` (
   INDEX `idx_patient_mrid` (`patient_mrid`),
   INDEX `idx_prescription_id` (`prescription_id`),
   INDEX `idx_bill_uuid` (`bill_uuid`),
-  INDEX `idx_item_id` (`item_id`),
+  INDEX `idx_medicine_id` (`medicine_id`),
   INDEX `idx_dispensed_at` (`dispensed_at`),
   INDEX `idx_dispensed_by` (`dispensed_by`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
@@ -904,14 +904,38 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
 
 --
 -- Table structure for table `nxt_medicine`
+-- Pharmacy medicine master - independent of hospital inventory
 --
 
 CREATE TABLE IF NOT EXISTS `nxt_medicine` (
-  `id` int(11) NOT NULL,
+  `medicine_id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
+  `medicine_code` VARCHAR(50) NULL COMMENT 'SKU/Code (e.g., MED-001)',
   `medicine_name` varchar(255) NOT NULL,
-  UNIQUE KEY `unique_medicine_per_tenant` (`tenant_id`, `medicine_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `generic_name` VARCHAR(255) NULL COMMENT 'Generic/chemical name',
+  `medicine_type` VARCHAR(100) NULL COMMENT 'Tablet, Syrup, Injection, Capsule, Ointment, etc',
+  `strength` VARCHAR(50) NULL COMMENT 'e.g., 500mg, 10ml, 250mg/5ml',
+  `unit_of_measure` VARCHAR(20) DEFAULT 'PCS' COMMENT 'PCS, STRIP, BOTTLE, BOX, VIAL, etc',
+  `manufacturer` VARCHAR(255) NULL COMMENT 'Manufacturer/brand name',
+  `therapeutic_class` VARCHAR(100) NULL COMMENT 'Antibiotic, Analgesic, Antipyretic, etc',
+  `reorder_level` INT DEFAULT 10 COMMENT 'Low stock threshold for alerts',
+  `min_stock_level` INT DEFAULT 5 COMMENT 'Absolute minimum stock (critical level)',
+  `max_stock_level` INT DEFAULT 500 COMMENT 'Maximum stock capacity',
+  `storage_instructions` TEXT NULL COMMENT 'e.g., Keep refrigerated, Store in cool dry place',
+  `is_controlled_substance` BOOLEAN DEFAULT FALSE COMMENT 'Requires special handling/tracking',
+  `is_active` BOOLEAN DEFAULT TRUE COMMENT 'Active medicines shown in selection lists',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_by` VARCHAR(100) NOT NULL,
+  `updated_at` DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+  `updated_by` VARCHAR(100) NULL,
+  UNIQUE KEY `unique_medicine_per_tenant` (`tenant_id`, `medicine_name`),
+  INDEX `idx_tenant_id` (`tenant_id`),
+  INDEX `idx_medicine_code` (`medicine_code`),
+  INDEX `idx_is_active` (`is_active`),
+  INDEX `idx_therapeutic_class` (`therapeutic_class`),
+  FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant`(`tenant_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Pharmacy medicine catalog - independent of hospital inventory';
 
 -- --------------------------------------------------------
 
@@ -2363,7 +2387,7 @@ ALTER TABLE `nxt_lab_test`
 -- AUTO_INCREMENT for table `nxt_medicine`
 --
 ALTER TABLE `nxt_medicine`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `medicine_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `nxt_notification`
@@ -2615,14 +2639,14 @@ ALTER TABLE `nxt_inventory`
 ALTER TABLE `nxt_purchase_order_items`
   ADD CONSTRAINT `fk_po_items_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_po_items_po` FOREIGN KEY (`po_id`) REFERENCES `nxt_purchase_orders` (`po_id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_po_items_inventory` FOREIGN KEY (`item_id`) REFERENCES `nxt_inventory` (`item_id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `fk_po_items_medicine` FOREIGN KEY (`medicine_id`) REFERENCES `nxt_medicine` (`medicine_id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `nxt_pharmacy_stock`
 --
 ALTER TABLE `nxt_pharmacy_stock`
   ADD CONSTRAINT `fk_pharmacy_stock_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_pharmacy_stock_inventory` FOREIGN KEY (`item_id`) REFERENCES `nxt_inventory` (`item_id`) ON DELETE RESTRICT,
+  ADD CONSTRAINT `fk_pharmacy_stock_medicine` FOREIGN KEY (`medicine_id`) REFERENCES `nxt_medicine` (`medicine_id`) ON DELETE RESTRICT,
   ADD CONSTRAINT `fk_pharmacy_stock_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `nxt_supplier` (`supplier_id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_pharmacy_stock_po` FOREIGN KEY (`po_id`) REFERENCES `nxt_purchase_orders` (`po_id`) ON DELETE SET NULL;
 
@@ -2631,7 +2655,7 @@ ALTER TABLE `nxt_pharmacy_stock`
 --
 ALTER TABLE `nxt_pharmacy_dispensing`
   ADD CONSTRAINT `fk_pharmacy_dispensing_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_pharmacy_dispensing_inventory` FOREIGN KEY (`item_id`) REFERENCES `nxt_inventory` (`item_id`) ON DELETE RESTRICT;
+  ADD CONSTRAINT `fk_pharmacy_dispensing_medicine` FOREIGN KEY (`medicine_id`) REFERENCES `nxt_medicine` (`medicine_id`) ON DELETE RESTRICT;
 
 --
 -- Constraints for table `nxt_inventory_transactions`
