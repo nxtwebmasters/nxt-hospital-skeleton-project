@@ -1982,8 +1982,8 @@ ALTER TABLE `nxt_lab_test`
 --
 -- Indexes for table `nxt_medicine`
 --
-ALTER TABLE `nxt_medicine`
-  ADD PRIMARY KEY (`id`);
+-- ALTER TABLE `nxt_medicine`
+-- ADD PRIMARY KEY (`id`);
 
 --
 -- Indexes for table `nxt_notification`
@@ -2386,8 +2386,8 @@ ALTER TABLE `nxt_lab_test`
 --
 -- AUTO_INCREMENT for table `nxt_medicine`
 --
-ALTER TABLE `nxt_medicine`
-  MODIFY `medicine_id` int(11) NOT NULL AUTO_INCREMENT;
+-- ALTER TABLE `nxt_medicine`
+--   MODIFY `medicine_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `nxt_notification`
