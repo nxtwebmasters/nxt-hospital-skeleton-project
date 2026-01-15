@@ -1,7 +1,7 @@
 services:
 
   hospital-frontend:
-    image: pandanxt/hospital-frontend:develop-256-72560fc5
+    image: pandanxt/hospital-frontend:develop-276-7826aba0
     container_name: nxt-hospital
     restart: always
     environment:
@@ -19,7 +19,7 @@ services:
       - internal-net
 
   patient-frontend:
-    image: pandanxt/customer-portal:develop-79-d6664080
+    image: pandanxt/customer-portal:develop-81-30aac832
     container_name: portal-hospital
     restart: always
     environment:
@@ -33,7 +33,7 @@ services:
       - internal-net
 
   hospital-apis:
-    image: pandanxt/hms-backend-apis:develop-301-732ccc13
+    image: pandanxt/hms-backend-apis:develop-325-fd7557b3
     container_name: api-hospital
     restart: always
     env_file:
@@ -86,6 +86,8 @@ services:
     image: redis:7.2
     container_name: hospital-redis
     restart: always
+    # ports:
+      # - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
