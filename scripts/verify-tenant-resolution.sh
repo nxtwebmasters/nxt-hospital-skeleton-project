@@ -53,11 +53,11 @@ fi
 
 echo -e "System tenant subdomain: ${GREEN}$SUBDOMAIN${NC}"
 
-# Expected subdomain for hms.nxtwebmasters.com is 'hms'
+# Expected subdomain for familycare.nxtwebmasters.com is 'hms'
 if [ "$SUBDOMAIN" = "hms" ]; then
     echo -e "${GREEN}✓${NC} Subdomain is correctly set to 'hms'"
 elif [ "$SUBDOMAIN" = "default" ]; then
-    echo -e "${RED}✗${NC} Subdomain is 'default' but should be 'hms' for hms.nxtwebmasters.com"
+    echo -e "${RED}✗${NC} Subdomain is 'default' but should be 'hms' for familycare.nxtwebmasters.com"
     echo ""
     echo "To fix:"
     echo "  docker exec -i hospital-mysql mysql -u $DB_USER -p$DB_PASS $DB_NAME <<EOF"
@@ -107,7 +107,7 @@ echo ""
 echo "Step 5: Testing debug endpoint..."
 echo "---------------------------------"
 
-DOMAIN="${DOMAIN:-hms.nxtwebmasters.com}"
+DOMAIN="${DOMAIN:-familycare.nxtwebmasters.com}"
 PROTOCOL="${PROTOCOL:-https}"
 URL="${PROTOCOL}://${DOMAIN}/api-server/tenant/debug"
 

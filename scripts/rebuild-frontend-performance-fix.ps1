@@ -79,7 +79,7 @@ if ($pushImage -eq 'y' -or $pushImage -eq 'Y') {
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "1. SSH to production server:" -ForegroundColor Yellow
-    Write-Host "   ssh root@hms.nxtwebmasters.com" -ForegroundColor White
+    Write-Host "   ssh root@familycare.nxtwebmasters.com" -ForegroundColor White
     Write-Host ""
     Write-Host "2. Run deployment script:" -ForegroundColor Yellow
     Write-Host "   cd ~/nxt-hospital-skeleton-project" -ForegroundColor White

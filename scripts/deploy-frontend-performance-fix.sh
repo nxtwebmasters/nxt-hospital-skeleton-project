@@ -69,7 +69,7 @@ echo ""
 
 # Check if gzip is enabled
 echo "Testing gzip compression..."
-GZIP_CHECK=$(curl -sI -H "Accept-Encoding: gzip" https://hms.nxtwebmasters.com/ | grep -i "content-encoding: gzip" || echo "NOT FOUND")
+GZIP_CHECK=$(curl -sI -H "Accept-Encoding: gzip" https://familycare.nxtwebmasters.com/ | grep -i "content-encoding: gzip" || echo "NOT FOUND")
 
 if [ "$GZIP_CHECK" != "NOT FOUND" ]; then
     echo "✅ Gzip compression: ENABLED"
@@ -95,7 +95,7 @@ echo "✅ Nginx configuration updated"
 echo "✅ Frontend container restarted"
 echo ""
 echo "Next Steps:"
-echo "1. Test in browser: https://hms.nxtwebmasters.com/"
+echo "1. Test in browser: https://familycare.nxtwebmasters.com/"
 echo "2. Open DevTools → Network tab"
 echo "3. Verify main.*.js shows 'gzip' encoding"
 echo "4. Verify load time < 10 seconds"
@@ -103,7 +103,7 @@ echo ""
 echo "If issues persist:"
 echo "- Check logs: docker compose logs hospital-frontend"
 echo "- Verify nginx: docker exec nginx-reverse-proxy nginx -t"
-echo "- Check gzip: curl -I -H 'Accept-Encoding: gzip' https://hms.nxtwebmasters.com/"
+echo "- Check gzip: curl -I -H 'Accept-Encoding: gzip' https://familycare.nxtwebmasters.com/"
 echo ""
 echo "For Phase 2 (bundle size reduction), see:"
 echo "docs/FRONTEND_LOADING_ISSUE_CRITICAL_FIX.md"
