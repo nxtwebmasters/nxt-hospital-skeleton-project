@@ -1772,7 +1772,7 @@ ALTER TABLE `nxt_bed_history`
 ALTER TABLE `nxt_bill`
   ADD PRIMARY KEY (`bill_id`),
   ADD UNIQUE KEY `unique_bill_uuid_per_tenant` (`tenant_id`, `bill_uuid`),
-  ADD KEY `idx_bill_uuid` (`bill_uuid`),
+  ADD UNIQUE KEY `unique_bill_uuid` (`bill_uuid`),
   ADD KEY `idx_admission_duration_hours` (`admission_duration_hours`),
   ADD KEY `idx_discharge_date` (`discharge_date`),
   ADD KEY `idx_fbr_sync_status_bill` (`fbr_sync_status`),
@@ -2583,9 +2583,9 @@ ALTER TABLE `recentactivity`
 -- Constraints for table `nxt_bed`
 --
 ALTER TABLE `nxt_bed`
-  -- Note: composite FK including `tenant_id` with ON DELETE SET NULL is invalid when
-  -- `tenant_id` is NOT NULL. Change to reference only the nullable UUID/mrid columns
-  -- so ON DELETE SET NULL can operate correctly without changing tenant_id nullability.
+  -- Foreign key to nxt_bill using bill_uuid as a standalone reference.
+  -- Note: If bill_uuid does not have a UNIQUE constraint by itself in nxt_bill,
+  -- this will fail. The UNIQUE constraint on bill_uuid will be added below.
   ADD CONSTRAINT `fk_bed_bill` FOREIGN KEY (`current_bill_uuid`) REFERENCES `nxt_bill` (`bill_uuid`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_bed_patient` FOREIGN KEY (`current_patient_mrid`) REFERENCES `nxt_patient` (`patient_mrid`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_bed_room` FOREIGN KEY (`room_id`) REFERENCES `nxt_room` (`room_id`) ON DELETE CASCADE;
