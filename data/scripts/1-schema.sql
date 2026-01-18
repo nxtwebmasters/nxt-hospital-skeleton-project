@@ -1726,7 +1726,7 @@ ALTER TABLE `ai_suggestions`
 --
 ALTER TABLE `nxt_appointment`
   ADD PRIMARY KEY (`appointment_id`),
-  ADD UNIQUE KEY `appointment_uuid` (`appointment_uuid`),
+  ADD UNIQUE KEY `unique_appointment_uuid_per_tenant` (`tenant_id`, `appointment_uuid`),
   ADD KEY `fk_appointment_patient_mrid` (`appointment_patient_mrid`),
   ADD KEY `fk_appointment_type_uuid` (`appointment_type_alias`),
   ADD KEY `fk_appointment_department_uuid` (`appointment_department_alias`),
@@ -1742,7 +1742,7 @@ ALTER TABLE `nxt_appointment`
 --
 ALTER TABLE `nxt_bed`
   ADD PRIMARY KEY (`bed_id`),
-  ADD UNIQUE KEY `unique_bed_number` (`bed_number`),
+  ADD UNIQUE KEY `unique_bed_per_tenant` (`tenant_id`, `bed_number`),
   ADD KEY `idx_room_id` (`room_id`),
   ADD KEY `idx_bed_status` (`bed_status`),
   ADD KEY `idx_current_patient` (`current_patient_mrid`),
@@ -1770,7 +1770,7 @@ ALTER TABLE `nxt_bed_history`
 --
 ALTER TABLE `nxt_bill`
   ADD PRIMARY KEY (`bill_id`),
-  ADD UNIQUE KEY `unique_bill_uuid` (`bill_uuid`),
+  ADD UNIQUE KEY `unique_bill_uuid_per_tenant` (`tenant_id`, `bill_uuid`),
   ADD KEY `idx_admission_duration_hours` (`admission_duration_hours`),
   ADD KEY `idx_discharge_date` (`discharge_date`),
   ADD KEY `idx_fbr_sync_status_bill` (`fbr_sync_status`),
@@ -1880,7 +1880,7 @@ ALTER TABLE `nxt_department`
 --
 ALTER TABLE `nxt_doctor`
   ADD PRIMARY KEY (`doctor_id`),
-  ADD UNIQUE KEY `doctor_alias` (`doctor_alias`),
+  ADD UNIQUE KEY `unique_doctor_per_tenant` (`tenant_id`, `doctor_alias`),
   ADD KEY `fk_doctor_department_uuid` (`doctor_department_alias`),
   ADD KEY `fk_doctor_type_uuid` (`doctor_type_alias`);
 
@@ -2004,7 +2004,7 @@ ALTER TABLE `nxt_notification`
 --
 ALTER TABLE `nxt_patient`
   ADD PRIMARY KEY (`patient_id`),
-  ADD UNIQUE KEY `patient_mrid` (`patient_mrid`),
+  ADD UNIQUE KEY `unique_patient_mrid_per_tenant` (`tenant_id`, `patient_mrid`),
   ADD KEY `idx_patient_mrid` (`patient_mrid`),
   ADD KEY `idx_patient_cnic` (`patient_cnic`),
   ADD KEY `idx_patient_guardian_cnic` (`guardian_cnic`);
