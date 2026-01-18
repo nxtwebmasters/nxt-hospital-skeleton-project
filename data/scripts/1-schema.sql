@@ -1727,6 +1727,7 @@ ALTER TABLE `ai_suggestions`
 ALTER TABLE `nxt_appointment`
   ADD PRIMARY KEY (`appointment_id`),
   ADD UNIQUE KEY `unique_appointment_uuid_per_tenant` (`tenant_id`, `appointment_uuid`),
+  ADD KEY `idx_appointment_uuid` (`appointment_uuid`),
   ADD KEY `fk_appointment_patient_mrid` (`appointment_patient_mrid`),
   ADD KEY `fk_appointment_type_uuid` (`appointment_type_alias`),
   ADD KEY `fk_appointment_department_uuid` (`appointment_department_alias`),
@@ -1771,6 +1772,7 @@ ALTER TABLE `nxt_bed_history`
 ALTER TABLE `nxt_bill`
   ADD PRIMARY KEY (`bill_id`),
   ADD UNIQUE KEY `unique_bill_uuid_per_tenant` (`tenant_id`, `bill_uuid`),
+  ADD KEY `idx_bill_uuid` (`bill_uuid`),
   ADD KEY `idx_admission_duration_hours` (`admission_duration_hours`),
   ADD KEY `idx_discharge_date` (`discharge_date`),
   ADD KEY `idx_fbr_sync_status_bill` (`fbr_sync_status`),
