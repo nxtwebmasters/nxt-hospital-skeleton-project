@@ -5,10 +5,22 @@
 # For Ubuntu 20.04+ / Debian-based systems
 # 
 # Prerequisites: Docker, Docker Compose installed
+# 
 # Usage: 
 #   1. Clone this repository
 #   2. cd into repository directory
-#   3. Run: ./deploy.sh
+#   3. (Optional) Create deployment-config.local.sh with your settings
+#   4. Run: ./deploy.sh
+#
+# Configuration:
+#   - Uses deployment-config.local.sh (if exists) for automated deployments
+#   - Falls back to deployment-config.sh for defaults
+#   - Prompts interactively if no config found
+#
+# Examples:
+#   ./deploy.sh                    # Interactive mode
+#   ./deploy.sh --config custom.sh # Use custom config file
+#   ./deploy.sh --help             # Show usage
 ################################################################################
 
 set -e  # Exit on any error
@@ -24,6 +36,12 @@ NC='\033[0m' # No Color
 LOG_FILE="deployment_$(date +%Y%m%d_%H%M%S).log"
 DEPLOYMENT_DIR="$(pwd)"  # Use current directory
 DOCKER_COMPOSE_CMD="docker compose"  # Default, will be updated in preflight_checks
+
+# Configuration file paths
+DEFAULT_CONFIG="deployment-config.sh"
+LOCAL_CONFIG="deployment-config.local.sh"
+CUSTOM_CONFIG=""
+CONFIG_LOADED=0
 
 ################################################################################
 # Helper Functions
@@ -80,6 +98,113 @@ sudo_wrapper() {
         # Not root, use sudo
         sudo "$@"
     fi
+}
+
+################################################################################
+# Configuration Loading
+################################################################################
+
+show_usage() {
+    cat << EOF
+═══════════════════════════════════════════════════════════════
+  NXT HMS - Multi-Tenant Hospital Management System Deployment
+═══════════════════════════════════════════════════════════════
+
+Usage: $0 [OPTIONS]
+
+Options:
+  --config FILE    Use custom configuration file
+  --help, -h       Show this help message
+  --version        Show version information
+
+Configuration:
+  The script looks for configuration in this order:
+    1. Custom file specified with --config
+    2. deployment-config.local.sh (git-ignored, for your env)
+    3. deployment-config.sh (default template)
+    4. Interactive prompts
+
+Examples:
+  $0                                  # Interactive or auto-config
+  $0 --config familycare.config.sh   # Use specific config
+  
+Get Started:
+  1. Copy: cp deployment-config.sh deployment-config.local.sh
+  2. Edit: nano deployment-config.local.sh
+  3. Set DEPLOYMENT_DOMAIN and DEFAULT_TENANT_SUBDOMAIN
+  4. Run: ./deploy.sh
+
+═══════════════════════════════════════════════════════════════
+EOF
+    exit 0
+}
+
+load_deployment_config() {
+    log "=========================================="
+    log "Loading Deployment Configuration"
+    log "=========================================="
+    
+    # Parse command line arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --config)
+                CUSTOM_CONFIG="$2"
+                shift 2
+                ;;
+            --help|-h)
+                show_usage
+                ;;
+            --version)
+                echo "NXT HMS Deployment Script v2.0.0"
+                exit 0
+                ;;
+            *)
+                log_error "Unknown option: $1"
+                show_usage
+                ;;
+        esac
+    done
+    
+    # Determine which config file to use
+    if [ -n "$CUSTOM_CONFIG" ]; then
+        if [ -f "$CUSTOM_CONFIG" ]; then
+            CONFIG_FILE="$CUSTOM_CONFIG"
+            log "Using custom config: $CUSTOM_CONFIG"
+        else
+            log_error "Custom config file not found: $CUSTOM_CONFIG"
+            exit 1
+        fi
+    elif [ -f "$LOCAL_CONFIG" ]; then
+        CONFIG_FILE="$LOCAL_CONFIG"
+        log "Using local config: $LOCAL_CONFIG"
+    elif [ -f "$DEFAULT_CONFIG" ]; then
+        CONFIG_FILE="$DEFAULT_CONFIG"
+        log_warning "Using default config: $DEFAULT_CONFIG"
+        log_warning "For production, create deployment-config.local.sh"
+    else
+        log_info "No config file found. Will use interactive mode."
+        CONFIG_LOADED=0
+        return
+    fi
+    
+    # Source the configuration file
+    log "Loading configuration from: $CONFIG_FILE"
+    # shellcheck source=/dev/null
+    source "$CONFIG_FILE"
+    
+    # Validate configuration if validation function exists
+    if declare -f validate_config > /dev/null; then
+        if ! validate_config; then
+            log_error "Configuration validation failed"
+            exit 1
+        fi
+    fi
+    
+    CONFIG_LOADED=1
+    log "✓ Configuration loaded successfully"
+    log "  Domain: ${DEPLOYMENT_DOMAIN:-<Will use VM IP>}"
+    log "  Default Tenant: $DEFAULT_TENANT_SUBDOMAIN"
+    log "  Mode: $DEPLOYMENT_MODE"
 }
 
 ################################################################################
@@ -232,106 +357,235 @@ configure_environment() {
         log "✓ Backed up original environment file"
     fi
 
-    clear
-    echo ""
-    echo "=========================================="
-    echo "  Production Configuration Setup"
-    echo "=========================================="
-    echo ""
-    echo "Please provide the following information:"
-    echo ""
-
-    # Get VM IP automatically (make it global)
+    # Get VM IP (always needed for fallback)
     export VM_IP=$(curl -s -4 ifconfig.me 2>/dev/null || echo "localhost")
     
-    # Domain or IP
-    echo "─────────────────────────────────────────"
-    echo "1. Domain/IP Address Configuration"
-    echo "─────────────────────────────────────────"
-    echo "Your VM IP: $VM_IP"
-    read -p "Enter your domain name (or press Enter to use VM IP): " USER_DOMAIN
-    
-    if [ -z "$USER_DOMAIN" ]; then
-        export DOMAIN_OR_IP="$VM_IP"
-        log "Using VM IP: $DOMAIN_OR_IP"
-    else
-        export DOMAIN_OR_IP="$USER_DOMAIN"
-        log "Using domain: $DOMAIN_OR_IP"
-    fi
-    
-    echo ""
-    
-    # Email Configuration
-    echo "─────────────────────────────────────────"
-    echo "2. Email Configuration (for notifications)"
-    echo "─────────────────────────────────────────"
-    read -p "SMTP Email (e.g., admin@yourdomain.com): " SMTP_EMAIL
-    export SSL_EMAIL="$SMTP_EMAIL"  # Use same email for SSL
-    
-    if [ -z "$SMTP_EMAIL" ]; then
-        log_warning "No email provided. Email notifications will be disabled."
-        SMTP_EMAIL="noreply@example.com"
-        SMTP_PASSWORD="disabled"
-        ADMIN_EMAILS='"admin@example.com"'
-    else
-        read -p "SMTP Password/App Key: " -s SMTP_PASSWORD
-        echo ""
-        read -p "Admin Email Recipients (comma-separated, e.g., admin@domain.com,support@domain.com): " ADMIN_EMAILS_INPUT
+    # If config loaded, use those values; otherwise prompt
+    if [ $CONFIG_LOADED -eq 1 ]; then
+        log "Using configuration from file..."
         
-        if [ -z "$ADMIN_EMAILS_INPUT" ]; then
-            ADMIN_EMAILS="\"$SMTP_EMAIL\""
+        # Use configured domain or fall back to VM IP
+        if [ -n "$DEPLOYMENT_DOMAIN" ]; then
+            export DOMAIN_OR_IP="$DEPLOYMENT_DOMAIN"
         else
-            # Convert comma-separated to JSON array format
-            ADMIN_EMAILS=$(echo "$ADMIN_EMAILS_INPUT" | awk -F',' '{for(i=1;i<=NF;i++){printf "\"%s\"%s", $i, (i<NF?",":"")}}')
+            export DOMAIN_OR_IP="$VM_IP"
         fi
-    fi
-    
-    echo ""
-    
-    # Generate secure passwords
-    echo "─────────────────────────────────────────"
-    echo "3. Security Configuration"
-    echo "─────────────────────────────────────────"
-    log "Generating secure passwords and secrets..."
-    MYSQL_ROOT_PASSWORD=$(generate_password)
-    MYSQL_DB_PASSWORD=$(generate_password)
-    JWT_SECRET=$(generate_jwt_secret)
-    
-    echo ""
-    echo "✓ Generated secure credentials:"
-    echo "  - MySQL Root Password: ${MYSQL_ROOT_PASSWORD:0:8}..."
-    echo "  - MySQL DB Password:   ${MYSQL_DB_PASSWORD:0:8}..."
-    echo "  - JWT Secret:          ${JWT_SECRET:0:16}..."
-    echo ""
-    
-    # Optional integrations
-    echo "─────────────────────────────────────────"
-    echo "4. Optional Integrations (can configure later)"
-    echo "─────────────────────────────────────────"
-    
-    if prompt_yes_no "Enable WhatsApp integration now?"; then
-        read -p "WhatsApp API Key: " WHATSAPP_API_KEY
-        ENABLE_WHATSAPP="true"
+        
+        # Use configured tenant subdomain (required)
+        if [ -z "$DEFAULT_TENANT_SUBDOMAIN" ]; then
+            log_error "DEFAULT_TENANT_SUBDOMAIN not set in config file"
+            exit 1
+        fi
+        export BASE_SUBDOMAIN="$DEFAULT_TENANT_SUBDOMAIN"
+        
+        # Use configured credentials or generate new ones
+        SMTP_EMAIL="${SMTP_EMAIL:-noreply@$DOMAIN_OR_IP}"
+        SMTP_PASSWORD="${SMTP_PASSWORD:-disabled}"
+        export SSL_EMAIL="$SMTP_EMAIL"
+        
+        # Convert ADMIN_EMAILS to JSON array if needed
+        if [ -n "$ADMIN_EMAILS" ]; then
+            # Check if already in JSON format
+            if [[ "$ADMIN_EMAILS" =~ ^\[.*\]$ ]]; then
+                ADMIN_EMAILS_JSON="$ADMIN_EMAILS"
+            else
+                # Convert comma-separated to JSON array
+                ADMIN_EMAILS_JSON=$(echo "$ADMIN_EMAILS" | awk -F',' '{for(i=1;i<=NF;i++){printf "\"%s\"%s", $i, (i<NF?",":"")}}')
+                ADMIN_EMAILS_JSON="[$ADMIN_EMAILS_JSON]"
+            fi
+        else
+            ADMIN_EMAILS_JSON="[\"$SMTP_EMAIL\"]"
+        fi
+        
+        # Generate secure passwords if not provided
+        if [ -z "$MYSQL_ROOT_PASSWORD" ]; then
+            MYSQL_ROOT_PASSWORD=$(generate_password)
+            log "Generated MySQL root password"
+        fi
+        if [ -z "$MYSQL_DB_PASSWORD" ]; then
+            MYSQL_DB_PASSWORD=$(generate_password)
+            log "Generated MySQL DB password"
+        fi
+        if [ -z "$JWT_SECRET" ]; then
+            JWT_SECRET=$(generate_jwt_secret)
+            log "Generated JWT secret"
+        fi
+        
+        # Optional integrations from config
+        ENABLE_WHATSAPP="${ENABLE_WHATSAPP:-false}"
+        MSGPK_WHATSAPP_API_KEY="${MSGPK_WHATSAPP_API_KEY:-}"
+        WHATSAPP_IMAGE_URL="${WHATSAPP_IMAGE_URL:-}"
+        OPENAI_API_KEY="${OPENAI_API_KEY:-}"
+        OPENAI_MODEL="${OPENAI_MODEL:-gpt-4-turbo}"
+        FBR_INTEGRATION_ENABLED="${FBR_INTEGRATION_ENABLED:-false}"
+        WEBHOOK_URL="${WEBHOOK_URL:-}"
+        
+        # Reception share config
+        RECEPTION_SHARE_ENABLED="${RECEPTION_SHARE_ENABLED:-true}"
+        RECEPTION_SHARE_PERCENTAGE="${RECEPTION_SHARE_PERCENTAGE:-1.25}"
+        
+        # Patient portal config
+        PATIENT_DEFAULT_PASSWORD="${PATIENT_DEFAULT_PASSWORD:-NxtHospital123}"
+        
+        log "✓ Configuration loaded from file"
+        log "  Domain: $DOMAIN_OR_IP"
+        log "  Default Tenant: $BASE_SUBDOMAIN"
+        log "  SMTP: $SMTP_EMAIL"
+        log "  WhatsApp: $ENABLE_WHATSAPP"
+        log "  OpenAI: $([ -n "$OPENAI_API_KEY" ] && echo "Enabled" || echo "Disabled")"
+        
     else
-        WHATSAPP_API_KEY=""
-        ENABLE_WHATSAPP="false"
-    fi
-    
-    if prompt_yes_no "Enable OpenAI integration now?"; then
-        read -p "OpenAI API Key: " OPENAI_API_KEY
-    else
-        OPENAI_API_KEY=""
-    fi
-    
-    echo ""
+        # Interactive mode - prompt for all values
+        clear
+        echo ""
+        echo "=========================================="
+        echo "  Production Configuration Setup"
+        echo "=========================================="
+        echo ""
+        echo "Please provide the following information:"
+        echo ""
 
-    # Update hms-backend.env
+        # Domain or IP
+        echo "─────────────────────────────────────────"
+        echo "1. Domain/IP Address Configuration"
+        echo "─────────────────────────────────────────"
+        echo "Your VM IP: $VM_IP"
+        read -p "Enter your domain name (or press Enter to use VM IP): " USER_DOMAIN
+        
+        if [ -z "$USER_DOMAIN" ]; then
+            export DOMAIN_OR_IP="$VM_IP"
+            log "Using VM IP: $DOMAIN_OR_IP"
+        else
+            export DOMAIN_OR_IP="$USER_DOMAIN"
+            log "Using domain: $DOMAIN_OR_IP"
+        fi
+        
+        echo ""
+        
+        # Base Subdomain / Default Tenant
+        echo "─────────────────────────────────────────"
+        echo "2. Default Tenant Configuration"
+        echo "─────────────────────────────────────────"
+        echo "For multi-tenant system, specify the base subdomain."
+        echo "Examples:"
+        echo "  familycare.nxtwebmasters.com → use 'familycare'"
+        echo "  hms.yourdomain.com → use 'hms'"
+        echo "  medeast.hospital.com → use 'medeast'"
+        echo ""
+        read -p "Enter base subdomain/default tenant name: " BASE_SUBDOMAIN
+        
+        if [ -z "$BASE_SUBDOMAIN" ]; then
+            log_error "Base subdomain cannot be empty!"
+            exit 1
+        fi
+        
+        export BASE_SUBDOMAIN
+        log "Default tenant set to: $BASE_SUBDOMAIN"
+        
+        echo ""
+        
+        # Email Configuration
+        echo "─────────────────────────────────────────"
+        echo "3. Email Configuration (for notifications)"
+        echo "─────────────────────────────────────────"
+        read -p "SMTP Email (e.g., admin@yourdomain.com): " SMTP_EMAIL
+        export SSL_EMAIL="$SMTP_EMAIL"  # Use same email for SSL
+        
+        if [ -z "$SMTP_EMAIL" ]; then
+            log_warning "No email provided. Email notifications will be disabled."
+            SMTP_EMAIL="noreply@example.com"
+            SMTP_PASSWORD="disabled"
+            ADMIN_EMAILS_JSON='["admin@example.com"]'
+        else
+            read -p "SMTP Password/App Key: " -s SMTP_PASSWORD
+            echo ""
+            read -p "Admin Email Recipients (comma-separated, e.g., admin@domain.com,support@domain.com): " ADMIN_EMAILS_INPUT
+            
+            if [ -z "$ADMIN_EMAILS_INPUT" ]; then
+                ADMIN_EMAILS_JSON="[\"$SMTP_EMAIL\"]"
+            else
+                # Convert comma-separated to JSON array format
+                ADMIN_EMAILS_JSON=$(echo "$ADMIN_EMAILS_INPUT" | awk -F',' '{for(i=1;i<=NF;i++){printf "\"%s\"%s", $i, (i<NF?",":"")}}')
+                ADMIN_EMAILS_JSON="[$ADMIN_EMAILS_JSON]"
+            fi
+        fi
+        
+        echo ""
+        
+        # Generate secure passwords
+        echo "─────────────────────────────────────────"
+        echo "4. Security Configuration"
+        echo "─────────────────────────────────────────"
+        log "Generating secure passwords and secrets..."
+        MYSQL_ROOT_PASSWORD=$(generate_password)
+        MYSQL_DB_PASSWORD=$(generate_password)
+        JWT_SECRET=$(generate_jwt_secret)
+        
+        echo ""
+        echo "✓ Generated secure credentials:"
+        echo "  - MySQL Root Password: ${MYSQL_ROOT_PASSWORD:0:8}..."
+        echo "  - MySQL DB Password:   ${MYSQL_DB_PASSWORD:0:8}..."
+        echo "  - JWT Secret:          ${JWT_SECRET:0:16}..."
+        echo ""
+        
+        # Optional integrations
+        echo "─────────────────────────────────────────"
+        echo "5. Optional Integrations (can configure later)"
+        echo "─────────────────────────────────────────"
+        
+        if prompt_yes_no "Enable WhatsApp integration now?"; then
+            read -p "WhatsApp API Key: " MSGPK_WHATSAPP_API_KEY
+            read -p "WhatsApp Image URL (optional): " WHATSAPP_IMAGE_URL
+            ENABLE_WHATSAPP="true"
+        else
+            MSGPK_WHATSAPP_API_KEY=""
+            WHATSAPP_IMAGE_URL=""
+            ENABLE_WHATSAPP="false"
+        fi
+        
+        if prompt_yes_no "Enable OpenAI integration now?"; then
+            read -p "OpenAI API Key: " OPENAI_API_KEY
+            OPENAI_MODEL="gpt-4-turbo"
+        else
+            OPENAI_API_KEY=""
+            OPENAI_MODEL="gpt-4-turbo"
+        fi
+        
+        # Set defaults for other settings
+        FBR_INTEGRATION_ENABLED="false"
+        WEBHOOK_URL=""
+        RECEPTION_SHARE_ENABLED="true"
+        RECEPTION_SHARE_PERCENTAGE="1.25"
+        PATIENT_DEFAULT_PASSWORD="NxtHospital123"
+        
+        echo ""
+    fi
+
+    # Update hms-backend.env with all settings
     log "Updating hms-backend.env..."
+    
+    # Build EMAIL_IMAGE_PATH dynamically
+    if [ "$DOMAIN_OR_IP" != "$VM_IP" ]; then
+        EMAIL_IMAGE_PATH="https://$DOMAIN_OR_IP/images/logo.png"
+    else
+        EMAIL_IMAGE_PATH="http://$DOMAIN_OR_IP/images/logo.png"
+    fi
+    
+    # Build WHATSAPP_IMAGE_URL if not set
+    if [ -z "$WHATSAPP_IMAGE_URL" ] && [ -n "$DOMAIN_OR_IP" ]; then
+        WHATSAPP_IMAGE_URL="https://$DOMAIN_OR_IP/images/logo.jpg"
+    fi
     
     cat > hms-backend.env << EOF
 # Server Configuration
 PORT=80
 LOG_LEVEL=info
+
+# Multi-Tenancy Configuration
+# Base subdomain for system/default tenant (extracted from hostname)
+# For ${DOMAIN_OR_IP}, this is set to '${BASE_SUBDOMAIN}'
+# Multi-tenant subdomains will be like: hospital1-${BASE_SUBDOMAIN}.domain.com
+BASE_SUBDOMAIN=$BASE_SUBDOMAIN
 
 # Database Configuration (MySQL)
 DB_HOST=mysql
@@ -342,7 +596,7 @@ DB_CONNECTION_LIMIT=10
 DB_MULTIPLE_STATEMENTS=true
 
 # FBR Integration Configuration
-FBR_INTEGRATION_ENABLED=false
+FBR_INTEGRATION_ENABLED=$FBR_INTEGRATION_ENABLED
 FBR_API_URL_PRODUCTION=https://api.fbr.gov.pk/v1/pos/invoice
 FBR_API_URL_SANDBOX=https://api.fbr.gov.pk/v1/pos/sandbox/invoice
 FBR_TIMEOUT_MS=30000
@@ -351,8 +605,8 @@ FBR_RETRY_ATTEMPTS=3
 # Email Configuration
 EMAIL_USER=$SMTP_EMAIL
 EMAIL_PASSWORD=$SMTP_PASSWORD
-EMAIL_IMAGE_PATH=https://$DOMAIN_OR_IP/images/logo.png
-EMAIL_RECIPIENTS=[$ADMIN_EMAILS]
+EMAIL_IMAGE_PATH=$EMAIL_IMAGE_PATH
+EMAIL_RECIPIENTS=$ADMIN_EMAILS_JSON
 
 # JWT Configuration
 JWT_SECRET=$JWT_SECRET
@@ -362,7 +616,7 @@ IMAGE_STORAGE_PATH=/usr/share/nginx/html/images
 FILE_SERVER_URL=/images
 
 # Webhook Configuration
-WEBHOOK_URL=
+WEBHOOK_URL=$WEBHOOK_URL
 
 # URL Configuration
 CUSTOMER_PORTAL_URL=/assets/print
@@ -389,25 +643,25 @@ REDIS_COMMAND_TIMEOUT=10000
 # URL Configuration
 URL_EXPIRATION_MS=900000
 DEFAULT_PRINT_LAYOUT=a4
-PATIENT_DEFAULT_PASSWORD=NxtHospital123
+PATIENT_DEFAULT_PASSWORD=$PATIENT_DEFAULT_PASSWORD
 
 # WhatsApp Configuration
 ENABLE_WHATSAPP=$ENABLE_WHATSAPP
 MSGPK_WHATSAPP_API_URL=https://msgpk.com/api/send.php
-MSGPK_WHATSAPP_API_KEY=$WHATSAPP_API_KEY
+MSGPK_WHATSAPP_API_KEY=$MSGPK_WHATSAPP_API_KEY
 MSGPK_WHATSAPP_GROUP_API_URL=https://msgpk.com/apps/check_group.php
 MSGPK_WHATSAPP_CHECK_API_URL=https://msgpk.com/api/whatsapp_numbers.php
 WHATSAPP_MAX_RETRIES=3
 WHATSAPP_RETRY_DELAY_MS=1000
 WHATSAPP_RATE_LIMIT_DELAY_MS=100
-WHATSAPP_IMAGE_URL=
+WHATSAPP_IMAGE_URL=$WHATSAPP_IMAGE_URL
 
 # Reception Share Configuration
-RECEPTION_SHARE={"ENABLED":true,"PERCENTAGE":1.25}
+RECEPTION_SHARE={"ENABLED":$RECEPTION_SHARE_ENABLED,"PERCENTAGE":$RECEPTION_SHARE_PERCENTAGE}
 
 # OpenAI Configuration
 OPENAI_API_KEY=$OPENAI_API_KEY
-OPENAI_MODEL=gpt-4-turbo
+OPENAI_MODEL=$OPENAI_MODEL
 MAX_TOKENS=2500
 TEMPERATURE=0.5
 TOP_P=1.0
@@ -429,6 +683,8 @@ SCHED_DB_BACKUP_CRON="0 2 * * 0"
 EOF
 
     log "✓ Environment configuration completed"
+    log "  BASE_SUBDOMAIN=$BASE_SUBDOMAIN"
+    log "  DOMAIN_OR_IP=$DOMAIN_OR_IP"
     
     # Update docker-compose.yml with passwords
     log "Updating docker-compose.yml with generated passwords..."
@@ -441,6 +697,11 @@ EOF
     
     log "✓ Docker Compose and backend environment updated with secure passwords"
     
+    # Replace schema placeholders with actual values
+    log "Updating database schema with tenant configuration..."
+    sed -i "s/{{DEFAULT_TENANT_SUBDOMAIN}}/$BASE_SUBDOMAIN/g" data/scripts/1-schema.sql
+    log "✓ Database schema updated with BASE_SUBDOMAIN=$BASE_SUBDOMAIN"
+    
     # Save credentials to a secure file
     CREDS_FILE="$HOME/.hms_credentials_$(date +%Y%m%d).txt"
     cat > "$CREDS_FILE" << EOF
@@ -449,17 +710,26 @@ HMS Production Credentials
 Generated: $(date)
 ═══════════════════════════════════════
 
+Multi-Tenancy Configuration:
+  Base Subdomain:      $BASE_SUBDOMAIN
+  Default Tenant:      ${BASE_SUBDOMAIN} (system_default_tenant)
+  Domain:              $DOMAIN_OR_IP
+
 MySQL Root Password: $MYSQL_ROOT_PASSWORD
 MySQL DB Password:   $MYSQL_DB_PASSWORD
 JWT Secret:          $JWT_SECRET
 
-Domain/IP:           $DOMAIN_OR_IP
 SMTP Email:          $SMTP_EMAIL
 
 Access URLs:
   Admin Panel:       http://$DOMAIN_OR_IP/
   Patient Portal:    http://$DOMAIN_OR_IP/portal/
   API Health:        http://$DOMAIN_OR_IP/api-server/health
+
+Multi-Tenant Access Pattern:
+  - Default tenant:  $DOMAIN_OR_IP (or ${BASE_SUBDOMAIN}.yourdomain.com)
+  - Other tenants:   hospital1-${BASE_SUBDOMAIN}.yourdomain.com
+  - Tenant creation: POST /api-server/tenant/create
 
 ═══════════════════════════════════════
 ⚠️  IMPORTANT: Save these credentials securely!
@@ -813,7 +1083,14 @@ EOF
             log "Requesting wildcard SSL certificate from Let's Encrypt..."
             log "This may take 1-2 minutes for DNS propagation..."
             
+            echo ""
+            echo "═══════════════════════════════════════════════════════════════"
+            echo "  Contacting Let's Encrypt..."
+            echo "═══════════════════════════════════════════════════════════════"
+            echo ""
+            
             SSL_SUCCESS=0
+            CERT_OUTPUT=$(mktemp)
             if sudo_wrapper certbot certonly \
                 --dns-cloudflare \
                 --dns-cloudflare-credentials /root/.secrets/cloudflare.ini \
@@ -821,16 +1098,41 @@ EOF
                 -d "*.$SSL_DOMAIN" \
                 --non-interactive \
                 --agree-tos \
-                --email "$SSL_EMAIL" >> "$LOG_FILE" 2>&1; then
+                --email "$SSL_EMAIL" 2>&1 | tee "$CERT_OUTPUT"; then
                 SSL_SUCCESS=1
+                echo ""
+                echo "═══════════════════════════════════════════════════════════════"
+                echo "  ✅ SSL CERTIFICATE GENERATION SUCCESSFUL!"
+                echo "═══════════════════════════════════════════════════════════════"
                 log "✓ Wildcard SSL certificate generated successfully"
                 log_info "Certificate covers: $SSL_DOMAIN and *.$SSL_DOMAIN"
                 log_info "Stored in: /etc/letsencrypt/live/$SSL_DOMAIN/"
+                echo ""
+                cat "$CERT_OUTPUT" >> "$LOG_FILE"
             else
                 SSL_SUCCESS=0
-                log_error "Certificate generation failed. Check log: $LOG_FILE"
-                tail -20 "$LOG_FILE"
+                echo ""
+                echo "═══════════════════════════════════════════════════════════════"
+                echo "  ❌ SSL CERTIFICATE GENERATION FAILED"
+                echo "═══════════════════════════════════════════════════════════════"
+                log_error "Certificate generation failed!"
+                echo ""
+                echo "Error details:"
+                cat "$CERT_OUTPUT"
+                echo ""
+                echo "Full log: $LOG_FILE"
+                echo ""
+                cat "$CERT_OUTPUT" >> "$LOG_FILE"
+                
+                echo "Common issues:"
+                echo "  1. Invalid Cloudflare API token (check permissions)"
+                echo "  2. Domain not managed by Cloudflare"
+                echo "  3. API token missing Zone:DNS:Edit permission"
+                echo "  4. Rate limit reached (try again in 1 hour)"
+                echo ""
+                read -p "Press Enter to continue deployment without SSL..."
             fi
+            rm -f "$CERT_OUTPUT"
             ;;
             
         2)
@@ -880,24 +1182,80 @@ EOF
                 -d "*.$SSL_DOMAIN" \
                 --agree-tos \
                 --email "$SSL_EMAIL"; then
-                SSL_SUCCESS=1
-                log "✓ Wildcard SSL certificate generated successfully"
-                log_info "Certificate covers: $SSL_DOMAIN and *.$SSL_DOMAIN"
-                log_info "Stored in: /etc/letsencrypt/live/$SSL_DOMAIN/"
+                
+                # Verify certificate was actually created
+                if [ -d "/etc/letsencrypt/live/$SSL_DOMAIN" ]; then
+                    SSL_SUCCESS=1
+                    echo ""
+                    echo "═══════════════════════════════════════════════════════════════"
+                    echo "  ✅ SSL CERTIFICATE GENERATION SUCCESSFUL!"
+                    echo "═══════════════════════════════════════════════════════════════"
+                    log "✓ Wildcard SSL certificate generated successfully"
+                    log_info "Certificate covers: $SSL_DOMAIN and *.$SSL_DOMAIN"
+                    log_info "Stored in: /etc/letsencrypt/live/$SSL_DOMAIN/"
+                    echo ""
+                    echo "Certificate files:"
+                    sudo_wrapper ls -lh /etc/letsencrypt/live/$SSL_DOMAIN/
+                    echo ""
+                else
+                    SSL_SUCCESS=0
+                    log_error "Certificate directory not found after certbot completion"
+                fi
             else
                 SSL_SUCCESS=0
-                log_error "Certificate generation failed or was cancelled"
-                log_warning "You can run SSL setup manually later with:"
-                log_warning "  certbot certonly --manual --preferred-challenges dns -d $SSL_DOMAIN -d *.$SSL_DOMAIN"
+                echo ""
+                echo "═══════════════════════════════════════════════════════════════"
+                echo "  ❌ SSL CERTIFICATE -reverse-proxy 2>/dev/null || true
+            
+            echo ""
+            echo "═══════════════════════════════════════════════════════════════"
+            echo "  Requesting SSL certificate..."
+            echo "═══════════════════════════════════════════════════════════════"
+            echo ""
+            
+            SSL_SUCCESS=0
+            CERT_OUTPUT=$(mktemp)
+            if sudo_wrapper certbot certonly \
+                --standalone \
+                -d "$SSL_DOMAIN" \
+                --non-interactive \
+                --agree-tos \
+                --email "$SSL_EMAIL" 2>&1 | tee "$CERT_OUTPUT"; then
+                
+                if [ -d "/etc/letsencrypt/live/$SSL_DOMAIN" ]; then
+                    SSL_SUCCESS=1
+                    echo ""
+                    echo "═══════════════════════════════════════════════════════════════"
+                    echo "  ✅ SSL CERTIFICATE GENERATION SUCCESSFUL!"
+                    echo "═══════════════════════════════════════════════════════════════"
+                    log "✓ SSL certificate generated for $SSL_DOMAIN"
+                    log_warning "Note: This does NOT cover subdomains (*.domain)"
+                    log_warning "For multi-tenant support, you need wildcard certificate"
+                    echo ""
+                else
+                    SSL_SUCCESS=0
+                    log_error "Certificate directory not found"
+                fi
+                cat "$CERT_OUTPUT" >> "$LOG_FILE"
+            else
+                SSL_SUCCESS=0
+                echo ""
+                echo "═══════════════════════════════════════════════════════════════"
+                echo "  ❌ SSL CERTIFICATE GENERATION FAILED"
+                echo "═══════════════════════════════════════════════════════════════"
+                log_error "SSL certificate generation failed"
+                echo ""
+                echo "Error details:"
+                cat "$CERT_OUTPUT"
+                echo ""
+                cat "$CERT_OUTPUT" >> "$LOG_FILE"
+                echo ""
+                read -p "Press Enter to continue deployment without SSL..."
             fi
-            ;;
+            rm -f "$CERT_OUTPUT"
             
-        3)
-            # Single domain standalone
-            log "Setting up single-domain SSL (non-wildcard)..."
-            
-            if ! command -v certbot &> /dev/null; then
-                log "Installing certbot..."
+            # Start nginx again
+            $DOCKER_COMPOSE_CMD start nginx-reverse-proxy 2>/dev/null || true
                 sudo_wrapper apt install -y certbot >> "$LOG_FILE" 2>&1
             fi
             
@@ -1080,17 +1438,18 @@ main() {
     echo "╔══════════════════════════════════════════════════════════╗"
     echo "║                                                          ║"
     echo "║        🏥 NXT HMS - Production Deployment 🏥             ║"
-    echo "║              Automated Setup Script v2.0                 ║"
+    echo "║         Automated Multi-Tenant Setup v2.0                ║"
     echo "║                                                          ║"
     echo "╚══════════════════════════════════════════════════════════╝"
     echo ""
     echo "This script will deploy your HMS application automatically."
     echo ""
     echo "What it does:"
+    echo "  ✓ Load deployment configuration (domain, tenant, integrations)"
     echo "  ✓ Verify system requirements (Docker, ports, disk space)"
     echo "  ✓ Install required system packages"
     echo "  ✓ Configure firewall (UFW)"
-    echo "  ✓ Setup production environment"
+    echo "  ✓ Setup production environment with multi-tenancy"
     echo "  ✓ Deploy all Docker containers"
     echo "  ✓ Setup automated backups"
     echo "  ✓ Configure health monitoring"
@@ -1104,11 +1463,19 @@ main() {
     if ! prompt_yes_no "Ready to begin deployment?"; then
         echo ""
         echo "Deployment cancelled. You can run this script again anytime."
+        echo ""
+        echo "💡 TIP: Create deployment-config.local.sh for automated deployments"
+        echo "   cp deployment-config.sh deployment-config.local.sh"
+        echo "   nano deployment-config.local.sh"
         exit 0
     fi
 
     clear
     log "🚀 Starting HMS deployment at $(date)"
+    echo ""
+    
+    # Load configuration first
+    load_deployment_config "$@"
     echo ""
 
     # Execute deployment phases
@@ -1142,5 +1509,5 @@ main() {
 # Script Entry Point
 ################################################################################
 
-# Run main function
-main
+# Run main function with all command line arguments
+main "$@"

@@ -88,7 +88,7 @@ INSERT INTO `nxt_tenant` (
 ) VALUES (
   'system_default_tenant',
   'System Default Hospital',
-  'familycare',
+  '{{DEFAULT_TENANT_SUBDOMAIN}}',
   'active',
   'enterprise',
   '{"fbr":true,"campaigns":true,"ai":true,"health_authority_analytics":true}',

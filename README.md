@@ -1,83 +1,552 @@
-# nxt-hospital-skeleton-project
+# NXT HMS - Multi-Tenant Hospital Management System
+## Production Deployment Skeleton
 
-## nxt-hospital-skeleton-project — Project README (Pitch & Technical Summary)
+[![License](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/docker-compose-blue.svg)](docker-compose.yml)
+[![Production Ready](https://img.shields.io/badge/production-ready-green.svg)]()
 
-This repository is a compact, production-oriented Docker Compose skeleton for the NXT Hospital Management System (HMS). It is built for multi-tenant hospital deployments and automates common hospital operations — patient lifecycle, appointment booking, billing, printing, campaigns, and background processing — while providing secure file storage and tenant isolation.
+A complete, production-ready Docker Compose deployment for the NXT Hospital Management System. Designed for multi-tenant SaaS hospital networks with tenant isolation, automated deployments, and enterprise features.
 
-This README highlights core architecture, major product features, the tenant-aware file upload system, developer quick start, and a short business pitch you can use when presenting the project.
+---
 
-**Why this repo?**
-- Designed for multi-tenant SaaS: tenant-aware schemas, per-tenant file storage, and request-level tenant enforcement patterns.
-- Built-in automation: scheduled jobs, messaging/campaign system, and background workers for asynchronous integrations (tax authority, notifications).
-- Practical production patterns: cluster-aware server, BullMQ queues, Redis DB separation, and PM2-friendly process model.
+## 🚀 Quick Start (5 Minutes)
 
-**Audience:** technical reviewers, potential customers, and platform engineers evaluating an HMS foundation for multi-site hospital networks.
+```bash
+# 1. Clone and navigate
+git clone <repository-url>
+cd nxt-hospital-skeleton-project
 
---
+# 2. Configure deployment
+cp deployment-config.sh deployment-config.local.sh
+nano deployment-config.local.sh
+# Set: DEPLOYMENT_DOMAIN and DEFAULT_TENANT_SUBDOMAIN
 
-**Core components (quick)**
-- `hms-backend/` — Node/Express API with controllers, services, BullMQ queues and workers. Key files: `server.js`, `bootstrap/index.js`, `config/`, `queues/`, `workers/`.
-- `hospital-frontend/` — Angular admin UI (single HTTP surface at `src/app/services/http.service.ts`).
-- `customer-portal/` — Patient portal + print templates under `src/assets/print/` (uses short-url pattern for secure printing).
-- `appointment-ivr/` — FreeSWITCH Lua IVR integrations for phone-based appointment flows.
-- `nxt-hospital-skeleton-project/` — Docker Compose orchestrator and example deployment for local/VM testing.
+# 3. Deploy
+chmod +x deploy.sh
+./deploy.sh
 
-## Major HMS Features (detailed)
+# 4. Access
+# Open: https://<your-domain>/
+```
 
-1) Multi-Tenancy (First-class)
-- Schema: MySQL schema is multi-tenant ready — the majority of tables include `tenant_id` defaulting to `system_default_tenant`.
-- Request flow: `X-Tenant-Id` header and `ensureTenant` middleware derive and validate tenant context. Pattern: controllers/services must include `tenant_id` in all queries.
-- File storage: tenant-isolated host folders and tenant-scoped public URLs (see File Upload Mechanism below).
-- Note: the repo includes an audit and docs for outstanding tenant isolation work; fix lists are in `docs/` for production hardening.
+**That's it!** The deployment script handles everything: Docker setup, database initialization, SSL certificates, and health monitoring.
 
-2) Automation & Background Processing
-- Queues: BullMQ (Redis) for deferred work — campaign delivery, FBR tax sync, report generation.
-- Scheduler: `scheduledJobsService.js` uses node-schedule for daily/recurring tasks; can run as standalone process for resilience.
-- Workers: separate Node workers process jobs from queues; workers can be disabled via env flags during dev.
+---
 
-3) Patient Matching & Duplicate Prevention
-- Service `PatientMatchingService` implements multi-factor matching (CNIC exact, mobile + fuzzy name, Levenshtein) to reduce duplicate MRIDs and improve front-desk workflow.
+## 📋 What's Included
 
-4) ID Generation System
-- Structured, deterministic IDs (MRID, slips) with a reserve/commit pattern to avoid collisions across tenants. See `hms-backend/controllers/idGeneratorController.js` and frontend counterpart.
+### Core Services
+- **Backend API** (`hms-backend`) - Node.js/Express with cluster mode, BullMQ workers, schedulers
+- **Admin Frontend** (`hospital-frontend`) - Angular 13 SPA for hospital staff
+- **Patient Portal** (`customer-portal`) - Angular 13 portal for patients
+- **Database** (MySQL 8.0) - Multi-tenant schema with automatic initialization
+- **Cache/Queue** (Redis 7.2) - Session management and job queues
+- **Reverse Proxy** (Nginx 1.25) - SSL termination, routing, static files
 
-5) Print System (Secure)
-- Short-URL flow: UI requests a short URL from the backend (tiny-url service). `customer-portal` print templates (A4/thermal) resolve hash → fetch print data → auto-print. Reduces leakage of sensitive query params.
+### Key Features
+✅ **Multi-Tenant Architecture** - Complete tenant isolation (data, files, users)  
+✅ **Automated Deployment** - Single script deploys entire stack  
+✅ **Generic Configuration** - Deploy to any domain/tenant without code changes  
+✅ **SSL/TLS Ready** - Automatic Let's Encrypt wildcard certificates  
+✅ **Health Monitoring** - Built-in health checks and auto-restart  
+✅ **Automated Backups** - Daily database backups with email notifications  
+✅ **Background Jobs** - Campaign processing, expiry checks, stock alerts  
+✅ **Production Hardening** - Firewall, security headers, rate limiting
 
-6) Campaigns & Multi-channel Messaging
-- Generic campaign service routes events (`new_patient`, `appointment_created`, etc.) into channel adapters (WhatsApp, Email, SMS) and enqueues jobs for delivery with telemetry.
+---
 
-7) IVR Integration
-- FreeSWITCH Lua scripts under `appointment-ivr/ivr_scripts/` provide automated phone interactions and call flows that can use REST APIs and DB queries.
+## 🎯 Architecture Overview
 
-8) Bootstrap & Data Seeding
-- Safe bootstrap: `hms-backend/bootstrap/index.js` provides idempotent seeding of baseline data (permissions, departments, lab tests). Always check with `npm run bootstrap:status` before making changes.
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Nginx (Reverse Proxy)                    │
+│          SSL Termination | Static Files | Routing           │
+└────────────┬──────────────────────┬────────────┬────────────┘
+             │                      │            │
+    ┌────────▼────────┐   ┌────────▼──────┐   ┌▼──────────┐
+    │ Admin Frontend  │   │ Patient Portal│   │ Backend API│
+    │   (Angular 13)  │   │  (Angular 13) │   │  (Node.js) │
+    └─────────────────┘   └───────────────┘   └─────┬──────┘
+                                                     │
+                                    ┌────────────────┼───────────────┐
+                                    │                │               │
+                              ┌─────▼────┐    ┌─────▼────┐   ┌─────▼────┐
+                              │  MySQL   │    │  Redis   │   │  Workers │
+                              │ Database │    │  Cache   │   │ (BullMQ) │
+                              └──────────┘    └──────────┘   └──────────┘
+```
 
-## File Upload Mechanism (Tenant-aware, secure)
+### Multi-Tenancy Model
 
-This is a critical part of the HMS pitch: secure storage of patient files (images, reports, DICOM) with tenant isolation and scalable patterns.
+```
+Domain Structure:
+  familycare.nxtwebmasters.com          → Default Tenant (familycare)
+  hospital1-familycare.nxtwebmasters.com → Tenant: hospital1-familycare
+  hospital2-familycare.nxtwebmasters.com → Tenant: hospital2-familycare
 
-How it works
-- Upload flow: backend routes use `tenantMiddleware` to set `req.tenant_id`; file uploads are handled by `multer` (see `hms-backend/examples/tenant-aware-upload-example.js`).
--- Storage layout (host): `./images/<tenant_id>/<category>/<file>` (repo-relative bind mount) — this maps 1:1 to S3/MinIO keys if migrating later.
-- Public URLs: served by `nginx` as `/images/<tenant_id>/...` with caching headers. Backend generates signed/validated URLs by verifying tenant ownership before returning paths.
+Isolation:
+  ✓ Database: tenant_id column in all tables
+  ✓ Files: /images/<tenant_id>/<category>/
+  ✓ Users: Scoped to tenant_id
+  ✓ API: Middleware enforces tenant context
+```
 
-Security rules (enforced)
-- Never accept `tenant_id` from request body/query — always derive from JWT/subdomain or middleware.
-- Validate file deletions and reads by confirming `req.tenant_id` matches the file path.
-- Use read-only mounts in the `nginx` container to prevent direct writes.
+---
 
-Migration & scaling
-- Small deployments: host filesystem with tenant folders.
-- Scale: switch to MinIO/S3 with the same logical keys and enable CDN and lifecycle policies.
+## 🔧 Configuration
 
-Backup & retention
-- Example cron-based tar backups or disk snapshots; recommend lifecycle policies in object storage for large archives.
+### Deployment Configuration
 
-## Developer Quick Start (condensed)
+The system uses a simple configuration file for all deployment settings:
 
-1. Local dev (PowerShell on Windows recommended):
-```powershell
+**File**: `deployment-config.local.sh` (git-ignored)
+
+```bash
+# Required: Domain and Tenant
+DEPLOYMENT_DOMAIN="familycare.nxtwebmasters.com"  # Your domain
+DEFAULT_TENANT_SUBDOMAIN="familycare"              # Your base tenant
+
+# Deployment Mode
+DEPLOYMENT_MODE="https"  # http or https
+
+# Email (for notifications and SSL)
+SMTP_EMAIL="noreply@yourdomain.com"
+SMTP_PASSWORD="your-app-password"
+ADMIN_EMAILS="admin1@domain.com,admin2@domain.com"
+
+# Optional: Pre-configure integrations
+ENABLE_WHATSAPP="true"
+MSGPK_WHATSAPP_API_KEY="your-key"
+OPENAI_API_KEY="sk-..."
+FBR_INTEGRATION_ENABLED="true"
+```
+
+**Security**: Passwords and JWT secrets are auto-generated securely.
+
+### Configuration for Different Environments
+
+```bash
+# Production - Family Care
+deployment-config.local.sh
+  DEPLOYMENT_DOMAIN="familycare.nxtwebmasters.com"
+  DEFAULT_TENANT_SUBDOMAIN="familycare"
+
+# Production - Generic HMS
+deployment-config.hms.sh
+  DEPLOYMENT_DOMAIN="hms.yourdomain.com"
+  DEFAULT_TENANT_SUBDOMAIN="hms"
+
+# Staging/Development
+deployment-config.dev.sh
+  DEPLOYMENT_DOMAIN=""  # Uses VM IP
+  DEFAULT_TENANT_SUBDOMAIN="hms"
+  DEPLOYMENT_MODE="http"
+```
+
+---
+
+## 📦 Deployment Options
+
+### Option 1: Automated (Recommended)
+
+```bash
+# One-time setup
+cp deployment-config.sh deployment-config.local.sh
+nano deployment-config.local.sh  # Configure once
+
+# Deploy anytime
+./deploy.sh
+```
+
+### Option 2: Custom Config
+
+```bash
+# Use environment-specific configs
+./deploy.sh --config deployment-config.production.sh
+./deploy.sh --config deployment-config.staging.sh
+```
+
+### Option 3: Interactive
+
+```bash
+# Prompts for all settings
+./deploy.sh  # Run without config file
+```
+
+---
+
+## 🌐 DNS Configuration
+
+### Wildcard DNS (Required for Multi-Tenant)
+
+Configure these records in your DNS provider:
+
+```dns
+Type: A
+Name: familycare
+Value: <your-server-ip>
+
+Type: A  
+Name: *.familycare
+Value: <your-server-ip>
+```
+
+**Result**: All subdomains automatically route to your server
+- `familycare.nxtwebmasters.com` ✅
+- `hospital1-familycare.nxtwebmasters.com` ✅
+- `hospital2-familycare.nxtwebmasters.com` ✅
+
+---
+
+## 🔐 SSL/TLS Certificates
+
+### Automatic (Let's Encrypt)
+
+The deployment script offers automated SSL setup:
+
+**Option 1: Cloudflare DNS (Recommended)**
+- Wildcard certificate covering `*.yourdomain.com`
+- Automatic renewal
+- No downtime
+
+**Option 2: Manual DNS Challenge**
+- Step-by-step prompts for DNS TXT records
+- Suitable for any DNS provider
+
+**Option 3: HTTP Challenge**
+- Single-domain certificates
+- Simple but requires separate cert per subdomain
+
+---
+
+## 📊 Monitoring & Health
+
+### Built-in Endpoints
+
+```bash
+# System health
+curl http://localhost/api-server/health
+curl http://localhost/nginx-health
+
+# Status dashboard
+http://localhost/status
+
+# Queue monitoring (Bullboard)
+http://localhost/admin/queues
+```
+
+### Automated Monitoring
+
+The deployment configures:
+- ✅ Health check cron (every 5 minutes)
+- ✅ Auto-restart failed containers
+- ✅ Daily database backups (3 AM)
+- ✅ Low disk space alerts
+
+---
+
+## 🗄️ Database Management
+
+### Automatic Initialization
+
+The system automatically:
+1. Creates database schema (tables, indexes, views)
+2. Sets up permissions and roles
+3. Creates stored procedures
+4. Initializes bootstrap data
+
+**SQL Files** (auto-executed in order):
+- `data/scripts/1-schema.sql` - Table definitions
+- `data/scripts/2-permissions.sql` - Access control
+- `data/scripts/3-procedures.sql` - Stored procedures
+- `data/scripts/4-views.sql` - Database views
+
+### Bootstrap Data
+
+Backend automatically loads:
+- Default permissions and user roles
+- Hospital departments
+- Lab test types
+- Service categories
+- Tax configurations
+- Message templates
+
+```bash
+# Check bootstrap status
+docker exec api-hospital npm run bootstrap:status
+
+# Force re-bootstrap (caution!)
+docker exec api-hospital npm run bootstrap:force
+```
+
+---
+
+## 👥 Multi-Tenant Management
+
+### Creating New Tenants
+
+**Via API:**
+```bash
+curl -X POST http://your-domain/api-server/tenant/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tenant_name": "Hospital Alpha",
+    "tenant_subdomain": "alpha",
+    "tenant_email": "admin@alpha.com"
+  }'
+```
+
+**Response includes:**
+- Tenant credentials
+- Access URL
+- Setup instructions
+
+**Access**: `https://alpha-familycare.nxtwebmasters.com`
+
+### Tenant Isolation
+
+Each tenant gets:
+- ✅ Separate data (database rows filtered by `tenant_id`)
+- ✅ Isolated files (`/images/<tenant_id>/`)
+- ✅ Separate users and permissions
+- ✅ Independent configuration (FBR, WhatsApp, etc.)
+
+---
+
+## 🔄 Maintenance Operations
+
+### View Logs
+
+```bash
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f hospital-apis
+docker-compose logs -f mysql
+```
+
+### Restart Services
+
+```bash
+# Restart all
+docker-compose restart
+
+# Specific service
+docker-compose restart hospital-apis
+
+# Full rebuild
+docker-compose down
+docker-compose up -d
+```
+
+### Database Backup
+
+```bash
+# Manual backup
+sudo /usr/local/bin/hms-backup.sh
+
+# Restore from backup
+docker exec -i hospital-mysql mysql -u root -p'<password>' nxt-hospital < backup.sql
+```
+
+### Update Deployment
+
+```bash
+# Pull latest code
+git pull origin main
+
+# Update config if needed
+nano deployment-config.local.sh
+
+# Redeploy
+./deploy.sh
+```
+
+---
+
+## 📁 Directory Structure
+
+```
+nxt-hospital-skeleton-project/
+├── deploy.sh                          # Main deployment script
+├── deployment-config.sh               # Configuration template
+├── deployment-config.local.sh         # Your config (git-ignored)
+├── docker-compose.yml                 # Service orchestration
+├── hms-backend.env                    # Backend environment (auto-generated)
+│
+├── data/scripts/                      # Database initialization
+│   ├── 1-schema.sql
+│   ├── 2-permissions.sql
+│   ├── 3-procedures.sql
+│   └── 4-views.sql
+│
+├── nginx/                             # Reverse proxy configuration
+│   ├── nginx.conf
+│   └── conf.d/
+│       ├── reverse-proxy-http.conf
+│       └── reverse-proxy-https.conf
+│
+├── images/                            # Tenant file storage (auto-created)
+│   └── <tenant_id>/
+│
+└── docs/                              # Documentation
+    ├── GENERIC_DEPLOYMENT_GUIDE.md    # Complete step-by-step guide
+    └── (Production documentation)
+```
+
+---
+
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [GENERIC_DEPLOYMENT_GUIDE.md](docs/GENERIC_DEPLOYMENT_GUIDE.md) | Complete step-by-step deployment guide with all scenarios |
+| [PRODUCTION-CHECKLIST.md](PRODUCTION-CHECKLIST.md) | Pre/post deployment validation checklist (100+ checks) |
+
+---
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+**Issue**: Can't access the application
+```bash
+# Check services are running
+docker-compose ps
+
+# Check logs
+docker-compose logs -f hospital-apis
+
+# Verify ports
+sudo netstat -tlnp | grep -E ':80|:443'
+```
+
+**Issue**: Tenant not found
+```bash
+# Verify tenant exists
+docker exec -it hospital-mysql mysql -u root -p
+> USE `nxt-hospital`;
+> SELECT * FROM nxt_tenant;
+
+# Check BASE_SUBDOMAIN matches
+cat hms-backend.env | grep BASE_SUBDOMAIN
+```
+
+**Issue**: SSL certificate errors
+```bash
+# Verify certificate files
+sudo ls -la /etc/letsencrypt/live/<your-domain>/
+
+# Restart nginx
+docker-compose restart nginx-reverse-proxy
+
+# Check nginx logs
+docker-compose logs nginx-reverse-proxy
+```
+
+**Issue**: Database connection errors
+```bash
+# Check MySQL is ready
+docker exec hospital-mysql mysqladmin ping
+
+# Verify credentials match
+cat hms-backend.env | grep DB_PASSWORD
+cat docker-compose.yml | grep MYSQL_PASSWORD
+```
+
+---
+
+## 🔐 Security Best Practices
+
+✅ **Generated Credentials**
+- Deploy script auto-generates secure passwords
+- JWT secrets are 32-byte random hex
+- Credentials saved to `~/.hms_credentials_YYYYMMDD.txt`
+
+✅ **Configuration Security**
+- `deployment-config.local.sh` is git-ignored
+- Never commit API keys or passwords
+- Use environment-specific configs
+
+✅ **SSL/TLS**
+- HTTPS enforced in production mode
+- Automatic HTTP → HTTPS redirect
+- Modern TLS protocols (1.2, 1.3)
+- HSTS headers enabled
+
+✅ **Firewall**
+- UFW configured automatically
+- Only ports 22, 80, 443 open
+- Rate limiting on API endpoints
+
+✅ **Database**
+- Root password required
+- Separate application user
+- No remote root access
+
+---
+
+## 📈 Performance & Scalability
+
+### Current Capacity (Single Server)
+- **Concurrent Users**: 100-500
+- **Database Size**: Up to 100GB
+- **File Storage**: Limited by disk
+- **Tenants**: 20-50 hospitals
+
+### Scaling Options
+
+**Vertical Scaling**
+- Increase VM RAM/CPU
+- Add more Redis/MySQL resources
+
+**Horizontal Scaling** (Future)
+- Load balancer → Multiple API servers
+- Read replicas for MySQL
+- Redis cluster for sessions
+- S3/MinIO for file storage
+- CDN for static assets
+
+---
+
+## 🤝 Support & Contact
+
+- **Email**: nxtwebmasters@gmail.com
+- **Phone**: +92 312 8776604
+- **GitHub Issues**: [Create an issue](../../issues)
+
+For production deployments, enterprise support, and custom integrations, contact us directly.
+
+---
+
+## 📄 License
+
+ISC License - See [LICENSE](LICENSE) file for details.
+
+---
+
+## 🎉 Quick Success Checklist
+
+After deployment, verify:
+
+- [ ] Can access admin panel: `https://<domain>/`
+- [ ] Can access patient portal: `https://<domain>/portal/`
+- [ ] Health check passes: `https://<domain>/api-server/health`
+- [ ] Can create admin user
+- [ ] Can create first patient
+- [ ] Can create appointment
+- [ ] Queue monitoring accessible: `https://<domain>/admin/queues`
+- [ ] SSL certificate valid (if HTTPS)
+- [ ] Wildcard DNS resolving (test subdomain)
+- [ ] Database backup cron configured
+- [ ] Credentials file saved securely
+
+**All green?** 🎉 You're production-ready!
+
+---
+
+**Built with ❤️ by NXT WebMasters**
 cd hms-backend; npm install; npm start
 cd hospital-frontend; npm install; npm start
 cd customer-portal; npm install; npm start
@@ -87,7 +556,8 @@ cd customer-portal; npm install; npm start
 ```bash
 cd nxt-hospital-skeleton-project
 docker compose up -d
-bash scripts/verify-deployment.sh
+# Wait 2-3 minutes for MySQL initialization
+docker compose ps  # Verify all containers running
 ```
 
 Health endpoints:

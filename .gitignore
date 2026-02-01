@@ -132,6 +132,34 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
+# ============================================================================
+# NXT HMS Deployment-Specific
+# ============================================================================
+
+# Local deployment configuration overrides
+deployment-config.local.sh
+
+# Deployment logs
+deployment_*.log
+
+# Environment file backups
+hms-backend.env.backup.*
+
+# SSL certificates (if stored locally)
+nginx/certs/*.pem
+nginx/certs/*.key
+
+# Docker volumes (if extracted)
+mysql-data/
+redis-data/
+
+# Local development overrides
+docker-compose.override.yml
+
+# Uploaded images during testing
+images/*
+!images/.gitkeep
+
 # Tenant images - exclude uploaded files but track folder structure
 # Backend auto-creates tenant folders on first upload
 images/**/*
