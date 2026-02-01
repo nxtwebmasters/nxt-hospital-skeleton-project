@@ -114,7 +114,7 @@ services:
     depends_on:
       - hospital-apis
       - hospital-frontend
-      # - patient-frontend
+      - patient-frontend
     networks:
       - internal-net
 
