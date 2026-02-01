@@ -1205,7 +1205,27 @@ EOF
                 SSL_SUCCESS=0
                 echo ""
                 echo "═══════════════════════════════════════════════════════════════"
-                echo "  ❌ SSL CERTIFICATE -reverse-proxy 2>/dev/null || true
+                echo "  ❌ SSL CERTIFICATE GENERATION FAILED"
+                echo "═══════════════════════════════════════════════════════════════"
+                log_error "Manual DNS challenge failed or was cancelled"
+                echo ""
+                read -p "Press Enter to continue deployment without SSL..."
+            fi
+            ;;
+            
+        3)
+            # HTTP challenge - single domain only
+            log "Setting up HTTP challenge for single domain (no wildcard)..."
+            
+            # Install certbot if not present
+            if ! command -v certbot &> /dev/null; then
+                log "Installing certbot..."
+                sudo_wrapper apt install -y certbot >> "$LOG_FILE" 2>&1
+            fi
+            
+            # Stop nginx for standalone challenge
+            log "Stopping nginx temporarily..."
+            $DOCKER_COMPOSE_CMD stop nginx-reverse-proxy 2>/dev/null || true
             
             echo ""
             echo "═══════════════════════════════════════════════════════════════"
@@ -1256,30 +1276,6 @@ EOF
             
             # Start nginx again
             $DOCKER_COMPOSE_CMD start nginx-reverse-proxy 2>/dev/null || true
-                sudo_wrapper apt install -y certbot >> "$LOG_FILE" 2>&1
-            fi
-            
-            # Stop nginx for standalone challenge
-            log "Stopping nginx temporarily..."
-            $DOCKER_COMPOSE_CMD stop nginx
-            
-            SSL_SUCCESS=0
-            if sudo_wrapper certbot certonly \
-                --standalone \
-                -d "$SSL_DOMAIN" \
-                --non-interactive \
-                --agree-tos \
-                --email "$SSL_EMAIL" >> "$LOG_FILE" 2>&1; then
-                SSL_SUCCESS=1
-                log "✓ SSL certificate generated for $SSL_DOMAIN"
-                log_warning "Note: This does NOT cover subdomains (*.domain)"
-            else
-                SSL_SUCCESS=0
-                log_error "SSL certificate generation failed"
-            fi
-            
-            # Start nginx again
-            $DOCKER_COMPOSE_CMD start nginx
             ;;
             
         *)
