@@ -1378,10 +1378,38 @@ EOF
         echo "  ✅ SSL Certificate Successfully Generated!"
         echo "═══════════════════════════════════════════════════════════════"
         echo ""
-        log_info "Next steps to enable HTTPS:"
-        log_info "1. Create nginx HTTPS configuration file"
-        log_info "2. Update docker-compose.yml to mount SSL certificates"
-        log_info "3. Restart nginx: docker compose restart nginx"
+        
+        # Automatically configure HTTPS nginx config
+        log "Configuring HTTPS nginx configuration..."
+        
+        HTTPS_CONFIG_SOURCE="$DEPLOYMENT_DIR/nginx/conf.d/reverse-proxy-https.conf.disabled"
+        HTTPS_CONFIG_ACTIVE="$DEPLOYMENT_DIR/nginx/conf.d/reverse-proxy-https.conf"
+        HTTP_CONFIG="$DEPLOYMENT_DIR/nginx/conf.d/reverse-proxy-http.conf"
+        
+        # Check if HTTPS config exists (disabled or template)
+        if [ ! -f "$HTTPS_CONFIG_SOURCE" ]; then
+            HTTPS_CONFIG_SOURCE="$DEPLOYMENT_DIR/nginx/conf.d/reverse-proxy-https.conf"
+        fi
+        
+        if [ -f "$HTTPS_CONFIG_SOURCE" ]; then
+            # Create active HTTPS config from template
+            cp "$HTTPS_CONFIG_SOURCE" "$HTTPS_CONFIG_ACTIVE"
+            
+            # Replace YOURDOMAIN.COM placeholder with actual domain
+            sed -i "s/YOURDOMAIN\.COM/$SSL_DOMAIN/g" "$HTTPS_CONFIG_ACTIVE"
+            log "✓ Updated HTTPS config with domain: $SSL_DOMAIN"
+            
+            # Disable HTTP-only config
+            if [ -f "$HTTP_CONFIG" ]; then
+                mv "$HTTP_CONFIG" "$HTTP_CONFIG.disabled"
+                log "✓ Disabled HTTP-only configuration"
+            fi
+            
+            log "✓ HTTPS nginx configuration activated"
+        else
+            log_warning "HTTPS config template not found, skipping auto-configuration"
+        fi
+        
         echo ""
         
         # Setup auto-renewal for Let's Encrypt
@@ -1395,17 +1423,14 @@ EOF
         log_info "Renewal logs: /var/log/certbot-renewal.log"
         
         echo ""
-        log_info "To complete HTTPS setup after deployment, run these commands:"
+        echo "═══════════════════════════════════════════════════════════════"
+        echo "  ✅ HTTPS SETUP COMPLETE!"
+        echo "═══════════════════════════════════════════════════════════════"
+        log_info "Certificate for: $SSL_DOMAIN and *.$SSL_DOMAIN"
+        log_info "Nginx HTTPS config: ACTIVE"
+        log_info "Access your site at: https://$SSL_DOMAIN/"
         echo ""
-        echo "  # Create HTTPS nginx config"
-        echo "  nano ~/nxt-hospital-skeleton-project/nginx/conf.d/reverse-proxy-https.conf"
-        echo ""
-        echo "  # Update docker-compose.yml"
-        echo "  # Add this line under nginx volumes:"
-        echo "  #   - /etc/letsencrypt:/etc/letsencrypt:ro"
-        echo ""
-        echo "  # Restart nginx"
-        echo "  docker compose restart nginx"
+        log_info "Note: Nginx will be restarted at the end of deployment"
         echo ""
     else
         echo ""
