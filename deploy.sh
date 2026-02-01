@@ -1306,8 +1306,8 @@ EOF
         log "Setting up SSL certificate auto-renewal..."
         
         # Add certbot renewal to crontab (runs twice daily)
-        (crontab -l 2>/dev/null | grep -v "certbot renew"; \
-         echo "0 0,12 * * * certbot renew --quiet --post-hook 'docker compose -f $DEPLOYMENT_DIR/docker-compose.yml restart nginx' >> /var/log/certbot-renewal.log 2>&1") | crontab -
+        CRON_CMD="0 0,12 * * * certbot renew --quiet --post-hook 'docker compose -f $DEPLOYMENT_DIR/docker-compose.yml restart nginx-reverse-proxy' >> /var/log/certbot-renewal.log 2>&1"
+        (crontab -l 2>/dev/null | grep -v "certbot renew"; echo "$CRON_CMD") | crontab -
         
         log "✓ SSL auto-renewal configured (checks twice daily)"
         log_info "Renewal logs: /var/log/certbot-renewal.log"
