@@ -80,9 +80,9 @@ chmod +x deploy.sh
 
 ```
 Domain Structure:
-  familycare.nxtwebmasters.com          → Default Tenant (familycare)
-  hospital1-familycare.nxtwebmasters.com → Tenant: hospital1-familycare
-  hospital2-familycare.nxtwebmasters.com → Tenant: hospital2-familycare
+  hms.yourdomain.com                → Default Tenant (hms)
+  hospital1-hms.yourdomain.com      → Tenant: hospital1-hms
+  citycare-hms.yourdomain.com       → Tenant: citycare-hms
 
 Isolation:
   ✓ Database: tenant_id column in all tables
@@ -103,8 +103,8 @@ The system uses a simple configuration file for all deployment settings:
 
 ```bash
 # Required: Domain and Tenant
-DEPLOYMENT_DOMAIN="familycare.nxtwebmasters.com"  # Your domain
-DEFAULT_TENANT_SUBDOMAIN="familycare"              # Your base tenant
+DEPLOYMENT_DOMAIN="hms.yourdomain.com"  # Your domain (or empty for IP)
+DEFAULT_TENANT_SUBDOMAIN="hms"           # Your base tenant identifier
 
 # Deployment Mode
 DEPLOYMENT_MODE="https"  # http or https
@@ -126,20 +126,22 @@ FBR_INTEGRATION_ENABLED="true"
 ### Configuration for Different Environments
 
 ```bash
-# Production - Family Care
+# Production
 deployment-config.local.sh
-  DEPLOYMENT_DOMAIN="familycare.nxtwebmasters.com"
-  DEFAULT_TENANT_SUBDOMAIN="familycare"
-
-# Production - Generic HMS
-deployment-config.hms.sh
   DEPLOYMENT_DOMAIN="hms.yourdomain.com"
   DEFAULT_TENANT_SUBDOMAIN="hms"
+  DEPLOYMENT_MODE="https"
 
-# Staging/Development
+# Staging
+deployment-config.staging.sh
+  DEPLOYMENT_DOMAIN="staging.yourdomain.com"
+  DEFAULT_TENANT_SUBDOMAIN="hms-staging"
+  DEPLOYMENT_MODE="https"
+
+# Development
 deployment-config.dev.sh
   DEPLOYMENT_DOMAIN=""  # Uses VM IP
-  DEFAULT_TENANT_SUBDOMAIN="hms"
+  DEFAULT_TENANT_SUBDOMAIN="hms-dev"
   DEPLOYMENT_MODE="http"
 ```
 
@@ -183,18 +185,18 @@ Configure these records in your DNS provider:
 
 ```dns
 Type: A
-Name: familycare
+Name: hms
 Value: <your-server-ip>
 
 Type: A  
-Name: *.familycare
+Name: *.hms
 Value: <your-server-ip>
 ```
 
 **Result**: All subdomains automatically route to your server
-- `familycare.nxtwebmasters.com` ✅
-- `hospital1-familycare.nxtwebmasters.com` ✅
-- `hospital2-familycare.nxtwebmasters.com` ✅
+- `hms.yourdomain.com` ✅
+- `hospital1-hms.yourdomain.com` ✅
+- `citycare-hms.yourdomain.com` ✅
 
 ---
 
@@ -287,21 +289,22 @@ docker exec api-hospital npm run bootstrap:force
 
 **Via API:**
 ```bash
-curl -X POST http://your-domain/api-server/tenant/create \
+curl -X POST https://hms.yourdomain.com/api-server/tenant/create \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <admin-token>" \
   -d '{
-    "tenant_name": "Hospital Alpha",
-    "tenant_subdomain": "alpha",
-    "tenant_email": "admin@alpha.com"
+    "tenant_name": "City Care Hospital",
+    "tenant_subdomain": "citycare-hms",
+    "subscription_plan": "premium"
   }'
 ```
 
 **Response includes:**
 - Tenant credentials
 - Access URL
-- Setup instructions
+- File directory path
 
-**Access**: `https://alpha-familycare.nxtwebmasters.com`
+**Access**: `https://citycare-hms.yourdomain.com`
 
 ### Tenant Isolation
 
@@ -546,50 +549,15 @@ After deployment, verify:
 
 ---
 
-**Built with ❤️ by NXT WebMasters**
-cd hms-backend; npm install; npm start
-cd hospital-frontend; npm install; npm start
-cd customer-portal; npm install; npm start
-```
+## 🚦 Getting Started
 
-2. Full stack (Docker Compose - VM):
-```bash
-cd nxt-hospital-skeleton-project
-docker compose up -d
-# Wait 2-3 minutes for MySQL initialization
-docker compose ps  # Verify all containers running
-```
+For detailed deployment instructions, configuration options, and troubleshooting:
 
-Health endpoints:
-- API health: `http://localhost/api-server/health` (or mapped host port)
-
-**⚠️ Important**: If you encounter 404 "Hospital not found" errors after login, see [docs/TENANT_RESOLUTION_FIX.md](docs/TENANT_RESOLUTION_FIX.md) for the quick fix.
-
-## Architecture & Integration Points
-
-- MySQL (no ORM) — direct `mysql2` queries, connection pooling in `hms-backend/config/connection.js`.
-- Redis: 4 logical DBs — DB0=queues, DB1=tiny-url cache, DB2=app cache, DB3=sessions.
-- BullMQ job queues and BullBoard UI for monitoring at `/admin/queues`.
-- PM2 or Docker process model: `server.js` supports cluster mode; recommended PM2 config provided in docs.
-
-## Business Pitch (one-paragraph for stakeholders)
-
-NXT HMS is a multi-tenant hospital management platform designed to accelerate digital transformation for hospital networks and clinic groups. It bundles patient lifecycle automation (intake, matching, slips, billing), secure per-tenant file handling, multi-channel patient communications, and modern background processing for compliance integrations (tax/FBR) — all deployable via Docker Compose or container orchestration. The platform's tenant-first design and secure print/file patterns make it ideal for SaaS deployments where data isolation, auditability, and automation are must-haves.
-
-## Next steps / How we can present this repo
-
-1. Create a 5-slide pitch deck: Problem → Solution (NXT HMS) → Architecture → Demo plan → Ask (pilot customers).
-2. Prepare a short demo script: start the compose stack, create a tenant, upload a patient image, generate a print short-url, and show a queued campaign.
-3. Harden tenant-isolation hotspots listed under `docs/` before production proposals.
-
-## Where to look first (developer checklist)
-- `hms-backend/server.js` — entry, cluster and health endpoints
-- `hms-backend/bootstrap/index.js` — bootstrap & seed logic
-- `hms-backend/controllers/idGeneratorController.js` — ID reservation/commit patterns
-- `hms-backend/services/PatientMatchingService.js` — deduplication
-- `hospital-frontend/src/app/services/http.service.ts` — single source of API endpoints
-- `customer-portal/src/assets/print/` — print templates and short-url flow
+1. **Quick Setup**: Follow the 5-minute quick start above
+2. **Complete Guide**: Read [GENERIC_DEPLOYMENT_GUIDE.md](docs/GENERIC_DEPLOYMENT_GUIDE.md)
+3. **Production Validation**: Use [PRODUCTION-CHECKLIST.md](PRODUCTION-CHECKLIST.md)
 
 ---
 
-If you want, I can also generate the 5-slide pitch deck and a short demo script from the repo. Tell me which audience to target (technical, product, or executive) and I'll draft it.
+**Built with ❤️ by NXT WebMasters**  
+*Production-ready multi-tenant hospital management system*
