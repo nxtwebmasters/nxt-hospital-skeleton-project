@@ -360,9 +360,55 @@ configure_environment() {
     # Get VM IP (always needed for fallback)
     export VM_IP=$(curl -s -4 ifconfig.me 2>/dev/null || echo "localhost")
     
+    # ALWAYS prompt for BASE_SUBDOMAIN/Default Tenant interactively
+    clear
+    echo ""
+    echo "════════════════════════════════════════════════════════════════"
+    echo "  🏥 CRITICAL: Default Tenant Configuration"
+    echo "════════════════════════════════════════════════════════════════"
+    echo ""
+    echo "This HMS supports UNLIMITED hospitals as separate tenants."
+    echo "You need to specify the BASE SUBDOMAIN for your default tenant."
+    echo ""
+    echo "Examples:"
+    echo "  • Family Care Hospital   → use 'familycare'"
+    echo "  • HMS Generic System     → use 'hms'"
+    echo "  • MedEast Clinic         → use 'medeast'"
+    echo "  • City Hospital Group    → use 'cityhospital'"
+    echo ""
+    echo "This will be used for:"
+    echo "  ✓ Default tenant name in database"
+    echo "  ✓ Base subdomain pattern (hospital-name.BASE_SUBDOMAIN.domain)"
+    echo "  ✓ System tenant identifier"
+    echo ""
+    echo "════════════════════════════════════════════════════════════════"
+    echo ""
+    
+    # Get BASE_SUBDOMAIN from user (required)
+    while true; do
+        read -p "Enter BASE SUBDOMAIN / Default Tenant Name: " BASE_SUBDOMAIN_INPUT
+        
+        # Validate input
+        if [ -z "$BASE_SUBDOMAIN_INPUT" ]; then
+            echo ""
+            log_error "BASE SUBDOMAIN cannot be empty!"
+            echo ""
+        elif [[ ! "$BASE_SUBDOMAIN_INPUT" =~ ^[a-z0-9-]+$ ]]; then
+            echo ""
+            log_error "Invalid format! Use only lowercase letters, numbers, and hyphens."
+            echo ""
+        else
+            export BASE_SUBDOMAIN="$BASE_SUBDOMAIN_INPUT"
+            log "✓ Default Tenant set to: $BASE_SUBDOMAIN"
+            break
+        fi
+    done
+    
+    echo ""
+    
     # If config loaded, use those values; otherwise prompt
     if [ $CONFIG_LOADED -eq 1 ]; then
-        log "Using configuration from file..."
+        log "Using configuration from file for remaining settings..."
         
         # Use configured domain or fall back to VM IP
         if [ -n "$DEPLOYMENT_DOMAIN" ]; then
@@ -370,13 +416,6 @@ configure_environment() {
         else
             export DOMAIN_OR_IP="$VM_IP"
         fi
-        
-        # Use configured tenant subdomain (required)
-        if [ -z "$DEFAULT_TENANT_SUBDOMAIN" ]; then
-            log_error "DEFAULT_TENANT_SUBDOMAIN not set in config file"
-            exit 1
-        fi
-        export BASE_SUBDOMAIN="$DEFAULT_TENANT_SUBDOMAIN"
         
         # Use configured credentials or generate new ones
         SMTP_EMAIL="${SMTP_EMAIL:-noreply@$DOMAIN_OR_IP}"
@@ -814,20 +853,39 @@ deploy_application() {
     
     echo ""
     log "Waiting for services to fully initialize..."
-    log "MySQL may take 2-3 minutes to create all database tables..."
+    log "MySQL: 1-2 minutes for schema creation"
+    log "Backend API: 30-60 seconds for bootstrap process"
     echo ""
     
     # Show progress with container status checks
-    for i in {1..24}; do
-        sleep 5
+    mysql_ready=0
+    for i in {1..30}; do
+        sleep 4
         RUNNING=$(docker compose ps --services --filter "status=running" 2>/dev/null | wc -l)
-        echo -n "[$i/24] Containers running: $RUNNING/6  "
+        echo -n "[$i/30] Containers: $RUNNING/6 | "
         
         # Check if MySQL is ready
         if docker exec hospital-mysql mysqladmin ping -h localhost --silent 2>/dev/null; then
-            echo "✓ MySQL ready"
+            if [ $mysql_ready -eq 0 ]; then
+                mysql_ready=1
+                echo "✓ MySQL ready - checking schema..."
+                # Give MySQL a moment to finish schema creation
+                sleep 3
+            else
+                echo "✓ MySQL operational"
+            fi
         else
-            echo "⏳ Initializing..."
+            echo "⏳ MySQL initializing..."
+        fi
+        
+        # Exit early if MySQL is ready and has tables
+        if [ $mysql_ready -eq 1 ] && [ $i -gt 10 ]; then
+            DB_PASSWORD=$(grep "DB_PASSWORD=" hms-backend.env | cut -d'=' -f2)
+            TABLE_COUNT=$(docker exec hospital-mysql mysql -u nxt_user -p"$DB_PASSWORD" nxt-hospital -se "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='nxt-hospital';" 2>/dev/null || echo "0")
+            if [ "$TABLE_COUNT" -gt 50 ]; then
+                log "✓ Database schema ready with $TABLE_COUNT tables"
+                break
+            fi
         fi
     done
     echo ""
@@ -884,21 +942,49 @@ verify_deployment() {
         log_warning "MySQL health check timeout. It may still be initializing."
     fi
 
-    # Test health endpoints
+    # Test health endpoints with retries
     log "Testing application endpoints..."
     
-    sleep 5  # Give nginx a moment
+    # Wait for Nginx to be ready (max 30 seconds)
+    log "Checking Nginx reverse proxy..."
+    nginx_ready=0
+    for i in {1..15}; do
+        if curl -f -s http://localhost/nginx-health > /dev/null 2>&1; then
+            nginx_ready=1
+            log "✓ Nginx health check passed"
+            break
+        fi
+        sleep 2
+    done
     
-    if curl -f -s http://localhost/nginx-health > /dev/null 2>&1; then
-        log "✓ Nginx health check passed"
-    else
-        log_warning "Nginx health check failed"
+    if [ $nginx_ready -eq 0 ]; then
+        log_warning "Nginx health check failed after 30 seconds"
+        log_info "Checking Nginx container logs..."
+        docker logs nginx-reverse-proxy --tail 20 2>&1 | tail -10
     fi
 
-    if curl -f -s http://localhost/api-server/health > /dev/null 2>&1; then
-        log "✓ Backend API health check passed"
-    else
-        log_warning "Backend API health check failed (it may still be starting up)"
+    # Wait for Backend API to be ready (max 60 seconds for bootstrap)
+    log "Waiting for Backend API to complete bootstrap and start..."
+    api_ready=0
+    for i in {1..30}; do
+        if curl -f -s http://localhost/api-server/health > /dev/null 2>&1; then
+            api_ready=1
+            log "✓ Backend API health check passed"
+            break
+        fi
+        echo -n "."
+        sleep 2
+    done
+    echo ""
+    
+    if [ $api_ready -eq 0 ]; then
+        log_warning "Backend API health check failed after 60 seconds"
+        log_info "This is normal on first deployment (bootstrap takes time)"
+        log_info "Checking API container logs..."
+        docker logs api-hospital --tail 30 2>&1 | tail -20
+        echo ""
+        log_info "API will continue starting in background. Check with:"
+        log_info "  docker logs -f api-hospital"
     fi
 
     # Verify database schema
