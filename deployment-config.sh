@@ -20,18 +20,18 @@
 # Domain Configuration
 # Example: hms.yourdomain.com, hospital.example.com, medeast.healthcare.com
 # Leave empty to use VM IP address (auto-detected)
-DEPLOYMENT_DOMAIN=""
+DEPLOYMENT_DOMAIN="nxthms.nxtwebmasters.com"
 
 # Base Subdomain / Default Tenant Name
 # This becomes the system default tenant identifier
 # Examples: "hms", "medeast", "familycare", "careplus"
 # For hms.yourdomain.com → use "hms"
 # For medeast.healthcare.com → use "medeast"
-DEFAULT_TENANT_SUBDOMAIN="hms"
+DEFAULT_TENANT_SUBDOMAIN="nxthms"
 
 # Deployment Mode
 # Options: "http" (development/testing), "https" (production with SSL)
-DEPLOYMENT_MODE="http"
+DEPLOYMENT_MODE="https"
 
 # ============================================================================
 # OPTIONAL: PRE-CONFIGURED CREDENTIALS (for automated deployments)
@@ -39,9 +39,9 @@ DEPLOYMENT_MODE="http"
 # Leave empty to be prompted during deployment
 
 # Email Configuration (for notifications)
-SMTP_EMAIL=""
-SMTP_PASSWORD=""
-ADMIN_EMAILS=""
+SMTP_EMAIL="knowledge.hub5155@gmail.com"
+SMTP_PASSWORD="xpbq xunw hrvk vajq"
+ADMIN_EMAILS="pandanxt00@gmail.com"
 
 # MySQL Configuration (auto-generated if empty)
 MYSQL_ROOT_PASSWORD=""

@@ -126,7 +126,7 @@ Configuration:
 
 Examples:
   $0                                  # Interactive or auto-config
-  $0 --config familycare.config.sh   # Use specific config
+  $0 --config custom-hospital.sh     # Use specific config
   
 Get Started:
   1. Copy: cp deployment-config.sh deployment-config.local.sh
@@ -371,10 +371,10 @@ configure_environment() {
     echo "You need to specify the BASE SUBDOMAIN for your default tenant."
     echo ""
     echo "Examples:"
-    echo "  • Family Care Hospital   → use 'familycare'"
-    echo "  • HMS Generic System     → use 'hms'"
-    echo "  • MedEast Clinic         → use 'medeast'"
+    echo "  • Generic HMS            → use 'hms'"
     echo "  • City Hospital Group    → use 'cityhospital'"
+    echo "  • MedEast Clinic         → use 'medeast'"
+    echo "  • Star Medical Center    → use 'starmedical'"
     echo ""
     echo "This will be used for:"
     echo "  ✓ Default tenant name in database"
@@ -507,9 +507,9 @@ configure_environment() {
         echo "─────────────────────────────────────────"
         echo "For multi-tenant system, specify the base subdomain."
         echo "Examples:"
-        echo "  familycare.nxtwebmasters.com → use 'familycare'"
         echo "  hms.yourdomain.com → use 'hms'"
-        echo "  medeast.hospital.com → use 'medeast'"
+        echo "  hospital.medicalgroup.com → use 'hospital'"
+        echo "  medeast.clinic.com → use 'medeast'"
         echo ""
         read -p "Enter base subdomain/default tenant name: " BASE_SUBDOMAIN
         
