@@ -1002,6 +1002,74 @@ verify_deployment() {
 }
 
 ################################################################################
+# Check and Activate HTTPS if Certificate Exists
+################################################################################
+
+check_and_activate_https() {
+    # If HTTPS mode configured and certificate exists, activate HTTPS config
+    if [ "$DEPLOYMENT_MODE" = "https" ] && [ ! -z "$DOMAIN_OR_IP" ] && [ "$DOMAIN_OR_IP" != "$VM_IP" ]; then
+        log "Checking HTTPS configuration..."
+        
+        CERT_PATH="/etc/letsencrypt/live/$DOMAIN_OR_IP/fullchain.pem"
+        HTTPS_CONFIG_DISABLED="$DEPLOYMENT_DIR/nginx/conf.d/reverse-proxy-https.conf.disabled"
+        HTTPS_CONFIG_ACTIVE="$DEPLOYMENT_DIR/nginx/conf.d/reverse-proxy-https.conf"
+        HTTP_CONFIG="$DEPLOYMENT_DIR/nginx/conf.d/reverse-proxy-http.conf"
+        
+        # Check if SSL certificate exists
+        if [ -f "$CERT_PATH" ]; then
+            log "✓ SSL certificate found for: $DOMAIN_OR_IP"
+            
+            # Check if HTTPS config needs activation
+            if [ ! -f "$HTTPS_CONFIG_ACTIVE" ] && [ -f "$HTTPS_CONFIG_DISABLED" ]; then
+                log "Activating HTTPS nginx configuration..."
+                
+                # Create active HTTPS config from template
+                cp "$HTTPS_CONFIG_DISABLED" "$HTTPS_CONFIG_ACTIVE"
+                
+                # Replace YOURDOMAIN.COM placeholder with actual domain
+                sed -i "s/YOURDOMAIN\.COM/$DOMAIN_OR_IP/g" "$HTTPS_CONFIG_ACTIVE"
+                log "✓ Updated HTTPS config with domain: $DOMAIN_OR_IP"
+                
+                # Disable HTTP-only config
+                if [ -f "$HTTP_CONFIG" ]; then
+                    mv "$HTTP_CONFIG" "$HTTP_CONFIG.disabled"
+                    log "✓ Disabled HTTP-only configuration"
+                fi
+                
+                # Restart nginx to apply changes
+                log "Restarting nginx with HTTPS configuration..."
+                $DOCKER_COMPOSE_CMD restart nginx
+                sleep 3
+                log "✓ HTTPS configuration activated"
+                
+            elif [ -f "$HTTPS_CONFIG_ACTIVE" ]; then
+                # HTTPS config exists - check if it has placeholder
+                if grep -q "YOURDOMAIN\.COM" "$HTTPS_CONFIG_ACTIVE" 2>/dev/null; then
+                    log_warning "HTTPS config has placeholder - updating..."
+                    sed -i "s/YOURDOMAIN\.COM/$DOMAIN_OR_IP/g" "$HTTPS_CONFIG_ACTIVE"
+                    
+                    # Disable HTTP-only config
+                    if [ -f "$HTTP_CONFIG" ]; then
+                        mv "$HTTP_CONFIG" "$HTTP_CONFIG.disabled"
+                        log "✓ Disabled HTTP-only configuration"
+                    fi
+                    
+                    $DOCKER_COMPOSE_CMD restart nginx
+                    sleep 3
+                    log "✓ HTTPS configuration updated and activated"
+                else
+                    log "✓ HTTPS already configured"
+                fi
+            fi
+        else
+            log_warning "HTTPS mode configured but no SSL certificate found"
+            log_info "SSL certificate should be at: $CERT_PATH"
+            log_info "Run SSL setup or use: ./activate-https.sh $DOMAIN_OR_IP"
+        fi
+    fi
+}
+
+################################################################################
 # Phase 7: Production Hardening
 ################################################################################
 
@@ -1061,17 +1129,32 @@ EOFBACKUP
         log "Skipping automated tasks"
     fi
 
-    # SSL Setup
+    # SSL Setup - Check deployment mode from config
     echo ""
     if [ "$DOMAIN_OR_IP" != "$VM_IP" ]; then
-        if prompt_yes_no "Setup HTTPS with Let's Encrypt SSL certificate?"; then
+        # Check if HTTPS mode is configured
+        if [ "$DEPLOYMENT_MODE" = "https" ]; then
+            log_info "HTTPS mode configured in deployment config"
+            if prompt_yes_no "Obtain SSL certificate now (recommended)?"; then
+                setup_ssl
+            else
+                log_warning "SSL certificate skipped - you configured HTTPS mode but chose not to obtain certificate"
+                log_info "To obtain certificate later: sudo certbot certonly --dns-cloudflare -d $DOMAIN_OR_IP -d *.$DOMAIN_OR_IP"
+                log_info "Then run: ./activate-https.sh $DOMAIN_OR_IP"
+            fi
+        elif prompt_yes_no "Setup HTTPS with Let's Encrypt SSL certificate?"; then
             setup_ssl
         else
             log_info "Skipping SSL setup"
             log_info "You can configure SSL later with: sudo certbot certonly --standalone -d yourdomain.com"
         fi
     else
-        log_info "Skipping SSL setup (using IP address instead of domain)"
+        if [ "$DEPLOYMENT_MODE" = "https" ]; then
+            log_warning "HTTPS mode configured but using IP address instead of domain"
+            log_warning "HTTPS requires a domain name. Please update DEPLOYMENT_DOMAIN in config."
+        else
+            log_info "Skipping SSL setup (using IP address instead of domain)"
+        fi
     fi
 
     # Create health check script
@@ -1602,6 +1685,9 @@ main() {
     echo ""
     
     verify_deployment
+    echo ""
+    
+    check_and_activate_https
     echo ""
     
     production_hardening
