@@ -64,10 +64,10 @@ services:
     container_name: hospital-mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: "NxtWebMasters!@#123"
+      MYSQL_ROOT_PASSWORD: "REPLACE_WITH_SECURE_PASSWORD"
       MYSQL_DATABASE: "nxt-hospital"
       MYSQL_USER: "nxt_user"
-      MYSQL_PASSWORD: "NxtWebMasters464"
+      MYSQL_PASSWORD: "REPLACE_WITH_SECURE_PASSWORD"
     healthcheck:
       test: >
         sh -c 'mysqladmin ping -h localhost -u nxt_user -p$$MYSQL_PASSWORD &&
