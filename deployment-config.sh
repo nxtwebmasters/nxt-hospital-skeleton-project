@@ -31,6 +31,7 @@ DEFAULT_TENANT_SUBDOMAIN="nxthms"
 
 # Deployment Mode
 # Options: "http" (development/testing), "https" (production with SSL)
+# ⚠️ PRODUCTION: Always use "https" for security!
 DEPLOYMENT_MODE="https"
 
 # ============================================================================

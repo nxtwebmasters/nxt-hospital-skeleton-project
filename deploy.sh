@@ -727,14 +727,24 @@ EOF
     
     # Update docker-compose.yml with passwords
     log "Updating docker-compose.yml with generated passwords..."
-    sed -i "s/MYSQL_ROOT_PASSWORD: \".*\"/MYSQL_ROOT_PASSWORD: \"$MYSQL_ROOT_PASSWORD\"/" docker-compose.yml
-    sed -i "s/MYSQL_PASSWORD: \".*\"/MYSQL_PASSWORD: \"$MYSQL_DB_PASSWORD\"/" docker-compose.yml
+    sed -i "s|MYSQL_ROOT_PASSWORD:.*\"REPLACE_WITH_SECURE_PASSWORD\"|MYSQL_ROOT_PASSWORD: \"$MYSQL_ROOT_PASSWORD\"|g" docker-compose.yml
+    sed -i "s|MYSQL_PASSWORD:.*\"REPLACE_WITH_SECURE_PASSWORD\"|MYSQL_PASSWORD: \"$MYSQL_DB_PASSWORD\"|g" docker-compose.yml
     
-    # CRITICAL: Also update hms-backend.env with matching password
-    log "Updating hms-backend.env with matching database password..."
-    sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=$MYSQL_DB_PASSWORD/" hms-backend.env
+    # CRITICAL: Also update hms-backend.env with matching password and JWT secret
+    log "Updating hms-backend.env with matching database password and JWT secret..."
+    sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$MYSQL_DB_PASSWORD|g" hms-backend.env
+    sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$JWT_SECRET|g" hms-backend.env
+    sed -i "s|^BASE_SUBDOMAIN=.*|BASE_SUBDOMAIN=$BASE_SUBDOMAIN|g" hms-backend.env
     
     log "✓ Docker Compose and backend environment updated with secure passwords"
+    
+    # Verify replacements were successful
+    if grep -q "REPLACE_WITH_SECURE_PASSWORD" docker-compose.yml || grep -q "REPLACE_WITH_SECURE_PASSWORD" hms-backend.env; then
+        log_error "Password replacement failed! Please check the files manually."
+        log_error "This might be due to file permissions or sed syntax issues."
+        exit 1
+    fi
+    log "✓ Password replacement verification passed"
     
     # Replace schema placeholders with actual values
     log "Updating database schema with tenant configuration..."

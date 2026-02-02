@@ -63,6 +63,8 @@ services:
     image: mysql:latest
     container_name: hospital-mysql
     restart: always
+    ports:
+      - "3306:3306"  # ⚠️ PRODUCTION: Restrict with firewall! See docs for SSH tunnel alternative
     environment:
       MYSQL_ROOT_PASSWORD: "REPLACE_WITH_SECURE_PASSWORD"
       MYSQL_DATABASE: "nxt-hospital"
