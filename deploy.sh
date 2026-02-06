@@ -417,24 +417,10 @@ configure_environment() {
             export DOMAIN_OR_IP="$VM_IP"
         fi
         
-        # Use configured credentials or generate new ones
+        # Use configured email for SSL certificates only
+        # (SMTP credentials are now per-tenant via database)
         SMTP_EMAIL="${SMTP_EMAIL:-noreply@$DOMAIN_OR_IP}"
-        SMTP_PASSWORD="${SMTP_PASSWORD:-disabled}"
-        export SSL_EMAIL="$SMTP_EMAIL"
-        
-        # Convert ADMIN_EMAILS to JSON array if needed
-        if [ -n "$ADMIN_EMAILS" ]; then
-            # Check if already in JSON format
-            if [[ "$ADMIN_EMAILS" =~ ^\[.*\]$ ]]; then
-                ADMIN_EMAILS_JSON="$ADMIN_EMAILS"
-            else
-                # Convert comma-separated to JSON array
-                ADMIN_EMAILS_JSON=$(echo "$ADMIN_EMAILS" | awk -F',' '{for(i=1;i<=NF;i++){printf "\"%s\"%s", $i, (i<NF?",":"")}}')
-                ADMIN_EMAILS_JSON="[$ADMIN_EMAILS_JSON]"
-            fi
-        else
-            ADMIN_EMAILS_JSON="[\"$SMTP_EMAIL\"]"
-        fi
+        export SSL_EMAIL="$SMTP_EMAIL"  # For SSL cert notifications only
         
         # Generate secure passwords if not provided
         if [ -z "$MYSQL_ROOT_PASSWORD" ]; then
@@ -450,28 +436,10 @@ configure_environment() {
             log "Generated JWT secret"
         fi
         
-        # Optional integrations from config
-        ENABLE_WHATSAPP="${ENABLE_WHATSAPP:-false}"
-        MSGPK_WHATSAPP_API_KEY="${MSGPK_WHATSAPP_API_KEY:-}"
-        WHATSAPP_IMAGE_URL="${WHATSAPP_IMAGE_URL:-}"
-        OPENAI_API_KEY="${OPENAI_API_KEY:-}"
-        OPENAI_MODEL="${OPENAI_MODEL:-gpt-4-turbo}"
-        FBR_INTEGRATION_ENABLED="${FBR_INTEGRATION_ENABLED:-false}"
-        WEBHOOK_URL="${WEBHOOK_URL:-}"
-        
-        # Reception share config
-        RECEPTION_SHARE_ENABLED="${RECEPTION_SHARE_ENABLED:-true}"
-        RECEPTION_SHARE_PERCENTAGE="${RECEPTION_SHARE_PERCENTAGE:-1.25}"
-        
-        # Patient portal config
-        PATIENT_DEFAULT_PASSWORD="${PATIENT_DEFAULT_PASSWORD:-NxtHospital123}"
-        
         log "✓ Configuration loaded from file"
         log "  Domain: $DOMAIN_OR_IP"
         log "  Default Tenant: $BASE_SUBDOMAIN"
-        log "  SMTP: $SMTP_EMAIL"
-        log "  WhatsApp: $ENABLE_WHATSAPP"
-        log "  OpenAI: $([ -n "$OPENAI_API_KEY" ] && echo "Enabled" || echo "Disabled")"
+        log "  SSL Cert Email: $SMTP_EMAIL (for SSL notifications only)"
         
     else
         # Interactive mode - prompt for all values
@@ -523,31 +491,22 @@ configure_environment() {
         
         echo ""
         
-        # Email Configuration
+        # SSL Certificate Contact Email
         echo "─────────────────────────────────────────"
-        echo "3. Email Configuration (for notifications)"
+        echo "3. SSL Certificate Contact Email"
         echo "─────────────────────────────────────────"
-        read -p "SMTP Email (e.g., admin@yourdomain.com): " SMTP_EMAIL
-        export SSL_EMAIL="$SMTP_EMAIL"  # Use same email for SSL
+        echo "Note: Email is ONLY used for SSL certificate notifications."
+        echo "Tenant email configs (SMTP) are set per-tenant in Admin Panel."
+        echo ""
+        read -p "Contact Email for SSL cert (e.g., admin@yourdomain.com): " SMTP_EMAIL
+        export SSL_EMAIL="$SMTP_EMAIL"  # Use for SSL cert only
         
         if [ -z "$SMTP_EMAIL" ]; then
-            log_warning "No email provided. Email notifications will be disabled."
+            log_warning "No email provided for SSL certificate notifications."
             SMTP_EMAIL="noreply@example.com"
-            SMTP_PASSWORD="disabled"
-            ADMIN_EMAILS_JSON='["admin@example.com"]'
-        else
-            read -p "SMTP Password/App Key: " -s SMTP_PASSWORD
-            echo ""
-            read -p "Admin Email Recipients (comma-separated, e.g., admin@domain.com,support@domain.com): " ADMIN_EMAILS_INPUT
-            
-            if [ -z "$ADMIN_EMAILS_INPUT" ]; then
-                ADMIN_EMAILS_JSON="[\"$SMTP_EMAIL\"]"
-            else
-                # Convert comma-separated to JSON array format
-                ADMIN_EMAILS_JSON=$(echo "$ADMIN_EMAILS_INPUT" | awk -F',' '{for(i=1;i<=NF;i++){printf "\"%s\"%s", $i, (i<NF?",":"")}}')
-                ADMIN_EMAILS_JSON="[$ADMIN_EMAILS_JSON]"
-            fi
         fi
+        # Note: SMTP credentials are NOT collected here anymore.
+        # They are configured per-tenant via Admin Panel → Tenant Configuration → Email Settings
         
         echo ""
         
@@ -567,53 +526,33 @@ configure_environment() {
         echo "  - JWT Secret:          ${JWT_SECRET:0:16}..."
         echo ""
         
-        # Optional integrations
+        # Notify about tenant-specific configuration
         echo "─────────────────────────────────────────"
-        echo "5. Optional Integrations (can configure later)"
+        echo "5. Tenant-Specific Configuration"
         echo "─────────────────────────────────────────"
-        
-        if prompt_yes_no "Enable WhatsApp integration now?"; then
-            read -p "WhatsApp API Key: " MSGPK_WHATSAPP_API_KEY
-            read -p "WhatsApp Image URL (optional): " WHATSAPP_IMAGE_URL
-            ENABLE_WHATSAPP="true"
-        else
-            MSGPK_WHATSAPP_API_KEY=""
-            WHATSAPP_IMAGE_URL=""
-            ENABLE_WHATSAPP="false"
-        fi
-        
-        if prompt_yes_no "Enable OpenAI integration now?"; then
-            read -p "OpenAI API Key: " OPENAI_API_KEY
-            OPENAI_MODEL="gpt-4-turbo"
-        else
-            OPENAI_API_KEY=""
-            OPENAI_MODEL="gpt-4-turbo"
-        fi
-        
-        # Set defaults for other settings
-        FBR_INTEGRATION_ENABLED="false"
-        WEBHOOK_URL=""
-        RECEPTION_SHARE_ENABLED="true"
-        RECEPTION_SHARE_PERCENTAGE="1.25"
-        PATIENT_DEFAULT_PASSWORD="NxtHospital123"
+        echo ""
+        echo "⚠️  IMPORTANT: Tenant-specific settings have moved to the database!"
+        echo ""
+        echo "After deployment completes, you MUST configure each tenant via:"
+        echo "  Admin Panel → System → Tenant Configuration"
+        echo ""
+        echo "Configure these per tenant:"
+        echo "  • Email Settings (SMTP credentials)"
+        echo "  • WhatsApp Settings (API credentials)"
+        echo "  • OpenAI Settings (API key, model)"
+        echo "  • Locale Settings (timezone, currency)"
+        echo "  • Business Rules (leave balance, reception share)"
+        echo "  • Scheduler Settings (cron expressions)"
+        echo ""
+        echo "This ensures true multi-tenant isolation with no shared credentials."
+        echo ""
+        read -p "Press Enter to continue with deployment..."
         
         echo ""
     fi
 
     # Update hms-backend.env with all settings
     log "Updating hms-backend.env..."
-    
-    # Build EMAIL_IMAGE_PATH dynamically
-    if [ "$DOMAIN_OR_IP" != "$VM_IP" ]; then
-        EMAIL_IMAGE_PATH="https://$DOMAIN_OR_IP/images/logo.png"
-    else
-        EMAIL_IMAGE_PATH="http://$DOMAIN_OR_IP/images/logo.png"
-    fi
-    
-    # Build WHATSAPP_IMAGE_URL if not set
-    if [ -z "$WHATSAPP_IMAGE_URL" ] && [ -n "$DOMAIN_OR_IP" ]; then
-        WHATSAPP_IMAGE_URL="https://$DOMAIN_OR_IP/images/logo.jpg"
-    fi
     
     cat > hms-backend.env << EOF
 # Server Configuration
@@ -634,18 +573,26 @@ DB_PASSWORD=$MYSQL_DB_PASSWORD
 DB_CONNECTION_LIMIT=10
 DB_MULTIPLE_STATEMENTS=true
 
-# FBR Integration Configuration
-FBR_INTEGRATION_ENABLED=$FBR_INTEGRATION_ENABLED
-FBR_API_URL_PRODUCTION=https://api.fbr.gov.pk/v1/pos/invoice
-FBR_API_URL_SANDBOX=https://api.fbr.gov.pk/v1/pos/sandbox/invoice
-FBR_TIMEOUT_MS=30000
-FBR_RETRY_ATTEMPTS=3
+# ====================================================================================
+# FBR INTEGRATION REMOVED - NOW PER-TENANT FROM DATABASE
+# ====================================================================================
+# FBR Tax Integration (Pakistan) is now configured per-tenant via:
+# Admin Panel → FBR Management → Configure FBR Settings
+# 
+# Each tenant configures their own:
+# - Environment (Production/Sandbox)
+# - POS ID (Point of Sale ID from FBR)
+# - API Token (Authentication token from FBR)
+# - Timeout and retry settings
+# ====================================================================================
 
-# Email Configuration
-EMAIL_USER=$SMTP_EMAIL
-EMAIL_PASSWORD=$SMTP_PASSWORD
-EMAIL_IMAGE_PATH=$EMAIL_IMAGE_PATH
-EMAIL_RECIPIENTS=$ADMIN_EMAILS_JSON
+# ====================================================================================
+# EMAIL CONFIGURATION REMOVED - NOW PER-TENANT FROM DATABASE
+# ====================================================================================
+# Email configurations have been moved to nxt_tenant_config table.
+# Configure via: Admin Panel → System → Tenant Configuration → Email Settings
+# This ensures true multi-tenant isolation with no shared email credentials.
+# ====================================================================================
 
 # JWT Configuration
 JWT_SECRET=$JWT_SECRET
@@ -654,8 +601,11 @@ JWT_SECRET=$JWT_SECRET
 IMAGE_STORAGE_PATH=/usr/share/nginx/html/images
 FILE_SERVER_URL=/images
 
-# Webhook Configuration
-WEBHOOK_URL=$WEBHOOK_URL
+# ====================================================================================
+# WEBHOOK CONFIGURATION REMOVED - NOW PER-TENANT FROM DATABASE
+# ====================================================================================
+# Configure via: Admin Panel → System → Tenant Configuration → Webhook Settings
+# ====================================================================================
 
 # URL Configuration
 CUSTOMER_PORTAL_URL=/assets/print
@@ -665,11 +615,23 @@ PATIENT_PORTAL_URL=/portal
 # CORS Configuration
 ALLOWED_ORIGINS=["http://$DOMAIN_OR_IP","https://$DOMAIN_OR_IP","http://localhost","*.localhost","*.local"]
 
-# Database Backup Configuration
-BACKUP_TABLES=["nxt_appointment","nxt_slip","nxt_bill","nxt_lab_invoice","nxt_lab_report","nxt_patient","recentactivity"]
+# ====================================================================================
+# DATABASE BACKUP CONFIGURATION REMOVED - NOW PER-TENANT FROM DATABASE
+# ====================================================================================
+# Backup table selection moved to nxt_tenant_config.
+# Configure via: Admin Panel → System → Tenant Configuration → Backup Settings
+# Each tenant can specify which tables to include in automated backups, retention
+# days, and whether backup is enabled.
+# 
+# Default configuration includes: nxt_appointment, nxt_slip, nxt_bill, 
+# nxt_lab_invoice, nxt_lab_report, nxt_patient, recentactivity
+# ====================================================================================
 
-# Leave Balance Configuration
-LEAVEBALANCE={"sick":8,"earn":16,"annual":5,"compensation":0}
+# ====================================================================================
+# BUSINESS RULES REMOVED - NOW PER-TENANT FROM DATABASE
+# ====================================================================================
+# Configure via: Admin Panel → System → Tenant Configuration → Business Rules
+# ====================================================================================
 
 # Redis Configuration
 REDIS_HOST=redis
@@ -682,43 +644,36 @@ REDIS_COMMAND_TIMEOUT=10000
 # URL Configuration
 URL_EXPIRATION_MS=900000
 DEFAULT_PRINT_LAYOUT=a4
-PATIENT_DEFAULT_PASSWORD=$PATIENT_DEFAULT_PASSWORD
 
-# WhatsApp Configuration
-ENABLE_WHATSAPP=$ENABLE_WHATSAPP
-MSGPK_WHATSAPP_API_URL=https://msgpk.com/api/send.php
-MSGPK_WHATSAPP_API_KEY=$MSGPK_WHATSAPP_API_KEY
-MSGPK_WHATSAPP_GROUP_API_URL=https://msgpk.com/apps/check_group.php
-MSGPK_WHATSAPP_CHECK_API_URL=https://msgpk.com/api/whatsapp_numbers.php
-WHATSAPP_MAX_RETRIES=3
-WHATSAPP_RETRY_DELAY_MS=1000
-WHATSAPP_RATE_LIMIT_DELAY_MS=100
-WHATSAPP_IMAGE_URL=$WHATSAPP_IMAGE_URL
+# ====================================================================================
+# WHATSAPP CONFIGURATION REMOVED - NOW PER-TENANT FROM DATABASE
+# ====================================================================================
+# Configure via: Admin Panel → System → Tenant Configuration → WhatsApp Settings
+# ====================================================================================
 
-# Reception Share Configuration
-RECEPTION_SHARE={"ENABLED":$RECEPTION_SHARE_ENABLED,"PERCENTAGE":$RECEPTION_SHARE_PERCENTAGE}
+# ====================================================================================
+# OPENAI CONFIGURATION REMOVED - NOW PER-TENANT FROM DATABASE
+# ====================================================================================
+# Configure via: Admin Panel → System → Tenant Configuration → OpenAI Settings
+# ====================================================================================
 
-# OpenAI Configuration
-OPENAI_API_KEY=$OPENAI_API_KEY
-OPENAI_MODEL=$OPENAI_MODEL
-MAX_TOKENS=2500
-TEMPERATURE=0.5
-TOP_P=1.0
+# ====================================================================================
+# SCHEDULER CONFIGURATION REMOVED - NOW PER-TENANT FROM DATABASE
+# ====================================================================================
+# Configure via: Admin Panel → System → Tenant Configuration → Scheduler Settings
+# ====================================================================================
+
+# ====================================================================================
+# LOCALE CONFIGURATION REMOVED - NOW PER-TENANT FROM DATABASE
+# ====================================================================================
+# Configure via: Admin Panel → System → Tenant Configuration → Locale Settings
+# ====================================================================================
 
 # Segment Configuration
 ENABLE_SEGMENT_FALLBACK=true
-DEFAULT_TIMEZONE=Asia/Karachi
 
 # User Configuration
 RETURN_TEMP_PASSWORD=true
-
-# Scheduler Configuration
-SCHED_DISABLE=false
-SCHED_OPD_DAILY_CRON="0 6 * * *"
-SCHED_OPD_WEEKLY_CRON="0 7 * * 1"
-SCHED_OPD_BIMONTHLY_CRON="0 7 1,16 * *"
-SCHED_OPD_MONTHLY_CRON="0 8 1 * *"
-SCHED_DB_BACKUP_CRON="0 2 * * 0"
 EOF
 
     log "✓ Environment configuration completed"
@@ -768,7 +723,10 @@ MySQL Root Password: $MYSQL_ROOT_PASSWORD
 MySQL DB Password:   $MYSQL_DB_PASSWORD
 JWT Secret:          $JWT_SECRET
 
-SMTP Email:          $SMTP_EMAIL
+SSL Cert Email:      $SMTP_EMAIL (for SSL certificate notifications only)
+
+⚠️  IMPORTANT: Email/SMTP credentials are configured PER-TENANT
+    Configure via: Admin Panel → Tenant Configuration → Email Settings
 
 Access URLs:
   Admin Panel:       http://$DOMAIN_OR_IP/

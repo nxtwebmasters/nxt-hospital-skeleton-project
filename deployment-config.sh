@@ -39,10 +39,11 @@ DEPLOYMENT_MODE="https"
 # ============================================================================
 # Leave empty to be prompted during deployment
 
-# Email Configuration (for notifications)
-SMTP_EMAIL="knowledge.hub5155@gmail.com"
-SMTP_PASSWORD="xpbq xunw hrvk vajq"
-ADMIN_EMAILS="pandanxt00@gmail.com"
+# Email Configuration (REMOVED - now per-tenant via database)
+# Email settings are now configured per-tenant via:
+# Admin Panel → System → Tenant Configuration → Email Settings
+# SMTP_EMAIL=""  # Not used - configure per tenant
+# ADMIN_EMAILS=""  # For SSL cert notifications only (optional)
 
 # MySQL Configuration (auto-generated if empty)
 MYSQL_ROOT_PASSWORD=""
@@ -54,21 +55,29 @@ JWT_SECRET=""
 # ============================================================================
 # INTEGRATION CONFIGURATION (optional - can configure later via UI)
 # ============================================================================
+# NOTE: Most integrations are now configured per-tenant via Admin Panel.
+# These settings are kept for backward compatibility but will be ignored
+# in favor of database configurations.
 
-# WhatsApp Integration
-ENABLE_WHATSAPP="false"
-MSGPK_WHATSAPP_API_KEY=""
-WHATSAPP_IMAGE_URL=""
+# ====================================================================================
+# TENANT-SPECIFIC CONFIGURATIONS REMOVED
+# ====================================================================================
+# These are now configured per-tenant via:
+# Admin Panel → System → Tenant Configuration
+# 
+# Each tenant configures their own:
+# - Email (SMTP credentials, settings)
+# - WhatsApp (API credentials, retry settings)
+# - OpenAI (API key, model settings)
+# - Webhooks (notification URLs)
+# - Business Rules (leave balance, reception share, etc.)
+# - Schedulers (cron expressions)
+# - Locale (timezone, currency, formats)
+# - FBR Tax Integration (POS ID, API token, environment)
+# ====================================================================================
 
-# OpenAI Integration
-OPENAI_API_KEY=""
-OPENAI_MODEL="gpt-4-turbo"
-
-# FBR Tax Integration (Pakistan)
-FBR_INTEGRATION_ENABLED="false"
-
-# Google Chat Webhook (for system notifications)
-WEBHOOK_URL=""
+# NOTE: FBR_INTEGRATION_ENABLED removed - now per-tenant configuration
+# Configure FBR per tenant via: Admin Panel → FBR Management
 
 # ============================================================================
 # ADVANCED CONFIGURATION
@@ -79,13 +88,6 @@ BACKEND_IMAGE_TAG="latest"
 FRONTEND_IMAGE_TAG="latest"
 PORTAL_IMAGE_TAG="latest"
 
-# Reception Share Configuration
-RECEPTION_SHARE_ENABLED="true"
-RECEPTION_SHARE_PERCENTAGE="1.25"
-
-# Patient Portal Configuration
-PATIENT_DEFAULT_PASSWORD="NxtHospital123"
-
 # ============================================================================
 # DEPLOYMENT PRESETS (uncomment and customize one to use)
 # ============================================================================
@@ -94,31 +96,28 @@ PATIENT_DEFAULT_PASSWORD="NxtHospital123"
 # DEPLOYMENT_DOMAIN="hms.yourdomain.com"
 # DEFAULT_TENANT_SUBDOMAIN="hms"
 # DEPLOYMENT_MODE="https"
-# SMTP_EMAIL="noreply@yourdomain.com"
-# ADMIN_EMAILS="admin@yourdomain.com"
 
 # Preset 2: Specific Hospital (e.g., MedEast)
 # DEPLOYMENT_DOMAIN="medeast.healthcare.com"
 # DEFAULT_TENANT_SUBDOMAIN="medeast"
 # DEPLOYMENT_MODE="https"
-# SMTP_EMAIL="noreply@medeast.healthcare.com"
-# ADMIN_EMAILS="admin@medeast.healthcare.com"
 
 # Preset 3: Development (IP-based, no domain)
 # DEPLOYMENT_DOMAIN=""  # Will auto-detect VM IP
 # DEFAULT_TENANT_SUBDOMAIN="hms"
 # DEPLOYMENT_MODE="http"
-# SMTP_EMAIL="test@example.com"
-# ADMIN_EMAILS="dev@example.com"
 
-# Preset 4: Multi-branch Hospital Group (e.g., FamilyCare)
+# Preset 4: Multi-branch Hospital Group
 # DEPLOYMENT_DOMAIN="familycare.nxtwebmasters.com"
 # DEFAULT_TENANT_SUBDOMAIN="familycare"
 # DEPLOYMENT_MODE="https"
-# SMTP_EMAIL="noreply@familycare.nxtwebmasters.com"
-# ADMIN_EMAILS="admin@familycare.com,operations@familycare.com"
-# ENABLE_WHATSAPP="true"
-# MSGPK_WHATSAPP_API_KEY="your-api-key-here"
+# 
+# NOTE: After deployment, configure tenant-specific settings via:
+# Admin Panel → System → Tenant Configuration
+# - Email Settings (SMTP credentials)
+# - WhatsApp Settings (API credentials)
+# - OpenAI Settings (API key)
+# - Locale Settings (timezone, currency)
 
 # ============================================================================
 # VALIDATION (do not modify)

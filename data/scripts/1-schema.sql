@@ -37,21 +37,31 @@ COMMENT='Multi-tenant master table - stores hospital/organization details';
 
 --
 -- Table structure for table `nxt_tenant_config`
+-- Multi-tenant configuration system - each hospital can have unique settings
 --
 
 CREATE TABLE IF NOT EXISTS `nxt_tenant_config` (
-  `config_id` INT AUTO_INCREMENT PRIMARY KEY,
-  `tenant_id` VARCHAR(50) NOT NULL COMMENT 'Reference to nxt_tenant.tenant_id',
-  `config_key` VARCHAR(100) NOT NULL COMMENT 'Configuration key (e.g., hospital_name, timezone, currency)',
-  `config_value` TEXT DEFAULT NULL COMMENT 'Configuration value',
-  `config_type` ENUM('string', 'number', 'boolean', 'json') DEFAULT 'string',
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY `unique_tenant_config` (`tenant_id`, `config_key`),
-  FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant`(`tenant_id`) ON DELETE CASCADE,
-  INDEX `idx_tenant_config` (`tenant_id`, `config_key`)
+  `config_id` INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Unique configuration ID',
+  `tenant_id` VARCHAR(50) NOT NULL COMMENT 'Tenant identifier (from nxt_tenant)',
+  `config_category` VARCHAR(50) NOT NULL COMMENT 'Configuration category: email, whatsapp, openai, scheduler, business_rules, webhook, backup, locale',
+  `config_key` VARCHAR(100) NOT NULL COMMENT 'Specific configuration key within category',
+  `config_value` TEXT NULL COMMENT 'Configuration value (JSON for complex objects, plain text for simple values)',
+  `is_active` TINYINT(1) DEFAULT 1 COMMENT '1 = active, 0 = inactive (soft delete)',
+  `is_encrypted` TINYINT(1) DEFAULT 0 COMMENT '1 = value is encrypted (passwords, API keys), 0 = plain text',
+  `value_type` ENUM('string', 'number', 'boolean', 'json', 'array') DEFAULT 'string' COMMENT 'Data type for validation',
+  `description` VARCHAR(255) NULL COMMENT 'Human-readable description of this config',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation timestamp',
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update timestamp',
+  `created_by` INT NULL COMMENT 'User ID who created this config',
+  `updated_by` INT NULL COMMENT 'User ID who last updated this config',
+  
+  UNIQUE KEY `unique_tenant_config` (`tenant_id`, `config_category`, `config_key`),
+  INDEX `idx_tenant_category` (`tenant_id`, `config_category`),
+  INDEX `idx_active` (`is_active`),
+  INDEX `idx_category_key` (`config_category`, `config_key`),
+  FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant`(`tenant_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-COMMENT='Tenant-specific configuration settings (key-value pairs)';
+COMMENT='Tenant-specific configuration storage for multi-tenant HMS (email, WhatsApp, schedulers, business rules)';
 
 --
 -- Table structure for table `nxt_manual_subdomain_requests`
@@ -96,13 +106,32 @@ INSERT INTO `nxt_tenant` (
   'migration_script'
 ) ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
 
--- Insert default configurations for system tenant
-INSERT INTO `nxt_tenant_config` (`tenant_id`, `config_key`, `config_value`, `config_type`) VALUES
-  ('system_default_tenant', 'hospital_name', 'Default Hospital', 'string'),
-  ('system_default_tenant', 'timezone', 'Asia/Karachi', 'string'),
-  ('system_default_tenant', 'currency', 'PKR', 'string'),
-  ('system_default_tenant', 'date_format', 'DD/MM/YYYY', 'string')
-ON DUPLICATE KEY UPDATE config_value=config_value;
+-- ====================================================================================
+-- DEFAULT TENANT BASELINE CONFIGURATION
+-- ====================================================================================
+-- Tenant configuration is now handled by the bootstrap process (hms-backend/bootstrap/tenantConfigBootstrap.js)
+-- Bootstrap automatically creates default configurations for system_default_tenant during server startup
+-- 
+-- Configuration categories bootstrapped:
+--   • email (service, from_name, recipients)
+--   • whatsapp (enabled, api_url, retries, delays)
+--   • openai (enabled, model, tokens, temperature)
+--   • business_rules (leave_balance, reception_share, patient_default_password)
+--   • scheduler (cron schedules for reports and backups)
+--   • locale (timezone, currency, date/time formats)
+--   • backup (enabled, tables, retention)
+--   • webhook (enabled)
+--
+-- ⚠️ IMPORTANT: Update sensitive values (passwords, API keys) via Admin Panel after deployment
+-- ⚠️ NEW TENANTS: Create via Admin Panel and configure all settings there (no defaults)
+-- 
+-- To run bootstrap manually:
+--   cd hms-backend && npm run bootstrap
+-- 
+-- To check bootstrap status:
+--   cd hms-backend && npm run bootstrap:status
+-- ====================================================================================
+
 
 --
 -- Table structure for table `ai_feedback`
@@ -1061,10 +1090,6 @@ CREATE TABLE IF NOT EXISTS `nxt_permission` (
   `permission_name` varchar(100) NOT NULL,
   `permission_alias` varchar(100) NOT NULL,
   `permission_description` text NOT NULL,
-  `component_access` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `read_permission` tinyint(1) NOT NULL DEFAULT 0,
-  `write_permission` tinyint(1) NOT NULL DEFAULT 0,
-  `delete_permission` tinyint(1) NOT NULL DEFAULT 0,
   `permission_status` int(11) NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(100) NOT NULL,
@@ -1072,6 +1097,49 @@ CREATE TABLE IF NOT EXISTS `nxt_permission` (
   `updated_by` varchar(100) DEFAULT NULL,
   UNIQUE KEY `unique_permission_per_tenant` (`tenant_id`, `permission_alias`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `nxt_component_permission_rights`
+-- Component-specific permission system for granular access control
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_component_permission_rights` (
+  `id` INT(11) NOT NULL,
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
+  `permission_id` INT(11) NOT NULL COMMENT 'FK to nxt_permission',
+  `component_alias` VARCHAR(100) NOT NULL COMMENT 'Component identifier (e.g., slip, patient, appointment)',
+  
+  -- Core CRUD permissions
+  `can_view` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Can view/read records',
+  `can_create` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Can create new records',
+  `can_edit` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Can update existing records',
+  `can_delete` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Can delete records',
+  
+  -- Extended permissions (component-specific)
+  `can_print` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Can print documents/reports',
+  `can_export` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Can export data (Excel, PDF, etc.)',
+  `can_view_summary` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Can view summary/dashboard widgets',
+  `can_approve` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Can approve workflows (e.g., PO approval)',
+  `can_cancel` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Can cancel records (e.g., appointments, bills)',
+  `can_refund` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Can process refunds (billing)',
+  
+  -- Metadata
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_by` VARCHAR(100) NOT NULL,
+  `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  `updated_by` VARCHAR(100) DEFAULT NULL,
+  
+  -- Constraints
+  UNIQUE KEY `unique_permission_component` (`tenant_id`, `permission_id`, `component_alias`),
+  INDEX `idx_tenant_id` (`tenant_id`),
+  INDEX `idx_permission_id` (`permission_id`),
+  INDEX `idx_component_alias` (`component_alias`),
+  FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant`(`tenant_id`) ON DELETE CASCADE,
+  FOREIGN KEY (`permission_id`) REFERENCES `nxt_permission`(`permission_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Component-specific permission rights for granular access control (10 rights per component)';
 
 -- --------------------------------------------------------
 
@@ -2045,6 +2113,12 @@ ALTER TABLE `nxt_permission`
   ADD PRIMARY KEY (`permission_id`);
 
 --
+-- Indexes for table `nxt_component_permission_rights`
+--
+ALTER TABLE `nxt_component_permission_rights`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Indexes for table `nxt_prescriptions`
 --
 ALTER TABLE `nxt_prescriptions`
@@ -2428,6 +2502,12 @@ ALTER TABLE `nxt_patient_relationship`
 --
 ALTER TABLE `nxt_permission`
   MODIFY `permission_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `nxt_component_permission_rights`
+--
+ALTER TABLE `nxt_component_permission_rights`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `nxt_prescriptions`

@@ -109,19 +109,18 @@ DEFAULT_TENANT_SUBDOMAIN="hms"           # Your base tenant identifier
 # Deployment Mode
 DEPLOYMENT_MODE="https"  # http or https
 
-# Email (for notifications and SSL)
-SMTP_EMAIL="noreply@yourdomain.com"
-SMTP_PASSWORD="your-app-password"
-ADMIN_EMAILS="admin1@domain.com,admin2@domain.com"
-
-# Optional: Pre-configure integrations
-ENABLE_WHATSAPP="true"
-MSGPK_WHATSAPP_API_KEY="your-key"
-OPENAI_API_KEY="sk-..."
-FBR_INTEGRATION_ENABLED="true"
+# MySQL & JWT (auto-generated if empty)
+MYSQL_ROOT_PASSWORD=""
+MYSQL_DB_PASSWORD=""
+JWT_SECRET=""
 ```
 
-**Security**: Passwords and JWT secrets are auto-generated securely.
+**Note**: Email, WhatsApp, OpenAI, FBR, and other business configs are now set **per-tenant** via:
+- **Admin Panel → System → Tenant Configuration**
+
+This ensures true multi-tenant isolation with no shared credentials.
+
+**Security**: Passwords and JWT secrets are auto-generated securely if not provided.
 
 ### Configuration for Different Environments
 
