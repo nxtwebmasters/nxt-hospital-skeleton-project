@@ -24,7 +24,12 @@ CREATE TABLE IF NOT EXISTS `nxt_tenant` (
   `subscription_end_date` DATE DEFAULT NULL COMMENT 'Subscription expiry date',
   `max_users` INT DEFAULT 50 COMMENT 'Maximum allowed users for this tenant',
   `max_patients` INT DEFAULT 10000 COMMENT 'Maximum allowed patients',
+  `storage_limit_gb` INT DEFAULT 100 COMMENT 'Storage limit in GB',
   `features` JSON DEFAULT NULL COMMENT 'Feature flags: {"fbr":true,"campaigns":true,"ai":false}',
+  `contact_email` VARCHAR(255) DEFAULT NULL COMMENT 'Primary contact email',
+  `contact_phone` VARCHAR(50) DEFAULT NULL COMMENT 'Primary contact phone',
+  `address` TEXT DEFAULT NULL COMMENT 'Physical address',
+  `notes` TEXT DEFAULT NULL COMMENT 'Admin notes about this tenant',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `created_by` VARCHAR(100) DEFAULT 'system',
   `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
@@ -130,6 +135,449 @@ INSERT INTO `nxt_tenant` (
 -- 
 -- To check bootstrap status:
 --   cd hms-backend && npm run bootstrap:status
+-- ====================================================================================
+
+-- ====================================================================================
+-- SUBSCRIPTION & LICENSE MANAGEMENT TABLES
+-- Multi-tenant subscription system with payment tracking
+-- ====================================================================================
+
+--
+-- Table structure for table `nxt_subscription_plan`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_subscription_plan` (
+  `plan_id` VARCHAR(50) PRIMARY KEY,
+  `plan_name` VARCHAR(100) NOT NULL,
+  `plan_description` TEXT,
+  `plan_type` ENUM('free', 'trial', 'basic', 'professional', 'enterprise', 'custom') NOT NULL DEFAULT 'basic',
+  
+  -- Pricing
+  `monthly_price` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+  `annual_price` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+  `currency` VARCHAR(3) NOT NULL DEFAULT 'PKR',
+  
+  -- Limits
+  `max_users` INT DEFAULT NULL COMMENT 'NULL = unlimited',
+  `max_patients` INT DEFAULT NULL COMMENT 'NULL = unlimited',
+  `max_storage_gb` INT DEFAULT 10,
+  `max_api_calls_per_day` INT DEFAULT NULL COMMENT 'NULL = unlimited',
+  
+  -- Features (JSON array of feature keys)
+  `included_modules` JSON COMMENT 'Array of module names',
+  `included_components` JSON COMMENT 'Array of component aliases',
+  
+  -- Trial settings
+  `trial_days` INT DEFAULT 0,
+  `allow_trial` BOOLEAN DEFAULT TRUE,
+  
+  -- Status
+  `is_active` BOOLEAN DEFAULT TRUE,
+  `is_public` BOOLEAN DEFAULT TRUE COMMENT 'Show in public signup',
+  `sort_order` INT DEFAULT 0,
+  
+  -- Metadata
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `created_by` VARCHAR(100) DEFAULT 'system',
+  `updated_by` VARCHAR(100) DEFAULT 'system',
+  
+  INDEX `idx_plan_type` (`plan_type`),
+  INDEX `idx_is_active` (`is_active`),
+  INDEX `idx_is_public` (`is_public`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Subscription plans with features and pricing';
+
+--
+-- Table structure for table `nxt_tenant_subscription`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_tenant_subscription` (
+  `subscription_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `tenant_id` VARCHAR(50) NOT NULL,
+  `plan_id` VARCHAR(50) NOT NULL,
+  
+  -- Subscription period
+  `start_date` DATETIME NOT NULL,
+  `end_date` DATETIME DEFAULT NULL COMMENT 'NULL = unlimited',
+  `trial_end_date` DATETIME DEFAULT NULL,
+  
+  -- Status
+  `status` ENUM('trial', 'active', 'expired', 'suspended', 'cancelled', 'pending_payment') NOT NULL DEFAULT 'trial',
+  `auto_renew` BOOLEAN DEFAULT TRUE,
+  
+  -- Billing
+  `billing_cycle` ENUM('monthly', 'annual', 'lifetime') NOT NULL DEFAULT 'monthly',
+  `amount_paid` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+  `currency` VARCHAR(3) NOT NULL DEFAULT 'PKR',
+  `next_billing_date` DATETIME DEFAULT NULL,
+  
+  -- Grace period
+  `grace_period_days` INT DEFAULT 7,
+  `grace_period_end` DATETIME DEFAULT NULL,
+  
+  -- Cancellation
+  `cancelled_at` DATETIME DEFAULT NULL,
+  `cancelled_by` VARCHAR(100) DEFAULT NULL,
+  `cancellation_reason` TEXT,
+  
+  -- Metadata
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `created_by` VARCHAR(100) DEFAULT 'system',
+  `updated_by` VARCHAR(100) DEFAULT 'system',
+  
+  FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant`(`tenant_id`) ON DELETE CASCADE,
+  FOREIGN KEY (`plan_id`) REFERENCES `nxt_subscription_plan`(`plan_id`),
+  
+  INDEX `idx_tenant_id` (`tenant_id`),
+  INDEX `idx_plan_id` (`plan_id`),
+  INDEX `idx_status` (`status`),
+  INDEX `idx_end_date` (`end_date`),
+  INDEX `idx_next_billing` (`next_billing_date`),
+  INDEX `idx_tenant_status` (`tenant_id`, `status`),
+  INDEX `idx_billing_date` (`next_billing_date`, `auto_renew`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Active subscriptions for tenants';
+
+--
+-- Table structure for table `nxt_payment_transaction`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_payment_transaction` (
+  `transaction_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `tenant_id` VARCHAR(50) NOT NULL,
+  `subscription_id` INT DEFAULT NULL,
+  
+  -- Transaction details
+  `transaction_uuid` VARCHAR(36) UNIQUE NOT NULL,
+  `payment_gateway` ENUM('jazzcash', 'easypaisa', 'stripe', 'paypal', 'bank_transfer', 'manual') NOT NULL,
+  `gateway_transaction_id` VARCHAR(255) DEFAULT NULL,
+  
+  -- Amount
+  `amount` DECIMAL(10, 2) NOT NULL,
+  `currency` VARCHAR(3) NOT NULL DEFAULT 'PKR',
+  
+  -- Status
+  `status` ENUM('pending', 'processing', 'completed', 'failed', 'refunded', 'cancelled') NOT NULL DEFAULT 'pending',
+  
+  -- Payment details
+  `payment_method` VARCHAR(50) DEFAULT NULL,
+  `payer_name` VARCHAR(255) DEFAULT NULL,
+  `payer_email` VARCHAR(255) DEFAULT NULL,
+  `payer_phone` VARCHAR(50) DEFAULT NULL,
+  
+  -- Gateway response
+  `gateway_response` JSON COMMENT 'Raw response from gateway',
+  `error_message` TEXT,
+  
+  -- Reconciliation
+  `reconciled` BOOLEAN DEFAULT FALSE,
+  `reconciled_at` DATETIME DEFAULT NULL,
+  `reconciled_by` VARCHAR(100) DEFAULT NULL,
+  
+  -- Invoice
+  `invoice_number` VARCHAR(50) DEFAULT NULL,
+  `invoice_url` VARCHAR(500) DEFAULT NULL,
+  
+  -- Metadata
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant`(`tenant_id`) ON DELETE CASCADE,
+  FOREIGN KEY (`subscription_id`) REFERENCES `nxt_tenant_subscription`(`subscription_id`) ON DELETE SET NULL,
+  
+  INDEX `idx_tenant_id` (`tenant_id`),
+  INDEX `idx_transaction_uuid` (`transaction_uuid`),
+  INDEX `idx_status` (`status`),
+  INDEX `idx_gateway` (`payment_gateway`),
+  INDEX `idx_created_at` (`created_at`),
+  INDEX `idx_tenant_status` (`tenant_id`, `status`),
+  INDEX `idx_gateway_status` (`payment_gateway`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Payment transaction history';
+
+--
+-- Table structure for table `nxt_tenant_license`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_tenant_license` (
+  `license_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `tenant_id` VARCHAR(50) NOT NULL,
+  
+  -- License key
+  `license_key` VARCHAR(255) UNIQUE NOT NULL,
+  `license_type` ENUM('trial', 'subscription', 'lifetime', 'custom') NOT NULL DEFAULT 'subscription',
+  
+  -- Validity
+  `issued_date` DATETIME NOT NULL,
+  `expiry_date` DATETIME DEFAULT NULL COMMENT 'NULL = lifetime',
+  `status` ENUM('active', 'expired', 'revoked') NOT NULL DEFAULT 'active',
+  
+  -- Hardware binding (optional)
+  `hardware_id` VARCHAR(255) DEFAULT NULL,
+  `max_activations` INT DEFAULT 1,
+  `activation_count` INT DEFAULT 0,
+  
+  -- Last validation
+  `last_validated_at` DATETIME DEFAULT NULL,
+  `last_validation_ip` VARCHAR(45) DEFAULT NULL,
+  
+  -- Revocation
+  `revoked` BOOLEAN DEFAULT FALSE,
+  `revoked_at` DATETIME DEFAULT NULL,
+  `revoked_by` VARCHAR(100) DEFAULT NULL,
+  `revocation_reason` TEXT,
+  
+  -- Metadata
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `created_by` VARCHAR(100) DEFAULT 'system',
+  
+  FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant`(`tenant_id`) ON DELETE CASCADE,
+  
+  INDEX `idx_tenant_id` (`tenant_id`),
+  INDEX `idx_license_key` (`license_key`),
+  INDEX `idx_expiry_date` (`expiry_date`),
+  INDEX `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='License keys for tenant validation';
+
+--
+-- Table structure for table `nxt_tenant_usage`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_tenant_usage` (
+  `usage_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `tenant_id` VARCHAR(50) NOT NULL,
+  
+  -- Period
+  `usage_period` DATE NOT NULL COMMENT 'YYYY-MM-DD for monthly tracking',
+  
+  -- User metrics
+  `total_users` INT DEFAULT 0,
+  `active_users` INT DEFAULT 0,
+  
+  -- Patient metrics
+  `total_patients` INT DEFAULT 0,
+  `new_patients_this_month` INT DEFAULT 0,
+  
+  -- Storage metrics
+  `storage_used_bytes` BIGINT DEFAULT 0,
+  `storage_used_gb` DECIMAL(10, 2) DEFAULT 0.00,
+  
+  -- API usage
+  `api_calls_count` INT DEFAULT 0,
+  
+  -- Transaction metrics
+  `appointments_created` INT DEFAULT 0,
+  `bills_created` INT DEFAULT 0,
+  `prescriptions_created` INT DEFAULT 0,
+  `lab_reports_created` INT DEFAULT 0,
+  
+  -- Metadata
+  `calculated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant`(`tenant_id`) ON DELETE CASCADE,
+  
+  UNIQUE KEY `unique_tenant_period` (`tenant_id`, `usage_period`),
+  INDEX `idx_tenant_id` (`tenant_id`),
+  INDEX `idx_usage_period` (`usage_period`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Monthly resource usage tracking per tenant';
+
+--
+-- Table structure for table `nxt_subscription_history`
+--
+
+CREATE TABLE IF NOT EXISTS `nxt_subscription_history` (
+  `history_id` INT AUTO_INCREMENT PRIMARY KEY,
+  `tenant_id` VARCHAR(50) NOT NULL,
+  `subscription_id` INT DEFAULT NULL,
+  
+  -- Change details
+  `action` ENUM('created', 'upgraded', 'downgraded', 'renewed', 'cancelled', 'suspended', 'reactivated') NOT NULL,
+  `old_plan_id` VARCHAR(50) DEFAULT NULL,
+  `new_plan_id` VARCHAR(50) DEFAULT NULL,
+  
+  -- Pricing
+  `old_amount` DECIMAL(10, 2) DEFAULT 0.00,
+  `new_amount` DECIMAL(10, 2) DEFAULT 0.00,
+  
+  -- Dates
+  `effective_date` DATETIME NOT NULL,
+  
+  -- Notes
+  `change_reason` TEXT,
+  `notes` TEXT,
+  
+  -- Actor
+  `changed_by` VARCHAR(100) NOT NULL,
+  `ip_address` VARCHAR(45) DEFAULT NULL,
+  
+  -- Metadata
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant`(`tenant_id`) ON DELETE CASCADE,
+  FOREIGN KEY (`subscription_id`) REFERENCES `nxt_tenant_subscription`(`subscription_id`) ON DELETE SET NULL,
+  
+  INDEX `idx_tenant_id` (`tenant_id`),
+  INDEX `idx_subscription_id` (`subscription_id`),
+  INDEX `idx_action` (`action`),
+  INDEX `idx_effective_date` (`effective_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+COMMENT='Audit trail for subscription changes';
+
+--
+-- Insert default subscription plans
+--
+
+INSERT INTO `nxt_subscription_plan` (
+  `plan_id`, `plan_name`, `plan_description`, `plan_type`,
+  `monthly_price`, `annual_price`, `currency`,
+  `max_users`, `max_patients`, `max_storage_gb`,
+  `included_modules`, `trial_days`, `is_public`, `sort_order`
+) VALUES
+('PLN001', 'Free Trial', '15-day free trial with basic features', 'trial',
+0.00, 0.00, 'PKR',
+3, 100, 0.5,
+'["appointments", "patients", "billing"]',
+15, TRUE, 1),
+
+('PLN002', 'Basic', 'Perfect for small clinics', 'basic',
+7500.00, 81000.00, 'PKR',
+10, 2000, 2,
+'["appointments", "patients", "billing", "prescription"]',
+0, TRUE, 2),
+
+('PLN003', 'Professional', 'Ideal for growing hospitals', 'professional',
+15000.00, 162000.00, 'PKR',
+25, 5000, 10,
+'["appointments", "patients", "billing", "prescription", "laboratory", "pharmacy", "campaigns"]',
+0, TRUE, 3),
+
+('PLN004', 'Enterprise', 'Complete solution for large hospitals', 'enterprise',
+30000.00, 324000.00, 'PKR',
+100, 20000, 50,
+'["appointments", "patients", "billing", "prescription", "laboratory", "pharmacy", "campaigns", "ai", "fbr", "health_authority_analytics", "api_access"]',
+0, TRUE, 4),
+
+('PLN005', 'Lifetime', 'One-time payment, lifetime access', 'custom',
+0.00, 500000.00, 'PKR',
+NULL, NULL, 100,
+'["appointments", "patients", "billing", "prescription", "laboratory", "pharmacy", "campaigns", "ai", "fbr", "health_authority_analytics", "api_access"]',
+0, FALSE, 5)
+ON DUPLICATE KEY UPDATE
+  `plan_name` = VALUES(`plan_name`),
+  `plan_description` = VALUES(`plan_description`),
+  `monthly_price` = VALUES(`monthly_price`),
+  `annual_price` = VALUES(`annual_price`);
+
+--
+-- Alter nxt_tenant table to add subscription tracking
+--
+
+ALTER TABLE `nxt_tenant`
+ADD COLUMN IF NOT EXISTS `current_plan_id` VARCHAR(50) DEFAULT 'PLN001',
+ADD COLUMN IF NOT EXISTS `license_key` VARCHAR(255) DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS `subscription_auto_renew` BOOLEAN DEFAULT TRUE,
+ADD INDEX IF NOT EXISTS `idx_current_plan` (`current_plan_id`),
+ADD INDEX IF NOT EXISTS `idx_license_key` (`license_key`);
+
+--
+-- View for subscription status
+--
+
+CREATE OR REPLACE VIEW v_tenant_subscription_status AS
+SELECT 
+  t.tenant_id,
+  t.tenant_name,
+  t.tenant_subdomain,
+  t.tenant_status,
+  ts.subscription_id,
+  ts.plan_id,
+  sp.plan_name,
+  sp.plan_type,
+  ts.status AS subscription_status,
+  ts.start_date,
+  ts.end_date,
+  ts.trial_end_date,
+  CASE 
+    WHEN ts.status = 'trial' AND ts.trial_end_date < NOW() THEN 'expired'
+    WHEN ts.status = 'active' AND ts.end_date IS NOT NULL AND ts.end_date < NOW() THEN 'expired'
+    WHEN ts.status = 'active' AND (ts.end_date IS NULL OR ts.end_date > NOW()) THEN 'active'
+    ELSE ts.status
+  END AS computed_status,
+  DATEDIFF(COALESCE(ts.end_date, ts.trial_end_date), NOW()) AS days_remaining,
+  ts.next_billing_date,
+  ts.amount_paid,
+  ts.auto_renew,
+  sp.max_users,
+  sp.max_patients,
+  sp.max_storage_gb,
+  sp.included_modules,
+  ts.created_at AS subscription_created_at,
+  ts.updated_at AS subscription_updated_at
+FROM nxt_tenant t
+LEFT JOIN nxt_tenant_subscription ts ON t.tenant_id = ts.tenant_id AND ts.status IN ('trial', 'active')
+LEFT JOIN nxt_subscription_plan sp ON ts.plan_id = sp.plan_id
+ORDER BY t.created_at DESC;
+
+--
+-- Stored procedure for subscription validation
+--
+
+DELIMITER //
+
+CREATE PROCEDURE IF NOT EXISTS sp_validate_tenant_subscription(
+  IN p_tenant_id VARCHAR(100),
+  OUT p_is_valid BOOLEAN,
+  OUT p_status VARCHAR(50),
+  OUT p_message TEXT
+)
+BEGIN
+  DECLARE v_subscription_status VARCHAR(50);
+  DECLARE v_end_date DATETIME;
+  DECLARE v_trial_end_date DATETIME;
+  
+  SELECT 
+    ts.status,
+    ts.end_date,
+    ts.trial_end_date
+  INTO 
+    v_subscription_status,
+    v_end_date,
+    v_trial_end_date
+  FROM nxt_tenant_subscription ts
+  WHERE ts.tenant_id = p_tenant_id
+    AND ts.status IN ('trial', 'active')
+  ORDER BY ts.created_at DESC
+  LIMIT 1;
+  
+  IF v_subscription_status IS NULL THEN
+    SET p_is_valid = FALSE;
+    SET p_status = 'no_subscription';
+    SET p_message = 'No active subscription found';
+  ELSEIF v_subscription_status = 'trial' AND v_trial_end_date < NOW() THEN
+    SET p_is_valid = FALSE;
+    SET p_status = 'trial_expired';
+    SET p_message = 'Trial period has expired';
+  ELSEIF v_subscription_status = 'active' AND v_end_date IS NOT NULL AND v_end_date < NOW() THEN
+    SET p_is_valid = FALSE;
+    SET p_status = 'subscription_expired';
+    SET p_message = 'Subscription has expired';
+  ELSE
+    SET p_is_valid = TRUE;
+    SET p_status = v_subscription_status;
+    SET p_message = 'Subscription is valid';
+  END IF;
+END //
+
+DELIMITER ;
+
+-- ====================================================================================
+-- END OF SUBSCRIPTION & LICENSE MANAGEMENT TABLES
 -- ====================================================================================
 
 
@@ -1135,9 +1583,7 @@ CREATE TABLE IF NOT EXISTS `nxt_component_permission_rights` (
   UNIQUE KEY `unique_permission_component` (`tenant_id`, `permission_id`, `component_alias`),
   INDEX `idx_tenant_id` (`tenant_id`),
   INDEX `idx_permission_id` (`permission_id`),
-  INDEX `idx_component_alias` (`component_alias`),
-  FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant`(`tenant_id`) ON DELETE CASCADE,
-  FOREIGN KEY (`permission_id`) REFERENCES `nxt_permission`(`permission_id`) ON DELETE CASCADE
+  INDEX `idx_component_alias` (`component_alias`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
 COMMENT='Component-specific permission rights for granular access control (10 rights per component)';
 
@@ -2658,6 +3104,13 @@ ALTER TABLE `prescription_vitals`
 --
 ALTER TABLE `recentactivity`
   MODIFY `activity_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- Constraints for table `nxt_component_permission_rights`
+--
+ALTER TABLE `nxt_component_permission_rights`
+  ADD CONSTRAINT `fk_component_rights_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_component_rights_permission` FOREIGN KEY (`permission_id`) REFERENCES `nxt_permission` (`permission_id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `nxt_bed`
