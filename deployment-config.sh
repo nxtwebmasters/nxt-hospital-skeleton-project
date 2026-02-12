@@ -20,14 +20,14 @@
 # Domain Configuration
 # Example: hms.yourdomain.com, hospital.example.com, medeast.healthcare.com
 # Leave empty to use VM IP address (auto-detected)
-DEPLOYMENT_DOMAIN="nxthms.nxtwebmasters.com"
+DEPLOYMENT_DOMAIN="hms.nxtwebmasters.com"
 
 # Base Subdomain / Default Tenant Name
 # This becomes the system default tenant identifier
 # Examples: "hms", "medeast", "familycare", "careplus"
 # For hms.yourdomain.com → use "hms"
 # For medeast.healthcare.com → use "medeast"
-DEFAULT_TENANT_SUBDOMAIN="nxthms"
+DEFAULT_TENANT_SUBDOMAIN="hms"
 
 # Deployment Mode
 # Options: "http" (development/testing), "https" (production with SSL)
