@@ -133,7 +133,7 @@ dist
 .pnp.*
 
 # ============================================================================
-# NXT HMS Deployment-Specific
+# NXT HOSPITAL Deployment-Specific
 # ============================================================================
 
 # Local deployment configuration overrides

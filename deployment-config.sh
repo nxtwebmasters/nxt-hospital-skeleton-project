@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# NXT HMS - Deployment Configuration File
+# NXT HOSPITAL - Deployment Configuration File
 # 
 # This file contains deployment-specific settings that can be customized
 # for different environments without modifying the main deploy.sh script.

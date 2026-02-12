@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ################################################################################
-# NXT HMS - Automated Production Deployment Script
+# NXT HOSPITAL - Automated Production Deployment Script
 # For Ubuntu 20.04+ / Debian-based systems
 # 
 # Prerequisites: Docker, Docker Compose installed
@@ -107,7 +107,7 @@ sudo_wrapper() {
 show_usage() {
     cat << EOF
 ═══════════════════════════════════════════════════════════════
-  NXT HMS - Multi-Tenant Hospital Management System Deployment
+  NXT HOSPITAL - Multi-Tenant Hospital Management System Deployment
 ═══════════════════════════════════════════════════════════════
 
 Usage: $0 [OPTIONS]
@@ -155,7 +155,7 @@ load_deployment_config() {
                 show_usage
                 ;;
             --version)
-                echo "NXT HMS Deployment Script v2.0.0"
+                echo "NXT HOSPITAL Deployment Script v2.0.0"
                 exit 0
                 ;;
             *)
@@ -1595,7 +1595,7 @@ main() {
     echo ""
     echo "╔══════════════════════════════════════════════════════════╗"
     echo "║                                                          ║"
-    echo "║        🏥 NXT HMS - Production Deployment 🏥             ║"
+    echo "║        🏥 NXT HOSPITAL - Production Deployment 🏥             ║"
     echo "║         Automated Multi-Tenant Setup v2.0                ║"
     echo "║                                                          ║"
     echo "╚══════════════════════════════════════════════════════════╝"

@@ -1,4 +1,4 @@
-# NXT HMS - Multi-Tenant Hospital Management System
+# NXT HOSPITAL - Multi-Tenant Hospital Management System
 ## Production Deployment Skeleton
 
 [![License](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)

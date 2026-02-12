@@ -260,7 +260,7 @@ CREATE TABLE IF NOT EXISTS `nxt_payment_transaction` (
   `currency` VARCHAR(3) NOT NULL DEFAULT 'PKR',
   
   -- Status
-  `status` ENUM('pending', 'processing', 'completed', 'failed', 'refunded', 'cancelled') NOT NULL DEFAULT 'pending',
+  `status` ENUM('pending', 'processing', 'completed', 'failed', 'refunded', 'cancelled', 'pending_verification', 'rejected') NOT NULL DEFAULT 'pending',
   
   -- Payment details
   `payment_method` VARCHAR(50) DEFAULT NULL,
@@ -271,6 +271,19 @@ CREATE TABLE IF NOT EXISTS `nxt_payment_transaction` (
   -- Gateway response
   `gateway_response` JSON COMMENT 'Raw response from gateway',
   `error_message` TEXT,
+  
+  -- Receipt upload for manual bank transfers (Feb 2026)
+  `receipt_file_path` VARCHAR(255) DEFAULT NULL COMMENT 'Path to uploaded receipt file',
+  `receipt_uploaded_at` DATETIME DEFAULT NULL COMMENT 'When customer uploaded receipt',
+  `payer_submitted_amount` DECIMAL(10,2) DEFAULT NULL COMMENT 'Amount customer claims to have paid',
+  `payer_transaction_date` DATE DEFAULT NULL COMMENT 'Date of bank transfer per customer',
+  `payer_notes` TEXT DEFAULT NULL COMMENT 'Additional notes from customer',
+  
+  -- Admin verification (Feb 2026)
+  `verified_amount` DECIMAL(10,2) DEFAULT NULL COMMENT 'Actual verified amount by admin',
+  `verified_at` DATETIME DEFAULT NULL COMMENT 'When admin verified the payment',
+  `verified_by` VARCHAR(100) DEFAULT NULL COMMENT 'Admin user who verified',
+  `admin_notes` TEXT DEFAULT NULL COMMENT 'Admin notes during verification',
   
   -- Reconciliation
   `reconciled` BOOLEAN DEFAULT FALSE,
@@ -294,7 +307,9 @@ CREATE TABLE IF NOT EXISTS `nxt_payment_transaction` (
   INDEX `idx_gateway` (`payment_gateway`),
   INDEX `idx_created_at` (`created_at`),
   INDEX `idx_tenant_status` (`tenant_id`, `status`),
-  INDEX `idx_gateway_status` (`payment_gateway`, `status`)
+  INDEX `idx_gateway_status` (`payment_gateway`, `status`),
+  INDEX `idx_receipt_uploaded` (`receipt_uploaded_at`),
+  INDEX `idx_status_verification` (`status`, `receipt_uploaded_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
 COMMENT='Payment transaction history';
 
