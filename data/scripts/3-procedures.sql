@@ -9,6 +9,19 @@ CREATE DEFINER=`root`@`%` PROCEDURE `backup_and_copy` (IN `source_db` VARCHAR(25
         SELECT table_name FROM information_schema.tables WHERE table_schema = source_db;
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
 
+    -- SECURITY FIX: Validate database names to prevent SQL injection
+    -- Only allow alphanumeric, underscore, and hyphen characters
+    IF source_db REGEXP '[^a-zA-Z0-9_-]' OR backup_db REGEXP '[^a-zA-Z0-9_-]' THEN
+        SIGNAL SQLSTATE '45000' 
+        SET MESSAGE_TEXT = 'Invalid database name: Only alphanumeric, underscore, and hyphen allowed';
+    END IF;
+
+    -- Additional length validation
+    IF LENGTH(source_db) > 64 OR LENGTH(backup_db) > 64 THEN
+        SIGNAL SQLSTATE '45000' 
+        SET MESSAGE_TEXT = 'Database name too long: Maximum 64 characters';
+    END IF;
+
     -- Create backup database if it doesn't exist
     SET @create_db_query = CONCAT('CREATE DATABASE IF NOT EXISTS `', backup_db, '`');
     PREPARE stmt FROM @create_db_query;

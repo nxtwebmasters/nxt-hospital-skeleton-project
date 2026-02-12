@@ -72,12 +72,12 @@ services:
       MYSQL_PASSWORD: "REPLACE_WITH_SECURE_PASSWORD"
     healthcheck:
       test: >
-        sh -c 'mysqladmin ping -h localhost -u nxt_user -p$$MYSQL_PASSWORD &&
-        mysql -u nxt_user -p$$MYSQL_PASSWORD nxt-hospital -e "SELECT 1 FROM information_schema.tables WHERE table_schema=\"nxt-hospital\" LIMIT 1" || exit 1'
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 30s
+        sh -c 'mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD &&
+        mysql -u root -p$$MYSQL_ROOT_PASSWORD -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=\"nxt-hospital\"" || exit 1'
+      interval: 15s
+      timeout: 10s
+      retries: 40
+      start_period: 60s
     volumes:
       - mysql-data:/var/lib/mysql
       - ./data/scripts:/docker-entrypoint-initdb.d
@@ -88,8 +88,8 @@ services:
     image: redis:7.2
     container_name: hospital-redis
     restart: always
-    ports:
-      - "6379:6379"
+    # ports:
+    #   - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s

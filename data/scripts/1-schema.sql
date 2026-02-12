@@ -6,7 +6,8 @@ CREATE DATABASE IF NOT EXISTS `nxt-hospital`;
 USE `nxt-hospital`;
 
 -- Disable foreign key checks to allow tables to be created in any order
-SET FOREIGN_KEY_CHECKS=0;
+-- Save the original state to restore later
+SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;
 
 -- --------------------------------------------------------
 
@@ -476,14 +477,60 @@ ON DUPLICATE KEY UPDATE
 
 --
 -- Alter nxt_tenant table to add subscription tracking
+-- Note: IF NOT EXISTS not supported in older MySQL versions for ADD COLUMN
 --
 
-ALTER TABLE `nxt_tenant`
-ADD COLUMN IF NOT EXISTS `current_plan_id` VARCHAR(50) DEFAULT 'PLN001',
-ADD COLUMN IF NOT EXISTS `license_key` VARCHAR(255) DEFAULT NULL,
-ADD COLUMN IF NOT EXISTS `subscription_auto_renew` BOOLEAN DEFAULT TRUE,
-ADD INDEX IF NOT EXISTS `idx_current_plan` (`current_plan_id`),
-ADD INDEX IF NOT EXISTS `idx_license_key` (`license_key`);
+-- Add columns if they don't exist (using procedure workaround for MySQL compatibility)
+SET @query = (SELECT IF(
+  COUNT(*) = 0,
+  'ALTER TABLE `nxt_tenant` ADD COLUMN `current_plan_id` VARCHAR(50) DEFAULT "PLN001"',
+  'SELECT "Column current_plan_id already exists"'
+) FROM INFORMATION_SCHEMA.COLUMNS 
+WHERE TABLE_SCHEMA = 'nxt-hospital' AND TABLE_NAME = 'nxt_tenant' AND COLUMN_NAME = 'current_plan_id');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @query = (SELECT IF(
+  COUNT(*) = 0,
+  'ALTER TABLE `nxt_tenant` ADD COLUMN `license_key` VARCHAR(255) DEFAULT NULL',
+  'SELECT "Column license_key already exists"'
+) FROM INFORMATION_SCHEMA.COLUMNS 
+WHERE TABLE_SCHEMA = 'nxt-hospital' AND TABLE_NAME = 'nxt_tenant' AND COLUMN_NAME = 'license_key');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @query = (SELECT IF(
+  COUNT(*) = 0,
+  'ALTER TABLE `nxt_tenant` ADD COLUMN `subscription_auto_renew` BOOLEAN DEFAULT TRUE',
+  'SELECT "Column subscription_auto_renew already exists"'
+) FROM INFORMATION_SCHEMA.COLUMNS 
+WHERE TABLE_SCHEMA = 'nxt-hospital' AND TABLE_NAME = 'nxt_tenant' AND COLUMN_NAME = 'subscription_auto_renew');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Add indexes
+SET @query = (SELECT IF(
+  COUNT(*) = 0,
+  'ALTER TABLE `nxt_tenant` ADD INDEX `idx_current_plan` (`current_plan_id`)',
+  'SELECT "Index idx_current_plan already exists"'
+) FROM INFORMATION_SCHEMA.STATISTICS 
+WHERE TABLE_SCHEMA = 'nxt-hospital' AND TABLE_NAME = 'nxt_tenant' AND INDEX_NAME = 'idx_current_plan');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @query = (SELECT IF(
+  COUNT(*) = 0,
+  'ALTER TABLE `nxt_tenant` ADD INDEX `idx_license_key` (`license_key`)',
+  'SELECT "Index idx_license_key already exists"'
+) FROM INFORMATION_SCHEMA.STATISTICS 
+WHERE TABLE_SCHEMA = 'nxt-hospital' AND TABLE_NAME = 'nxt_tenant' AND INDEX_NAME = 'idx_license_key');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 --
 -- View for subscription status
@@ -1447,7 +1494,7 @@ CREATE TABLE IF NOT EXISTS `nxt_patient` (
   `patient_mobile` varchar(15) NOT NULL,
   `patient_cnic` varchar(15) DEFAULT NULL COMMENT 'Pakistani CNIC (13 digits) - National identifier',
   `guardian_cnic` varchar(15) DEFAULT NULL COMMENT 'Guardian CNIC for minors/children (optional field for family relationships)',
-  `patient_password` varchar(100) NOT NULL DEFAULT '12345',
+  `patient_password` varchar(255) NOT NULL COMMENT 'Bcrypt hashed password - NO DEFAULT for security (set via application)',
   `patient_email` varchar(100) DEFAULT NULL,
   `patient_gender` varchar(20) NOT NULL,
   `patient_dob` date DEFAULT NULL,
@@ -3120,7 +3167,9 @@ ALTER TABLE `nxt_bed`
   -- Note: If bill_uuid does not have a UNIQUE constraint by itself in nxt_bill,
   -- this will fail. The UNIQUE constraint on bill_uuid will be added below.
   ADD CONSTRAINT `fk_bed_bill` FOREIGN KEY (`current_bill_uuid`) REFERENCES `nxt_bill` (`bill_uuid`) ON DELETE SET NULL,
-  ADD CONSTRAINT `fk_bed_patient` FOREIGN KEY (`current_patient_mrid`) REFERENCES `nxt_patient` (`patient_mrid`) ON DELETE SET NULL,
+  -- Use RESTRICT instead of SET NULL since tenant_id is NOT NULL
+  -- This prevents deleting patients while they're still occupying a bed (data integrity)
+  ADD CONSTRAINT `fk_bed_patient` FOREIGN KEY (`tenant_id`, `current_patient_mrid`) REFERENCES `nxt_patient` (`tenant_id`, `patient_mrid`) ON DELETE RESTRICT,
   ADD CONSTRAINT `fk_bed_room` FOREIGN KEY (`room_id`) REFERENCES `nxt_room` (`room_id`) ON DELETE CASCADE;
 
 --
@@ -3312,7 +3361,185 @@ LEFT JOIN nxt_inventory_alerts ia ON i.item_id = ia.item_id AND i.tenant_id = ia
 WHERE i.item_status = 'In Stock'
 GROUP BY i.tenant_id;
 
--- Re-enable foreign key checks
-SET FOREIGN_KEY_CHECKS=1;
+-- ====================================================================================
+-- PERFORMANCE OPTIMIZATION: Additional composite indexes for tenant-aware queries
+-- ====================================================================================
+-- NOTE: Most composite indexes already exist in the schema above.
+-- Only adding new indexes that don't exist to avoid duplicates.
+
+-- Patient table - additional composite indexes not in base schema
+ALTER TABLE `nxt_patient`
+  ADD INDEX `idx_tenant_cnic_search` (`tenant_id`, `patient_cnic`),
+  ADD INDEX `idx_tenant_email_search` (`tenant_id`, `patient_email`),
+  ADD INDEX `idx_tenant_delete_created` (`tenant_id`, `patient_delete`, `created_at`);
+
+-- Appointment - additional index for doctor/date queries
+ALTER TABLE `nxt_appointment`
+  ADD INDEX `idx_tenant_doctor_date_search` (`tenant_id`, `appointment_doctor_alias`, `appointment_date`);
+
+-- ====================================================================================
+-- CRITICAL SECURITY FIX: Add missing tenant FK constraints for multi-tenant isolation
+-- ====================================================================================
+-- These constraints ensure referential integrity and prevent orphaned records
+-- when tenants are deleted (CASCADE) or data consistency violations
+
+--
+-- Tenant FK constraints for core tables
+--
+ALTER TABLE `nxt_appointment`
+  ADD CONSTRAINT `fk_appointment_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_bed`
+  ADD CONSTRAINT `fk_bed_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_bed_history`
+  ADD CONSTRAINT `fk_bed_history_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_bill`
+  ADD CONSTRAINT `fk_bill_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_bootstrap_status`
+  ADD CONSTRAINT `fk_bootstrap_status_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_campaign`
+  ADD CONSTRAINT `fk_campaign_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_campaign_log`
+  ADD CONSTRAINT `fk_campaign_log_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_campaign_queue`
+  ADD CONSTRAINT `fk_campaign_queue_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_campaign_triggers`
+  ADD CONSTRAINT `fk_campaign_triggers_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_category`
+  ADD CONSTRAINT `fk_category_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_category_type`
+  ADD CONSTRAINT `fk_category_type_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_daily_expenses`
+  ADD CONSTRAINT `fk_daily_expenses_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_db_backup`
+  ADD CONSTRAINT `fk_db_backup_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_department`
+  ADD CONSTRAINT `fk_department_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_doctor`
+  ADD CONSTRAINT `fk_doctor_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_doctor_schedule`
+  ADD CONSTRAINT `fk_doctor_schedule_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_fbr_config`
+  ADD CONSTRAINT `fk_fbr_config_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_fbr_sync_log`
+  ADD CONSTRAINT `fk_fbr_sync_log_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_lab_invoice`
+  ADD CONSTRAINT `fk_lab_invoice_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_lab_invoice_tests`
+  ADD CONSTRAINT `fk_lab_invoice_tests_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_lab_report`
+  ADD CONSTRAINT `fk_lab_report_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_lab_test`
+  ADD CONSTRAINT `fk_lab_test_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_notification`
+  ADD CONSTRAINT `fk_notification_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_patient`
+  ADD CONSTRAINT `fk_patient_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_patient_audit`
+  ADD CONSTRAINT `fk_patient_audit_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_patient_relationship`
+  ADD CONSTRAINT `fk_patient_relationship_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_permission`
+  ADD CONSTRAINT `fk_permission_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_prescriptions`
+  ADD CONSTRAINT `fk_prescriptions_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_print_design`
+  ADD CONSTRAINT `fk_print_design_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_report_footer`
+  ADD CONSTRAINT `fk_report_footer_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_room`
+  ADD CONSTRAINT `fk_room_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_segment`
+  ADD CONSTRAINT `fk_segment_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_service`
+  ADD CONSTRAINT `fk_service_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_slip`
+  ADD CONSTRAINT `fk_slip_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_slip_type`
+  ADD CONSTRAINT `fk_slip_type_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_supplier`
+  ADD CONSTRAINT `fk_supplier_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_tax_settings`
+  ADD CONSTRAINT `fk_tax_settings_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_test_component`
+  ADD CONSTRAINT `fk_test_component_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_text_message`
+  ADD CONSTRAINT `fk_text_message_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_user`
+  ADD CONSTRAINT `fk_user_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_users`
+  ADD CONSTRAINT `fk_users_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_user_available_leaves`
+  ADD CONSTRAINT `fk_user_leaves_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_user_leave`
+  ADD CONSTRAINT `fk_user_leave_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_user_test`
+  ADD CONSTRAINT `fk_user_test_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `prescription_items`
+  ADD CONSTRAINT `fk_prescription_items_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `prescription_other`
+  ADD CONSTRAINT `fk_prescription_other_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `prescription_vitals`
+  ADD CONSTRAINT `fk_prescription_vitals_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `recentactivity`
+  ADD CONSTRAINT `fk_recentactivity_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `ai_feedback`
+  ADD CONSTRAINT `fk_ai_feedback_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `ai_suggestions`
+  ADD CONSTRAINT `fk_ai_suggestions_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `nxt_inventory_alerts`
+  ADD CONSTRAINT `fk_inventory_alerts_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `nxt_tenant` (`tenant_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Re-enable foreign key checks (restore original state)
+SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
 
 COMMIT;
