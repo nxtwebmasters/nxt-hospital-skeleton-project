@@ -50,6 +50,14 @@ fi
 echo -e "${CYAN}Found $MIGRATION_FILES migration file(s)${NC}"
 echo ""
 
+# Detect docker compose command (v2 uses 'docker compose', v1 uses 'docker-compose')
+DOCKER_COMPOSE_CMD=""
+if command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE_CMD="docker-compose"
+elif command -v docker &> /dev/null && docker compose version &> /dev/null; then
+    DOCKER_COMPOSE_CMD="docker compose"
+fi
+
 # Function to execute a migration file
 run_migration() {
     local migration_file=$1
@@ -57,20 +65,25 @@ run_migration() {
     
     echo -e "${YELLOW}Running migration: $filename${NC}"
     
-    # Execute migration using docker-compose exec
-    if docker-compose ps mysql | grep -q "Up"; then
-        # Use docker-compose exec for container MySQL
-        docker-compose exec -T mysql mysql -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$migration_file"
-        
-        if [ $? -eq 0 ]; then
-            echo -e "${GREEN}✓ Migration $filename completed successfully${NC}"
-            return 0
-        else
-            echo -e "${RED}✗ Migration $filename failed${NC}"
-            return 1
+    # Try docker first (most common on VMs)
+    if [ -n "$DOCKER_COMPOSE_CMD" ]; then
+        # Check if MySQL container is running
+        if $DOCKER_COMPOSE_CMD ps mysql 2>/dev/null | grep -q "Up"; then
+            # Use docker exec to run migration inside container
+            cat "$migration_file" | $DOCKER_COMPOSE_CMD exec -T mysql mysql -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME"
+            
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}✓ Migration $filename completed successfully${NC}"
+                return 0
+            else
+                echo -e "${RED}✗ Migration $filename failed${NC}"
+                return 1
+            fi
         fi
-    else
-        # Use direct MySQL connection if container is not running
+    fi
+    
+    # Fallback to direct MySQL connection if docker not available
+    if command -v mysql &> /dev/null; then
         mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$migration_file"
         
         if [ $? -eq 0 ]; then
@@ -80,6 +93,9 @@ run_migration() {
             echo -e "${RED}✗ Migration $filename failed${NC}"
             return 1
         fi
+    else
+        echo -e "${RED}✗ Error: Neither docker nor mysql command available${NC}"
+        return 1
     fi
 }
 
