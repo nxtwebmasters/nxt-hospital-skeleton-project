@@ -103,10 +103,25 @@ run_migration() {
         if [ -n "$MYSQL_CONTAINER_STATUS" ] && echo "$MYSQL_CONTAINER_STATUS" | grep -qE "(Up|running)"; then
             echo -e "${CYAN}✓ MySQL container is running, using Docker exec${NC}"
             
-            # Try with root user first (most reliable for migrations)
+            # Get MySQL root password directly from running container environment
+            echo -e "${CYAN}Retrieving MySQL credentials from container...${NC}"
+            CONTAINER_ROOT_PASSWORD=$($DOCKER_COMPOSE_CMD exec -T mysql sh -c 'echo $MYSQL_ROOT_PASSWORD' 2>/dev/null | tr -d '\r\n')
+            
+            if [ -n "$CONTAINER_ROOT_PASSWORD" ]; then
+                echo -e "${GREEN}✓ Retrieved MySQL root password from container${NC}"
+                cat "$migration_file" | $DOCKER_COMPOSE_CMD exec -T mysql sh -c "mysql -uroot -p'$CONTAINER_ROOT_PASSWORD' $DB_NAME" 2>&1
+                
+                if [ $? -eq 0 ]; then
+                    echo -e "${GREEN}✓ Migration $filename completed successfully${NC}"
+                    return 0
+                fi
+                echo -e "${YELLOW}⚠ Migration with retrieved root password failed${NC}"
+            fi
+            
+            # Try with root password from env file
             if [ -n "$MYSQL_ROOT_PASSWORD" ]; then
-                echo -e "${CYAN}Attempting migration with root user...${NC}"
-                cat "$migration_file" | $DOCKER_COMPOSE_CMD exec -T mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$DB_NAME" 2>&1
+                echo -e "${CYAN}Trying with root password from env file...${NC}"
+                cat "$migration_file" | $DOCKER_COMPOSE_CMD exec -T mysql sh -c "mysql -uroot -p'$MYSQL_ROOT_PASSWORD' $DB_NAME" 2>&1
                 
                 if [ $? -eq 0 ]; then
                     echo -e "${GREEN}✓ Migration $filename completed successfully${NC}"
@@ -116,14 +131,15 @@ run_migration() {
             fi
             
             # Fallback to configured user
-            cat "$migration_file" | $DOCKER_COMPOSE_CMD exec -T mysql mysql -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" 2>&1
+            cat "$migration_file" | $DOCKER_COMPOSE_CMD exec -T mysql sh -c "mysql -u'$DB_USER' -p'$DB_PASSWORD' $DB_NAME" 2>&1
             
             if [ $? -eq 0 ]; then
                 echo -e "${GREEN}✓ Migration $filename completed successfully${NC}"
                 return 0
             else
                 echo -e "${RED}✗ Migration $filename failed in Docker container${NC}"
-                echo -e "${YELLOW}Hint: Check DB_PASSWORD and MYSQL_ROOT_PASSWORD in hms-backend.env${NC}"
+                echo -e "${YELLOW}Hint: Passwords in docker-compose.yml may differ from hms-backend.env${NC}"
+                echo -e "${YELLOW}Try: docker compose exec mysql mysql -uroot -p ${NC}"
                 return 1
             fi
         else
