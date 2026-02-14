@@ -278,11 +278,12 @@ CREATE TABLE IF NOT EXISTS `nxt_payment_transaction` (
   `payer_submitted_amount` DECIMAL(10,2) DEFAULT NULL COMMENT 'Amount customer claims to have paid',
   `payer_transaction_date` DATE DEFAULT NULL COMMENT 'Date of bank transfer per customer',
   `payer_notes` TEXT DEFAULT NULL COMMENT 'Additional notes from customer',
+  `reference_number` VARCHAR(100) DEFAULT NULL COMMENT 'Payment reference number from receipt',
   
   -- Admin verification (Feb 2026)
-  `verified_amount` DECIMAL(10,2) DEFAULT NULL COMMENT 'Actual verified amount by admin',
+  `verified_by_user_id` INT(11) DEFAULT NULL COMMENT 'Admin user ID who verified payment',
   `verified_at` DATETIME DEFAULT NULL COMMENT 'When admin verified the payment',
-  `verified_by` VARCHAR(100) DEFAULT NULL COMMENT 'Admin user who verified',
+  `verified_amount` DECIMAL(10,2) DEFAULT NULL COMMENT 'Actual verified amount by admin',
   `admin_notes` TEXT DEFAULT NULL COMMENT 'Admin notes during verification',
   
   -- Reconciliation
