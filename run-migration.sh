@@ -50,11 +50,19 @@ fi
 echo -e "${CYAN}Found $MIGRATION_FILES migration file(s)${NC}"
 echo ""
 
+# Debug: Show detected Docker Compose command
+if [ -n "$DOCKER_COMPOSE_CMD" ]; then
+    echo -e "${CYAN}Docker Compose detected: $DOCKER_COMPOSE_CMD${NC}"
+else
+    echo -e "${YELLOW}Docker Compose not detected, will use direct MySQL connection${NC}"
+fi
+echo ""
+
 # Detect docker compose command (v2 uses 'docker compose', v1 uses 'docker-compose')
 DOCKER_COMPOSE_CMD=""
 if command -v docker-compose &> /dev/null; then
     DOCKER_COMPOSE_CMD="docker-compose"
-elif command -v docker &> /dev/null && docker compose version &> /dev/null; then
+elif command -v docker &> /dev/null && docker compose version &> /dev/null 2>&1; then
     DOCKER_COMPOSE_CMD="docker compose"
 fi
 
@@ -68,29 +76,37 @@ run_migration() {
     # Try docker first (most common on VMs)
     if [ -n "$DOCKER_COMPOSE_CMD" ]; then
         # Check if MySQL container is running
-        if $DOCKER_COMPOSE_CMD ps mysql 2>/dev/null | grep -q "Up"; then
+        echo -e "${CYAN}Checking MySQL container status...${NC}"
+        MYSQL_CONTAINER_STATUS=$($DOCKER_COMPOSE_CMD ps 2>&1 | grep mysql || echo "")
+        
+        if [ -n "$MYSQL_CONTAINER_STATUS" ] && echo "$MYSQL_CONTAINER_STATUS" | grep -qE "(Up|running)"; then
+            echo -e "${CYAN}✓ MySQL container is running, using Docker exec${NC}"
             # Use docker exec to run migration inside container
-            cat "$migration_file" | $DOCKER_COMPOSE_CMD exec -T mysql mysql -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME"
+            cat "$migration_file" | $DOCKER_COMPOSE_CMD exec -T mysql mysql -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" 2>&1
             
             if [ $? -eq 0 ]; then
                 echo -e "${GREEN}✓ Migration $filename completed successfully${NC}"
                 return 0
             else
-                echo -e "${RED}✗ Migration $filename failed${NC}"
+                echo -e "${RED}✗ Migration $filename failed in Docker container${NC}"
                 return 1
             fi
+        else
+            echo -e "${YELLOW}⚠ MySQL container not running or not found${NC}"
+            echo -e "${YELLOW}Container status: $MYSQL_CONTAINER_STATUS${NC}"
         fi
     fi
     
-    # Fallback to direct MySQL connection if docker not available
+    # Fallback to direct MySQL connection if docker not available or container not running
     if command -v mysql &> /dev/null; then
-        mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$migration_file"
+        echo -e "${CYAN}Using direct MySQL connection${NC}"
+        mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$migration_file" 2>&1
         
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}✓ Migration $filename completed successfully${NC}"
             return 0
         else
-            echo -e "${RED}✗ Migration $filename failed${NC}"
+            echo -e "${RED}✗ Migration $filename failed with direct connection${NC}"
             return 1
         fi
     else
