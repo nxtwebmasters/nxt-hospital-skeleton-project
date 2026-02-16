@@ -1421,7 +1421,7 @@ CREATE TABLE IF NOT EXISTS `nxt_lab_report` (
 
 CREATE TABLE IF NOT EXISTS `nxt_lab_test` (
   `test_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant' COLLATE utf8mb4_general_ci,
   `test_name` varchar(100) NOT NULL,
   `test_code` varchar(20) NOT NULL,
   `test_description` text DEFAULT NULL,
@@ -1533,7 +1533,7 @@ CREATE TABLE IF NOT EXISTS `nxt_patient` (
 
 CREATE TABLE IF NOT EXISTS `nxt_patient_audit` (
   `audit_id` int(11) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant' COLLATE utf8mb4_general_ci,
   `action` varchar(50) NOT NULL COMMENT 'Action performed (create, match, confirm, etc.)',
   `patient_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT 'Patient data involved in the action',
   `matching_criteria` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Search criteria used for matching',
@@ -1929,7 +1929,7 @@ CREATE TABLE IF NOT EXISTS `nxt_tax_settings` (
 
 CREATE TABLE IF NOT EXISTS `nxt_test_component` (
   `component_id` int(10) NOT NULL,
-  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant',
+  `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'system_default_tenant' COLLATE utf8mb4_general_ci,
   `component_title` varchar(100) DEFAULT NULL,
   `component_ranges` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `test_code` varchar(100) NOT NULL,
@@ -3392,6 +3392,26 @@ ALTER TABLE `nxt_patient`
 -- Appointment - additional index for doctor/date queries
 ALTER TABLE `nxt_appointment`
   ADD INDEX `idx_tenant_doctor_date_search` (`tenant_id`, `appointment_doctor_alias`, `appointment_date`);
+
+ALTER TABLE `nxt_payment_transaction`
+ADD COLUMN IF NOT EXISTS `receipt_file_path` VARCHAR(255) DEFAULT NULL COMMENT 'Path to uploaded receipt file' AFTER `error_message`,
+ADD COLUMN IF NOT EXISTS `receipt_uploaded_at` DATETIME DEFAULT NULL COMMENT 'When customer uploaded receipt' AFTER `receipt_file_path`,
+ADD COLUMN IF NOT EXISTS `payer_submitted_amount` DECIMAL(10,2) DEFAULT NULL COMMENT 'Amount customer claims to have paid' AFTER `receipt_uploaded_at`,
+ADD COLUMN IF NOT EXISTS `payer_transaction_date` DATE DEFAULT NULL COMMENT 'Date of bank transfer per customer' AFTER `payer_submitted_amount`,
+ADD COLUMN IF NOT EXISTS `payer_notes` TEXT DEFAULT NULL COMMENT 'Additional notes from customer' AFTER `payer_transaction_date`,
+ADD COLUMN IF NOT EXISTS `reference_number` VARCHAR(100) DEFAULT NULL COMMENT 'Payment reference number from receipt' AFTER `payer_notes`;
+
+-- Add admin verification columns
+ALTER TABLE `nxt_payment_transaction`
+ADD COLUMN IF NOT EXISTS `verified_by_user_id` INT(11) DEFAULT NULL COMMENT 'Admin user ID who verified payment' AFTER `reference_number`,
+ADD COLUMN IF NOT EXISTS `verified_at` DATETIME DEFAULT NULL COMMENT 'When admin verified the payment' AFTER `verified_by_user_id`,
+ADD COLUMN IF NOT EXISTS `verified_amount` DECIMAL(10,2) DEFAULT NULL COMMENT 'Actual verified amount by admin' AFTER `verified_at`,
+ADD COLUMN IF NOT EXISTS `admin_notes` TEXT DEFAULT NULL COMMENT 'Admin notes during verification' AFTER `verified_amount`;
+
+-- Add indexes for efficient querying of receipts
+ALTER TABLE `nxt_payment_transaction`
+ADD INDEX IF NOT EXISTS `idx_receipt_uploaded` (`receipt_uploaded_at`),
+ADD INDEX IF NOT EXISTS `idx_status_verification` (`status`, `receipt_uploaded_at`);
 
 -- ====================================================================================
 -- CRITICAL SECURITY FIX: Add missing tenant FK constraints for multi-tenant isolation
