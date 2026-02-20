@@ -6,6 +6,7 @@ services:
     restart: always
     environment:
       HMS_BACKEND_URL: ""  # Relative path via nginx reverse proxy
+      FILE_SERVER_URL: "/images"  # Relative path via nginx reverse proxy
       DEFAULT_PRINT_LAYOUT: "a4"
       DEFAULT_USER_ICON: "https://file-server.nxtwebmasters.com/images/default-user.webp"
       PATIENT_PORTAL_URL: "/portal"  # Relative path via nginx reverse proxy
