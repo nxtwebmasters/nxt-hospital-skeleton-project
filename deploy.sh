@@ -681,9 +681,10 @@ EOF
     log "  DOMAIN_OR_IP=$DOMAIN_OR_IP"
     
     # Update docker-compose.yml with passwords
+    # NOTE: Patterns match any existing quoted value (handles both fresh deploys and re-deploys)
     log "Updating docker-compose.yml with generated passwords..."
-    sed -i "s|MYSQL_ROOT_PASSWORD:.*\"REPLACE_WITH_SECURE_PASSWORD\"|MYSQL_ROOT_PASSWORD: \"$MYSQL_ROOT_PASSWORD\"|g" docker-compose.yml
-    sed -i "s|MYSQL_PASSWORD:.*\"REPLACE_WITH_SECURE_PASSWORD\"|MYSQL_PASSWORD: \"$MYSQL_DB_PASSWORD\"|g" docker-compose.yml
+    sed -i 's|MYSQL_ROOT_PASSWORD: ".*"|MYSQL_ROOT_PASSWORD: "'"$MYSQL_ROOT_PASSWORD"'"|g' docker-compose.yml
+    sed -i 's|MYSQL_PASSWORD: ".*"|MYSQL_PASSWORD: "'"$MYSQL_DB_PASSWORD"'"|g' docker-compose.yml
     
     # CRITICAL: Also update hms-backend.env with matching password and JWT secret
     log "Updating hms-backend.env with matching database password and JWT secret..."

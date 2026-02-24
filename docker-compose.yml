@@ -67,10 +67,10 @@ services:
     ports:
       - "3306:3306"  # ⚠️ PRODUCTION: Restrict with firewall! See docs for SSH tunnel alternative
     environment:
-      MYSQL_ROOT_PASSWORD: "NxtHospitalRoot123"
+      MYSQL_ROOT_PASSWORD: "REPLACE_WITH_SECURE_PASSWORD"
       MYSQL_DATABASE: "nxt-hospital"
       MYSQL_USER: "nxt_user"
-      MYSQL_PASSWORD: "NxtHospitalUser123"
+      MYSQL_PASSWORD: "REPLACE_WITH_SECURE_PASSWORD"
     healthcheck:
       test: >
         sh -c 'mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD &&
