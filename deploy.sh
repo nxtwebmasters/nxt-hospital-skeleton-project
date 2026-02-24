@@ -690,6 +690,7 @@ EOF
     sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$MYSQL_DB_PASSWORD|g" hms-backend.env
     sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$JWT_SECRET|g" hms-backend.env
     sed -i "s|^BASE_SUBDOMAIN=.*|BASE_SUBDOMAIN=$BASE_SUBDOMAIN|g" hms-backend.env
+    sed -i "s|^BASE_DOMAIN=.*|BASE_DOMAIN=$DOMAIN_OR_IP|g" hms-backend.env
     
     log "✓ Docker Compose and backend environment updated with secure passwords"
     

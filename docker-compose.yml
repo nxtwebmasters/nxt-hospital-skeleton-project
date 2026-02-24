@@ -1,7 +1,7 @@
 services:
 
   hospital-frontend:
-    image: pandanxt/hospital-frontend:develop-285-d87b0dcc
+    image: pandanxt/hospital-frontend:develop-290-dcb8b536
     container_name: nxt-hospital
     restart: always
     environment:
@@ -34,7 +34,7 @@ services:
       - internal-net
 
   hospital-apis:
-    image: pandanxt/hms-backend-apis:develop-351-5267e48a
+    image: pandanxt/hms-backend-apis:develop-360-f3599e4a
     container_name: api-hospital
     restart: always
     env_file:
@@ -67,10 +67,10 @@ services:
     ports:
       - "3306:3306"  # ⚠️ PRODUCTION: Restrict with firewall! See docs for SSH tunnel alternative
     environment:
-      MYSQL_ROOT_PASSWORD: "REPLACE_WITH_SECURE_PASSWORD"
+      MYSQL_ROOT_PASSWORD: "NxtHospitalRoot123"
       MYSQL_DATABASE: "nxt-hospital"
       MYSQL_USER: "nxt_user"
-      MYSQL_PASSWORD: "REPLACE_WITH_SECURE_PASSWORD"
+      MYSQL_PASSWORD: "NxtHospitalUser123"
     healthcheck:
       test: >
         sh -c 'mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD &&

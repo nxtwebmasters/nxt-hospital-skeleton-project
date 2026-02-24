@@ -67,6 +67,16 @@ server {
         access_log off;
     }
 
+    # Legacy /file-server/ alias — kept for backwards compatibility with older
+    # frontend builds that use FILE_SERVER_URL=/file-server as a fallback.
+    location /file-server/ {
+        alias /usr/share/nginx/html/images/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        add_header Access-Control-Allow-Origin "*";
+        access_log off;
+    }
+
     # Admin Panel SPA (must be last - fallback for client-side routing)
     location / {
         proxy_pass http://hospital-frontend:80;
