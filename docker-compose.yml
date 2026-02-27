@@ -1,7 +1,7 @@
 services:
 
   hospital-frontend:
-    image: pandanxt/hospital-frontend:develop-290-dcb8b536
+    image: pandanxt/hospital-frontend:develop-293-9d2c4283
     container_name: nxt-hospital
     restart: always
     environment:
@@ -34,7 +34,7 @@ services:
       - internal-net
 
   hospital-apis:
-    image: pandanxt/hms-backend-apis:develop-360-f3599e4a
+    image: pandanxt/hms-backend-apis:develop-363-fac6bd24
     container_name: api-hospital
     restart: always
     env_file:

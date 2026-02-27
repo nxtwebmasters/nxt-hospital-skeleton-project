@@ -456,40 +456,43 @@ INSERT INTO `nxt_subscription_plan` (
   `max_users`, `max_patients`, `max_storage_gb`,
   `included_modules`, `trial_days`, `is_public`, `sort_order`
 ) VALUES
-('PLN001', 'Free Trial', '15-day free trial with basic features', 'trial',
+('PLN001', 'Free Trial', '15-day free trial — Patients, Billing & OPD Slipping', 'trial',
 0.00, 0.00, 'PKR',
 3, 100, 0.5,
-'["appointments", "patients", "billing"]',
+'["patients", "billing", "slipping"]',
 15, TRUE, 1),
 
 ('PLN002', 'Basic', 'Perfect for small clinics', 'basic',
-7500.00, 81000.00, 'PKR',
+15000.00, 162000.00, 'PKR',
 10, 2000, 2,
-'["appointments", "patients", "billing", "prescription"]',
+'["patients", "billing", "slipping", "appointments", "prescription"]',
 0, TRUE, 2),
 
 ('PLN003', 'Professional', 'Ideal for growing hospitals', 'professional',
-15000.00, 162000.00, 'PKR',
+25000.00, 270000.00, 'PKR',
 25, 5000, 10,
-'["appointments", "patients", "billing", "prescription", "laboratory", "pharmacy", "campaigns"]',
+'["patients", "billing", "slipping", "appointments", "prescription", "laboratory", "pharmacy", "inventory", "campaigns", "tax_management"]',
 0, TRUE, 3),
 
 ('PLN004', 'Enterprise', 'Complete solution for large hospitals', 'enterprise',
-30000.00, 324000.00, 'PKR',
+40000.00, 432000.00, 'PKR',
 100, 20000, 50,
-'["appointments", "patients", "billing", "prescription", "laboratory", "pharmacy", "campaigns", "ai", "fbr", "health_authority_analytics", "api_access"]',
+'["patients", "billing", "slipping", "appointments", "prescription", "laboratory", "pharmacy", "inventory", "campaigns", "tax_management", "ai", "fbr", "health_authority_analytics", "api_access", "room_management"]',
 0, TRUE, 4),
 
 ('PLN005', 'Lifetime', 'One-time payment, lifetime access', 'custom',
-0.00, 500000.00, 'PKR',
+0.00, 750000.00, 'PKR',
 NULL, NULL, 100,
-'["appointments", "patients", "billing", "prescription", "laboratory", "pharmacy", "campaigns", "ai", "fbr", "health_authority_analytics", "api_access"]',
+'["patients", "billing", "slipping", "appointments", "prescription", "laboratory", "pharmacy", "inventory", "campaigns", "tax_management", "ai", "fbr", "health_authority_analytics", "api_access", "room_management"]',
 0, FALSE, 5)
 ON DUPLICATE KEY UPDATE
   `plan_name` = VALUES(`plan_name`),
   `plan_description` = VALUES(`plan_description`),
   `monthly_price` = VALUES(`monthly_price`),
-  `annual_price` = VALUES(`annual_price`);
+  `annual_price` = VALUES(`annual_price`),
+  `included_modules` = VALUES(`included_modules`),
+  `max_users` = VALUES(`max_users`),
+  `max_patients` = VALUES(`max_patients`);
 
 --
 -- Alter nxt_tenant table to add subscription tracking
