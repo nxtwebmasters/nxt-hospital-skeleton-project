@@ -933,10 +933,10 @@ verify_deployment() {
         docker logs nginx-reverse-proxy --tail 20 2>&1 | tail -10
     fi
 
-    # Wait for Backend API to be ready (max 60 seconds for bootstrap)
+    # Wait for Backend API to be ready (max 180 seconds for bootstrap)
     log "Waiting for Backend API to complete bootstrap and start..."
     api_ready=0
-    for i in {1..30}; do
+    for i in {1..90}; do
         if curl -f -s http://localhost/api-server/health > /dev/null 2>&1; then
             api_ready=1
             log "✓ Backend API health check passed"
@@ -948,7 +948,7 @@ verify_deployment() {
     echo ""
     
     if [ $api_ready -eq 0 ]; then
-        log_warning "Backend API health check failed after 60 seconds"
+        log_warning "Backend API health check failed after 180 seconds"
         log_info "This is normal on first deployment (bootstrap takes time)"
         log_info "Checking API container logs..."
         docker logs api-hospital --tail 30 2>&1 | tail -20
