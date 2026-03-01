@@ -175,3 +175,164 @@ LEFT JOIN nxt_purchase_order_items poi ON po.po_id = poi.po_id
 GROUP BY po.tenant_id, po.po_id, po.po_number, po.supplier_id, s.supplier_name, 
          po.po_date, po.expected_delivery_date, po.po_status, po.grand_total, 
          po.grn_number, po.received_at, po.received_by;
+
+-- ====================================================================================
+-- Subscription & Tenant Views
+-- ====================================================================================
+
+--
+-- View: v_tenant_subscription_status
+-- Purpose: Current active subscription details for every tenant
+--
+CREATE OR REPLACE VIEW v_tenant_subscription_status AS
+SELECT
+  t.tenant_id,
+  t.tenant_name,
+  t.tenant_subdomain,
+  t.tenant_status,
+  ts.subscription_id,
+  ts.plan_id,
+  sp.plan_name,
+  sp.plan_type,
+  ts.status AS subscription_status,
+  ts.start_date,
+  ts.end_date,
+  ts.trial_end_date,
+  CASE
+    WHEN ts.status = 'trial'  AND ts.trial_end_date < NOW() THEN 'expired'
+    WHEN ts.status = 'active' AND ts.end_date IS NOT NULL AND ts.end_date < NOW() THEN 'expired'
+    WHEN ts.status = 'active' AND (ts.end_date IS NULL OR ts.end_date > NOW()) THEN 'active'
+    ELSE ts.status
+  END AS computed_status,
+  DATEDIFF(COALESCE(ts.end_date, ts.trial_end_date), NOW()) AS days_remaining,
+  ts.next_billing_date,
+  ts.amount_paid,
+  ts.auto_renew,
+  sp.max_users,
+  sp.max_patients,
+  sp.max_storage_gb,
+  sp.included_modules,
+  ts.created_at AS subscription_created_at,
+  ts.updated_at AS subscription_updated_at
+FROM nxt_tenant t
+LEFT JOIN nxt_tenant_subscription ts ON t.tenant_id = ts.tenant_id AND ts.status IN ('trial', 'active')
+LEFT JOIN nxt_subscription_plan sp ON ts.plan_id = sp.plan_id
+ORDER BY t.created_at DESC;
+
+-- ====================================================================================
+-- Readmission / Admission Analytics Views
+-- ====================================================================================
+
+--
+-- View: v_readmission_analytics
+-- Purpose: All admissions in the last 365 days with readmission flag
+--
+CREATE OR REPLACE VIEW v_readmission_analytics AS
+SELECT
+  s.slip_id,
+  s.tenant_id,
+  s.slip_uuid,
+  s.slip_mrid,
+  s.slip_patient_name,
+  s.slip_patient_cnic,
+  s.created_at,
+  s.slip_type,
+  s.slip_department,
+  s.slip_doctor,
+  s.is_readmission,
+  s.readmission_reason
+FROM nxt_slip AS s
+WHERE s.created_at >= CURRENT_TIMESTAMP() - INTERVAL 365 DAY
+ORDER BY s.created_at DESC;
+
+--
+-- View: v_daily_readmission_summary
+-- Purpose: Daily readmission rate for the last 30 days
+--
+CREATE OR REPLACE VIEW v_daily_readmission_summary AS
+SELECT
+  CAST(s.created_at AS DATE)                                 AS admission_date,
+  s.tenant_id,
+  COUNT(s.slip_id)                                           AS total_admissions,
+  SUM(s.is_readmission)                                      AS readmission_count,
+  ROUND(SUM(s.is_readmission) / COUNT(s.slip_id) * 100, 2)  AS readmission_rate,
+  s.slip_type,
+  s.slip_department,
+  s.slip_doctor
+FROM nxt_slip AS s
+WHERE s.created_at >= CURRENT_TIMESTAMP() - INTERVAL 30 DAY
+GROUP BY CAST(s.created_at AS DATE), s.tenant_id, s.slip_type, s.slip_department, s.slip_doctor
+ORDER BY CAST(s.created_at AS DATE) DESC;
+
+-- ====================================================================================
+-- Inventory Views
+-- ====================================================================================
+
+--
+-- View: v_low_stock_items
+-- Purpose: Items at or below their reorder threshold
+--
+CREATE OR REPLACE VIEW `v_low_stock_items` AS
+SELECT
+  i.item_id,
+  i.tenant_id,
+  i.item_name,
+  i.item_quantity,
+  COALESCE(ia.reorder_level,   i.reorder_level,   10) AS alert_threshold,
+  COALESCE(ia.reorder_quantity, i.reorder_quantity, 50) AS suggested_reorder,
+  (i.item_quantity - COALESCE(ia.reorder_level, i.reorder_level, 10)) AS stock_difference,
+  i.item_price_one,
+  i.item_status,
+  s.supplier_name,
+  i.created_at
+FROM nxt_inventory i
+LEFT JOIN nxt_inventory_alerts ia ON i.item_id = ia.item_id AND i.tenant_id = ia.tenant_id
+LEFT JOIN nxt_supplier s ON i.supplier_id = s.supplier_id
+WHERE i.item_quantity <= COALESCE(ia.reorder_level, i.reorder_level, 10)
+  AND i.item_status = 'In Stock'
+ORDER BY stock_difference ASC;
+
+--
+-- View: v_expiring_items
+-- Purpose: Items expiring within the next 90 days
+--
+CREATE OR REPLACE VIEW `v_expiring_items` AS
+SELECT
+  i.item_id,
+  i.tenant_id,
+  i.item_name,
+  i.item_quantity,
+  i.item_expiry_date                                     AS expiry_date,
+  DATEDIFF(i.item_expiry_date, CURDATE())                AS days_until_expiry,
+  CASE
+    WHEN DATEDIFF(i.item_expiry_date, CURDATE()) <= 0  THEN 'EXPIRED'
+    WHEN DATEDIFF(i.item_expiry_date, CURDATE()) <= 30 THEN 'CRITICAL'
+    WHEN DATEDIFF(i.item_expiry_date, CURDATE()) <= 60 THEN 'WARNING'
+    ELSE 'NORMAL'
+  END AS expiry_status,
+  i.item_price_one,
+  (i.item_quantity * i.item_price_one) AS potential_loss_value
+FROM nxt_inventory i
+WHERE i.item_expiry_date IS NOT NULL
+  AND i.item_expiry_date <= DATE_ADD(CURDATE(), INTERVAL 90 DAY)
+  AND i.item_status = 'In Stock'
+ORDER BY i.item_expiry_date ASC;
+
+--
+-- View: v_inventory_valuation
+-- Purpose: Total stock value, low-stock count and expiry count per tenant
+--
+CREATE OR REPLACE VIEW `v_inventory_valuation` AS
+SELECT
+  i.tenant_id,
+  COUNT(DISTINCT i.item_id)                                                          AS total_items,
+  SUM(i.item_quantity)                                                               AS total_quantity,
+  SUM(i.item_quantity * i.item_price_one)                                            AS total_value,
+  SUM(CASE WHEN i.item_quantity <= COALESCE(ia.reorder_level, i.reorder_level, 10)
+           THEN 1 ELSE 0 END)                                                        AS low_stock_count,
+  SUM(CASE WHEN i.item_expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+           THEN 1 ELSE 0 END)                                                        AS expiring_soon_count
+FROM nxt_inventory i
+LEFT JOIN nxt_inventory_alerts ia ON i.item_id = ia.item_id AND i.tenant_id = ia.tenant_id
+WHERE i.item_status = 'In Stock'
+GROUP BY i.tenant_id;

@@ -55,3 +55,56 @@ CREATE DEFINER=`root`@`%` PROCEDURE `backup_and_copy` (IN `source_db` VARCHAR(25
 END$$
 
 DELIMITER ;
+
+-- --------------------------------------------------------
+-- Procedure: sp_validate_tenant_subscription
+-- Purpose:   Validates whether a tenant has an active subscription
+-- --------------------------------------------------------
+
+DELIMITER //
+
+CREATE PROCEDURE IF NOT EXISTS sp_validate_tenant_subscription(
+  IN  p_tenant_id VARCHAR(100),
+  OUT p_is_valid  BOOLEAN,
+  OUT p_status    VARCHAR(50),
+  OUT p_message   TEXT
+)
+BEGIN
+  DECLARE v_subscription_status VARCHAR(50);
+  DECLARE v_end_date        DATETIME;
+  DECLARE v_trial_end_date  DATETIME;
+
+  SELECT
+    ts.status,
+    ts.end_date,
+    ts.trial_end_date
+  INTO
+    v_subscription_status,
+    v_end_date,
+    v_trial_end_date
+  FROM nxt_tenant_subscription ts
+  WHERE ts.tenant_id = p_tenant_id
+    AND ts.status IN ('trial', 'active')
+  ORDER BY ts.created_at DESC
+  LIMIT 1;
+
+  IF v_subscription_status IS NULL THEN
+    SET p_is_valid = FALSE;
+    SET p_status   = 'no_subscription';
+    SET p_message  = 'No active subscription found';
+  ELSEIF v_subscription_status = 'trial' AND v_trial_end_date < NOW() THEN
+    SET p_is_valid = FALSE;
+    SET p_status   = 'trial_expired';
+    SET p_message  = 'Trial period has expired';
+  ELSEIF v_subscription_status = 'active' AND v_end_date IS NOT NULL AND v_end_date < NOW() THEN
+    SET p_is_valid = FALSE;
+    SET p_status   = 'subscription_expired';
+    SET p_message  = 'Subscription has expired';
+  ELSE
+    SET p_is_valid = TRUE;
+    SET p_status   = v_subscription_status;
+    SET p_message  = 'Subscription is valid';
+  END IF;
+END //
+
+DELIMITER ;
