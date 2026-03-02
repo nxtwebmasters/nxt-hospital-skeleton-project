@@ -20,7 +20,7 @@ services:
       - internal-net
 
   patient-frontend:
-    image: pandanxt/customer-portal:develop-82-94bea2c8
+    image: pandanxt/customer-portal:develop-296-ef542016
     container_name: portal-hospital
     restart: always
     environment:
@@ -34,7 +34,7 @@ services:
       - internal-net
 
   hospital-apis:
-    image: pandanxt/hms-backend-apis:develop-365-46acd58a
+    image: pandanxt/hms-backend-apis:develop-368-d9d834ac
     container_name: api-hospital
     restart: always
     env_file:
