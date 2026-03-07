@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS `nxt_tenant` (
   `tenant_id` VARCHAR(50) NOT NULL PRIMARY KEY COMMENT 'Unique tenant identifier (e.g., tenant_abc123)',
   `tenant_name` VARCHAR(255) NOT NULL COMMENT 'Hospital/Organization name',
   `tenant_subdomain` VARCHAR(100) NOT NULL UNIQUE COMMENT 'Subdomain (e.g., hospital1 in hospital1.yourdomain.com)',
-  `tenant_status` ENUM('active', 'suspended', 'trial', 'expired', 'pending_dns', 'pending_payment', 'inactive') DEFAULT 'trial' COMMENT 'Account status',
+  `tenant_status` ENUM('active', 'suspended', 'trial', 'expired', 'pending_dns', 'pending_payment', 'inactive', 'deleted') DEFAULT 'trial' COMMENT 'Account status',
   -- pending_payment: paid plan selected, awaiting bank transfer / receipt approval
   -- inactive: manually disabled by super admin
   `subscription_plan` VARCHAR(50) DEFAULT 'basic' COMMENT 'Subscription tier (basic/premium/enterprise)',
