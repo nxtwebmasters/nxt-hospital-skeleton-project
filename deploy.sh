@@ -710,7 +710,9 @@ EOF
     
     # Replace schema placeholders with actual values
     log "Updating database schema with tenant configuration..."
-    sed -i "s/{{DEFAULT_TENANT_SUBDOMAIN}}/$BASE_SUBDOMAIN/g" data/scripts/1-schema.sql
+    # NOTE: The {{DEFAULT_TENANT_SUBDOMAIN}} placeholder is in 5-insert.sql (the seed INSERT),
+    # not in 1-schema.sql. Replacing in the correct file so the tenant row is seeded properly.
+    sed -i "s/{{DEFAULT_TENANT_SUBDOMAIN}}/$BASE_SUBDOMAIN/g" data/scripts/5-insert.sql
     log "✓ Database schema updated with BASE_SUBDOMAIN=$BASE_SUBDOMAIN"
     
     # Save credentials to a secure file
