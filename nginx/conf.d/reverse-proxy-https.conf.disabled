@@ -1,113 +1,142 @@
-# HTTPS Configuration for Production
-# Multi-Tenant HMS with SSL/TLS Support
-# Requires valid SSL certificates (Let's Encrypt wildcard cert)
+# ═══════════════════════════════════════════════════════════════════════════════
+# HTTPS Production Configuration — NXT Health Suite
 #
-# IMPORTANT: Replace YOURDOMAIN.COM with your actual domain before use!
-# Example: hms.yourdomain.com, hospital.yourgroup.com, etc.
+# Domain architecture:
+#   app.nxthealthsuite.com        → HMS admin panel + patient portal + API
+#   *.app.nxthealthsuite.com      → per-tenant wildcard
+#     lahore.app.nxthealthsuite.com   → tenant "lahore"
+#     karachi.app.nxthealthsuite.com  → tenant "karachi"
+#
+# REQUIREMENTS:
+#   1. Wildcard Let's Encrypt cert covering YOURDOMAIN.COM + *.YOURDOMAIN.COM
+#      Obtained via DNS-challenge (Cloudflare or manual):
+#        certbot certonly --dns-cloudflare -d YOURDOMAIN.COM -d *.YOURDOMAIN.COM
+#   2. Wildcard A-record:  *.app.nxthealthsuite.com → <server IP>
+#      Apex A-record:       app.nxthealthsuite.com  → <server IP>
+#
+# NOTE: deploy.sh replaces every occurrence of YOURDOMAIN.COM with the actual
+#       domain value set in deployment-config.sh → DEPLOYMENT_DOMAIN.
+# ═══════════════════════════════════════════════════════════════════════════════
 
+# ─── HTTPS: main application server ───────────────────────────────────────────
 server {
     listen 443 ssl;
     http2 on;
+
+    # Handles both the apex app domain AND every tenant subdomain
     server_name YOURDOMAIN.COM *.YOURDOMAIN.COM;
 
-    # Wildcard SSL Certificate (Update paths for your domain)
-    ssl_certificate /etc/letsencrypt/live/YOURDOMAIN.COM/fullchain.pem;
+    # ── Wildcard SSL certificate (covers YOURDOMAIN.COM + *.YOURDOMAIN.COM) ──
+    ssl_certificate     /etc/letsencrypt/live/YOURDOMAIN.COM/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/YOURDOMAIN.COM/privkey.pem;
 
-    # SSL Configuration (Modern security settings)
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
+    # ── Modern TLS settings ───────────────────────────────────────────────────
+    ssl_protocols             TLSv1.2 TLSv1.3;
+    ssl_ciphers               ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache         shared:SSL:10m;
+    ssl_session_timeout       1d;
+    ssl_session_tickets       off;
+    ssl_stapling              on;
+    ssl_stapling_verify       on;
+    resolver                  8.8.8.8 8.8.4.4 valid=300s;
+    resolver_timeout          5s;
 
-    # Security Headers
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
+    # ── Security headers ──────────────────────────────────────────────────────
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header X-Frame-Options           "SAMEORIGIN"             always;
+    add_header X-Content-Type-Options    "nosniff"                always;
+    add_header X-XSS-Protection          "1; mode=block"          always;
+    add_header Referrer-Policy           "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy        "geolocation=(), microphone=(), camera=()" always;
 
-    # File upload size limit (matches backend 50mb limit)
-    client_max_body_size 50M;
+    # ── Limits ────────────────────────────────────────────────────────────────
+    client_max_body_size   50M;
+    proxy_connect_timeout  60s;
+    proxy_send_timeout     120s;
+    proxy_read_timeout     120s;
 
-    # Timeouts for long-running requests
-    proxy_connect_timeout 60s;
-    proxy_send_timeout 60s;
-    proxy_read_timeout 60s;
-
-    # Backend API (preserve /api-server/ prefix - backend expects BACKEND_URL=/api-server)
-    location /api-server/ {
-        proxy_pass http://hospital-apis:80;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        
-        # WebSocket support (if needed for future features)
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-
-    # Patient Portal (preserve /portal/ prefix)
-    location /portal/ {
-        proxy_pass http://patient-frontend:80;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-    }
-
-    # Static Images (tenant-isolated)
+    # ── Static images (tenant-isolated: /images/<tenant_id>/…) ───────────────
     location /images/ {
         alias /usr/share/nginx/html/images/;
         expires 30d;
-        add_header Cache-Control "public, immutable";
+        add_header Cache-Control           "public, immutable";
         add_header Access-Control-Allow-Origin "*";
         access_log off;
     }
 
-    # Legacy /file-server/ alias — kept for backwards compatibility with older
-    # frontend builds that use FILE_SERVER_URL=/file-server as a fallback.
+    # Legacy path alias kept for older frontend builds
     location /file-server/ {
         alias /usr/share/nginx/html/images/;
         expires 30d;
-        add_header Cache-Control "public, immutable";
+        add_header Cache-Control           "public, immutable";
         add_header Access-Control-Allow-Origin "*";
         access_log off;
     }
 
-    # Admin Panel SPA (must be last - fallback for client-side routing)
-    location / {
-        proxy_pass http://hospital-frontend:80;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
+    # ── Backend API (/api-server/) ────────────────────────────────────────────
+    # The backend tenant middleware reads the Host header to resolve tenant_id.
+    # Passing $host ensures lahore.app.nxthealthsuite.com reaches the backend
+    # with the correct hostname so tenant "lahore" is resolved.
+    location /api-server/ {
+        proxy_pass http://hospital-apis:80;
+        proxy_set_header Host               $host;
+        proxy_set_header X-Forwarded-Host   $host;
+        proxy_set_header X-Real-IP          $remote_addr;
+        proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto  https;
+
+        # WebSocket support (BullBoard, future real-time features)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # CORS preflight — handled by the backend; just forward it
+        if ($request_method = OPTIONS) {
+            return 204;
+        }
     }
 
-    # Health check endpoint
+    # ── Patient portal (/portal/) ─────────────────────────────────────────────
+    # Built with base href /portal/ — do NOT strip the prefix when proxying.
+    location /portal/ {
+        proxy_pass http://patient-frontend:80;
+        proxy_set_header Host               $host;
+        proxy_set_header X-Forwarded-Host   $host;
+        proxy_set_header X-Real-IP          $remote_addr;
+        proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto  https;
+    }
+
+    # ── Admin panel SPA (Angular — must be last for client-side routing) ──────
+    location / {
+        proxy_pass http://hospital-frontend:80;
+        proxy_set_header Host               $host;
+        proxy_set_header X-Forwarded-Host   $host;
+        proxy_set_header X-Real-IP          $remote_addr;
+        proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto  https;
+    }
+
+    # ── Internal health check (used by deploy.sh verify phase) ───────────────
     location /nginx-health {
-        access_log off;
-        return 200 "nginx OK\n";
-        add_header Content-Type text/plain;
+        access_log  off;
+        return 200  "nginx OK\n";
+        add_header  Content-Type text/plain;
     }
 }
 
-# HTTP to HTTPS Redirect
+# ─── HTTP → HTTPS redirect for all domains / tenant subdomains ───────────────
 server {
     listen 80;
     server_name YOURDOMAIN.COM *.YOURDOMAIN.COM;
 
-    # Allow Let's Encrypt ACME challenges (for cert renewal)
+    # Allow Let's Encrypt ACME challenges (certificate renewal via certbot)
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
     }
 
-    # Redirect all other HTTP traffic to HTTPS
+    # Redirect every other HTTP request to HTTPS permanently
     location / {
         return 301 https://$host$request_uri;
     }

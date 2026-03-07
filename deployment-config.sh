@@ -1,14 +1,16 @@
 #!/bin/bash
 ################################################################################
-# NXT HOSPITAL - Deployment Configuration File
-# 
-# This file contains deployment-specific settings that can be customized
-# for different environments without modifying the main deploy.sh script.
+# NXT Health Suite — Deployment Configuration File
+#
+# Domain architecture:
+#   nxthealthsuite.com            → marketing website (separate host)
+#   app.nxthealthsuite.com        → HMS application (this deployment)
+#   city.app.nxthealthsuite.com   → per-tenant wildcard subdomains
 #
 # Usage:
 #   1. Copy this file: cp deployment-config.sh deployment-config.local.sh
 #   2. Edit deployment-config.local.sh with your settings
-#   3. Run: ./deploy.sh (it will auto-detect the local config)
+#   3. Run: ./deploy.sh  (auto-detects the local config)
 #
 # Note: deployment-config.local.sh is git-ignored for security
 ################################################################################
@@ -17,17 +19,16 @@
 # DEPLOYMENT CONFIGURATION
 # ============================================================================
 
-# Domain Configuration
-# Example: hms.yourdomain.com, hospital.example.com, medeast.healthcare.com
-# Leave empty to use VM IP address (auto-detected)
-DEPLOYMENT_DOMAIN="hms.nxtwebmasters.com"
+# App sub-domain where the HMS software is served.
+# The marketing site (nxthealthsuite.com) is hosted separately.
+# Wildcard DNS record *.app.nxthealthsuite.com must A-point to this server.
+DEPLOYMENT_DOMAIN="app.nxthealthsuite.com"
 
 # Base Subdomain / Default Tenant Name
-# This becomes the system default tenant identifier
-# Examples: "hms", "medeast", "familycare", "careplus"
-# For hms.yourdomain.com → use "hms"
-# For medeast.healthcare.com → use "medeast"
-DEFAULT_TENANT_SUBDOMAIN="hms"
+# This is the system default tenant identifier.
+# For app.nxthealthsuite.com  →  use "app"
+# New tenants are then:  city.app.nxthealthsuite.com (tenant = "city")
+DEFAULT_TENANT_SUBDOMAIN="app"
 
 # Deployment Mode
 # Options: "http" (development/testing), "https" (production with SSL)
@@ -92,24 +93,26 @@ PORTAL_IMAGE_TAG="latest"
 # DEPLOYMENT PRESETS (uncomment and customize one to use)
 # ============================================================================
 
-# Preset 1: Generic HMS (recommended starting point)
-# DEPLOYMENT_DOMAIN="hms.yourdomain.com"
-# DEFAULT_TENANT_SUBDOMAIN="hms"
+# Preset 1: NXT Health Suite SaaS (production — recommended)
+# DEPLOYMENT_DOMAIN="app.nxthealthsuite.com"
+# DEFAULT_TENANT_SUBDOMAIN="app"
 # DEPLOYMENT_MODE="https"
+# Tenant pattern: lahore.app.nxthealthsuite.com, karachi.app.nxthealthsuite.com
 
-# Preset 2: Specific Hospital (e.g., MedEast)
-# DEPLOYMENT_DOMAIN="medeast.healthcare.com"
-# DEFAULT_TENANT_SUBDOMAIN="medeast"
+# Preset 2: White-label / custom domain for a hospital group
+# DEPLOYMENT_DOMAIN="app.medeast.pk"
+# DEFAULT_TENANT_SUBDOMAIN="app"
 # DEPLOYMENT_MODE="https"
+# Tenant pattern: lahore.app.medeast.pk, karachi.app.medeast.pk
 
 # Preset 3: Development (IP-based, no domain)
 # DEPLOYMENT_DOMAIN=""  # Will auto-detect VM IP
-# DEFAULT_TENANT_SUBDOMAIN="hms"
+# DEFAULT_TENANT_SUBDOMAIN="app"
 # DEPLOYMENT_MODE="http"
 
-# Preset 4: Multi-branch Hospital Group
-# DEPLOYMENT_DOMAIN="familycare.nxtwebmasters.com"
-# DEFAULT_TENANT_SUBDOMAIN="familycare"
+# Preset 4: Single-hospital deployment (no multi-tenancy needed)
+# DEPLOYMENT_DOMAIN="hms.cityhospital.pk"
+# DEFAULT_TENANT_SUBDOMAIN="hms"
 # DEPLOYMENT_MODE="https"
 # 
 # NOTE: After deployment, configure tenant-specific settings via:

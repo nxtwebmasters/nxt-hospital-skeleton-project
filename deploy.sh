@@ -107,7 +107,7 @@ sudo_wrapper() {
 show_usage() {
     cat << EOF
 ═══════════════════════════════════════════════════════════════
-  NXT HOSPITAL - Multi-Tenant Hospital Management System Deployment
+  NXT Health Suite — Multi-Tenant HMS Deployment (app.nxthealthsuite.com)
 ═══════════════════════════════════════════════════════════════
 
 Usage: $0 [OPTIONS]
@@ -608,12 +608,14 @@ FILE_SERVER_URL=/images
 # ====================================================================================
 
 # URL Configuration
+BASE_URL=https://$DOMAIN_OR_IP
+BASE_DOMAIN=$DOMAIN_OR_IP
 CUSTOMER_PORTAL_URL=/assets/print
 BACKEND_URL=/api-server
 PATIENT_PORTAL_URL=/portal
 
-# CORS Configuration
-ALLOWED_ORIGINS=["http://$DOMAIN_OR_IP","https://$DOMAIN_OR_IP","http://localhost","*.localhost","*.local"]
+# CORS — wildcard covers all tenant subdomains (city.app.nxthealthsuite.com)
+ALLOWED_ORIGINS=["https://$DOMAIN_OR_IP","https://*.$DOMAIN_OR_IP","http://localhost","https://localhost","*.localhost","*.local"]
 
 # ====================================================================================
 # DATABASE BACKUP CONFIGURATION REMOVED - NOW PER-TENANT FROM DATABASE
@@ -692,6 +694,9 @@ EOF
     sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$JWT_SECRET|g" hms-backend.env
     sed -i "s|^BASE_SUBDOMAIN=.*|BASE_SUBDOMAIN=$BASE_SUBDOMAIN|g" hms-backend.env
     sed -i "s|^BASE_DOMAIN=.*|BASE_DOMAIN=$DOMAIN_OR_IP|g" hms-backend.env
+    sed -i "s|^BASE_URL=.*|BASE_URL=https://$DOMAIN_OR_IP|g" hms-backend.env
+    # Also update wildcard CORS to match the deployed domain
+    sed -i "s|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=[\"https://$DOMAIN_OR_IP\",\"https://*.$DOMAIN_OR_IP\",\"http://localhost\",\"https://localhost\",\"*.localhost\",\"*.local\"]|g" hms-backend.env
     
     log "✓ Docker Compose and backend environment updated with secure passwords"
     
@@ -731,14 +736,16 @@ SSL Cert Email:      $SMTP_EMAIL (for SSL certificate notifications only)
     Configure via: Admin Panel → Tenant Configuration → Email Settings
 
 Access URLs:
-  Admin Panel:       http://$DOMAIN_OR_IP/
-  Patient Portal:    http://$DOMAIN_OR_IP/portal/
-  API Health:        http://$DOMAIN_OR_IP/api-server/health
+  Admin Panel:       https://$DOMAIN_OR_IP/
+  Patient Portal:    https://$DOMAIN_OR_IP/portal/
+  API Health:        https://$DOMAIN_OR_IP/api-server/health
 
-Multi-Tenant Access Pattern:
-  - Default tenant:  $DOMAIN_OR_IP (or ${BASE_SUBDOMAIN}.yourdomain.com)
-  - Other tenants:   hospital1-${BASE_SUBDOMAIN}.yourdomain.com
+Multi-Tenant Access Pattern (NXT Health Suite):
+  - App (default):   https://$DOMAIN_OR_IP
+  - City tenant:     https://city.$DOMAIN_OR_IP
+  - Tenant pattern:  https://{tenantname}.$DOMAIN_OR_IP
   - Tenant creation: POST /api-server/tenant/create
+  - Wildcard DNS:    *.$(echo "$DOMAIN_OR_IP" | cut -d'.' -f2-) A-record → this server
 
 ═══════════════════════════════════════
 ⚠️  IMPORTANT: Save these credentials securely!
@@ -1169,8 +1176,10 @@ setup_ssl() {
     log_info "For multi-tenant HMS, you need a WILDCARD SSL certificate"
     log_info "This requires DNS validation (not HTTP validation)"
     echo ""
-    
-    read -p "Enter your BASE domain (e.g., hms.yourdomain.com): " SSL_DOMAIN
+
+    local DEFAULT_SSL_DOMAIN="${DOMAIN_OR_IP:-app.nxthealthsuite.com}"
+    read -p "Enter your BASE domain [${DEFAULT_SSL_DOMAIN}]: " SSL_DOMAIN_INPUT
+    SSL_DOMAIN="${SSL_DOMAIN_INPUT:-$DEFAULT_SSL_DOMAIN}"
 
     if [ -z "$SSL_DOMAIN" ]; then
         log_warning "No domain provided. Skipping SSL setup."
@@ -1296,7 +1305,7 @@ EOF
             echo "  1. DON'T press Enter when certbot shows the record"
             echo "  2. Login to Hoster.pk cPanel → Zone Editor"
             echo "  3. Add TXT record:"
-            echo "     Name:   _acme-challenge.hms"
+            echo "     Name:   _acme-challenge.$(echo "$SSL_DOMAIN" | cut -d'.' -f1)"
             echo "     Type:   TXT"
             echo "     Record: [value shown by certbot]"
             echo "     TTL:    300"
@@ -1506,7 +1515,7 @@ deployment_summary() {
     echo ""
     echo "╔══════════════════════════════════════════════════════════╗"
     echo "║                                                          ║"
-    echo "║      🎉 HMS DEPLOYMENT COMPLETED SUCCESSFULLY! 🎉       ║"
+    echo "║   🎉 NXT Health Suite DEPLOYMENT COMPLETED! 🎉           ║"
     echo "║                                                          ║"
     echo "╚══════════════════════════════════════════════════════════╝"
     echo ""
@@ -1536,10 +1545,10 @@ deployment_summary() {
     echo "     • Main domain:    $DOMAIN_OR_IP"
     echo "     • Wildcard:       *.$DOMAIN_OR_IP (all subdomains)"
     echo ""
-    echo "  🏥 Tenant Access Pattern:"
-    echo "     • hospital-a.$DOMAIN_OR_IP → Tenant A"
-    echo "     • hospital-b.$DOMAIN_OR_IP → Tenant B"
-    echo "     • clinic-xyz.$DOMAIN_OR_IP → Tenant XYZ"
+    echo "  🏥 Tenant Access Pattern (city.app.nxthealthsuite.com):"
+    echo "     • lahore.$DOMAIN_OR_IP   → Lahore hospital tenant"
+    echo "     • karachi.$DOMAIN_OR_IP  → Karachi hospital tenant"
+    echo "     • islamabad.$DOMAIN_OR_IP → Islamabad hospital tenant"
     echo ""
     echo "  📂 File Storage:"
     echo "     • Tenant-isolated: $DEPLOYMENT_DIR/images/<tenant_id>/"
@@ -1569,7 +1578,7 @@ deployment_summary() {
     echo "  3. Add hospitals: See docs/TENANT_ONBOARDING.md"
     echo "  4. Configure DNS: See docs/MULTI_TENANT_DNS_SETUP.md"
     echo "  5. Enable HTTPS: Update nginx config with SSL certificates"
-    echo "  6. Test tenant: http://hospital-name.$DOMAIN_OR_IP/"
+    echo "  6. Test tenant: https://lahore.$DOMAIN_OR_IP/"
     echo ""
     echo "┌──────────────────────────────────────────────────────────┐"
     echo "│  📖 DOCUMENTATION                                        │"
@@ -1597,8 +1606,8 @@ main() {
     echo ""
     echo "╔══════════════════════════════════════════════════════════╗"
     echo "║                                                          ║"
-    echo "║        🏥 NXT HOSPITAL - Production Deployment 🏥             ║"
-    echo "║         Automated Multi-Tenant Setup v2.0                ║"
+    echo "║   🏥 NXT Health Suite — Production Deployment   🏥         ║"
+    echo "║      Automated Multi-Tenant HMS Setup v2.0                ║"
     echo "║                                                          ║"
     echo "╚══════════════════════════════════════════════════════════╝"
     echo ""
