@@ -18,14 +18,19 @@ INSERT INTO `nxt_tenant` (
   `created_by`
 ) VALUES (
   'system_default_tenant',
-  'System Default Hospital',
+  'NXT Health Suite',
   '{{DEFAULT_TENANT_SUBDOMAIN}}',
   'active',
   'enterprise',
   '{"fbr":true,"campaigns":true,"ai":true,"health_authority_analytics":true}',
   NOW(),
-  'migration_script'
-) ON DUPLICATE KEY UPDATE tenant_id=tenant_id;
+  'deploy_script'
+) ON DUPLICATE KEY UPDATE
+  `tenant_name`      = VALUES(`tenant_name`),
+  `tenant_subdomain` = VALUES(`tenant_subdomain`),
+  `tenant_status`    = VALUES(`tenant_status`),
+  `subscription_plan`= VALUES(`subscription_plan`),
+  `features`         = VALUES(`features`);
 
 -- --------------------------------------------------------
 -- Subscription Plans

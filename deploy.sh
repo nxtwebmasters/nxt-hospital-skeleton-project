@@ -763,6 +763,34 @@ EOF
 }
 
 ################################################################################
+# Helper: Seed the default tenant by re-running 5-insert.sql
+#
+# Why this exists:
+#   MySQL's docker-entrypoint-initdb.d runs scripts ONLY on a brand-new empty
+#   volume.  On every re-deploy the volume already has data, so initdb is
+#   skipped entirely.  We therefore re-execute 5-insert.sql manually via
+#   'docker exec -i' after MySQL is confirmed healthy.
+#
+#   This keeps all SQL logic in one place (5-insert.sql); deploy.sh just
+#   calls the file — no duplicated inline SQL here.
+################################################################################
+
+seed_default_tenant() {
+    local db_pass
+    db_pass=$(grep "DB_PASSWORD=" hms-backend.env | cut -d'=' -f2)
+
+    log "Seeding default tenant via data/scripts/5-insert.sql (subdomain: $BASE_SUBDOMAIN)..."
+    if docker exec -i hospital-mysql mysql \
+            -u nxt_user -p"$db_pass" nxt-hospital \
+            --silent --connect-timeout=10 \
+        < data/scripts/5-insert.sql 2>/dev/null; then
+        log "✓ Default tenant seeded/updated (system_default_tenant → $BASE_SUBDOMAIN)"
+    else
+        log_warning "5-insert.sql execution failed — bootstrap may fail. Check DB manually."
+    fi
+}
+
+################################################################################
 # Phase 5: Deployment
 ################################################################################
 
@@ -863,6 +891,7 @@ deploy_application() {
             TABLE_COUNT=$(docker exec hospital-mysql mysql -u nxt_user -p"$DB_PASSWORD" nxt-hospital -se "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='nxt-hospital';" 2>/dev/null || echo "0")
             if [ "$TABLE_COUNT" -gt 50 ]; then
                 log "✓ Database schema ready with $TABLE_COUNT tables"
+                seed_default_tenant
                 break
             fi
         fi
@@ -919,6 +948,10 @@ verify_deployment() {
 
     if [ $attempt -eq $max_attempts ]; then
         log_warning "MySQL health check timeout. It may still be initializing."
+    else
+        # Re-run 5-insert.sql to upsert the default tenant.
+        # Needed on re-deploys where initdb is skipped (volume already exists).
+        seed_default_tenant
     fi
 
     # Test health endpoints with retries
