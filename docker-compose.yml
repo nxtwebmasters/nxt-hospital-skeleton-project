@@ -28,13 +28,13 @@ services:
       DEFAULT_PRINT_LAYOUT: "thermal"
       DEFAULT_USER_ICON: "https://file-server.nxtwebmasters.com/images/default-user.webp"
       PORTAL_URL: "/portal"  # Relative path via nginx reverse proxy
-      PATIENT_DEFAULT_PASSWORD: "NxtHospital123"
+      PATIENT_DEFAULT_PASSWORD: "${PATIENT_DEFAULT_PASSWORD:-}"
       DESIGN_IDENTIFIER: "nxtwebmaster"
     networks:
       - internal-net
 
   hospital-apis:
-    image: pandanxt/hms-backend-apis:develop-372-382d9bd3
+    image: pandanxt/hms-backend-apis:develop-373-08e49c69
     container_name: api-hospital
     restart: always
     env_file:
@@ -61,11 +61,11 @@ services:
              node server.js"
 
   mysql:
-    image: mysql:latest
+    image: mysql:8.0
     container_name: hospital-mysql
     restart: always
-    ports:
-      - "3306:3306"  # ⚠️ PRODUCTION: Restrict with firewall! See docs for SSH tunnel alternative
+    # ports:
+    #   - "127.0.0.1:3306:3306"  # Uncomment ONLY for local dev access (binds to localhost only)
     environment:
       MYSQL_ROOT_PASSWORD: "REPLACE_WITH_SECURE_PASSWORD"
       MYSQL_DATABASE: "nxt-hospital"
@@ -91,8 +91,11 @@ services:
     restart: always
     # ports:
     #   - "6379:6379"
+    command: sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then redis-server --requirepass "$$REDIS_PASSWORD"; else redis-server; fi'
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "sh", "-c", "redis-cli -a \"$${REDIS_PASSWORD:-}\" ping 2>/dev/null || redis-cli ping"]
       interval: 10s
       timeout: 5s
       retries: 5

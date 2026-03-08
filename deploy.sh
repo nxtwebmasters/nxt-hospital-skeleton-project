@@ -435,8 +435,18 @@ configure_environment() {
             JWT_SECRET=$(generate_jwt_secret)
             log "Generated JWT secret"
         fi
-        
-        log "✓ Configuration loaded from file"
+        if [ -z "$REDIS_PASSWORD" ]; then
+            REDIS_PASSWORD=$(generate_password)
+            log "Generated Redis password"
+        fi
+        if [ -z "$ADMIN_API_KEY" ]; then
+            ADMIN_API_KEY=$(generate_jwt_secret)
+            log "Generated Admin API key"
+        fi
+        if [ -z "$PATIENT_DEFAULT_PASSWORD" ]; then
+            PATIENT_DEFAULT_PASSWORD=$(generate_password)
+            log "Generated patient default password"
+        fi
         log "  Domain: $DOMAIN_OR_IP"
         log "  Default Tenant: $BASE_SUBDOMAIN"
         log "  SSL Cert Email: $SMTP_EMAIL (for SSL notifications only)"
@@ -518,12 +528,18 @@ configure_environment() {
         MYSQL_ROOT_PASSWORD=$(generate_password)
         MYSQL_DB_PASSWORD=$(generate_password)
         JWT_SECRET=$(generate_jwt_secret)
+        REDIS_PASSWORD=$(generate_password)
+        ADMIN_API_KEY=$(generate_jwt_secret)
+        PATIENT_DEFAULT_PASSWORD=$(generate_password)
         
         echo ""
         echo "✓ Generated secure credentials:"
-        echo "  - MySQL Root Password: ${MYSQL_ROOT_PASSWORD:0:8}..."
-        echo "  - MySQL DB Password:   ${MYSQL_DB_PASSWORD:0:8}..."
-        echo "  - JWT Secret:          ${JWT_SECRET:0:16}..."
+        echo "  - MySQL Root Password:      ${MYSQL_ROOT_PASSWORD:0:8}..."
+        echo "  - MySQL DB Password:        ${MYSQL_DB_PASSWORD:0:8}..."
+        echo "  - JWT Secret:              ${JWT_SECRET:0:16}..."
+        echo "  - Redis Password:           ${REDIS_PASSWORD:0:8}..."
+        echo "  - Admin API Key:            ${ADMIN_API_KEY:0:16}..."
+        echo "  - Patient Default Password: ${PATIENT_DEFAULT_PASSWORD:0:8}..."
         echo ""
         
         # Notify about tenant-specific configuration
@@ -571,7 +587,8 @@ SOURCE_DB_NAME=nxt-hospital
 DB_USERNAME=nxt_user
 DB_PASSWORD=$MYSQL_DB_PASSWORD
 DB_CONNECTION_LIMIT=10
-DB_MULTIPLE_STATEMENTS=true
+# SECURITY: Keep false in production. bootstrap scripts enable it locally only.
+DB_MULTIPLE_STATEMENTS=false
 
 # ====================================================================================
 # FBR INTEGRATION REMOVED - NOW PER-TENANT FROM DATABASE
@@ -638,10 +655,13 @@ ALLOWED_ORIGINS=["https://$DOMAIN_OR_IP","https://*.$DOMAIN_OR_IP","http://local
 # Redis Configuration
 REDIS_HOST=redis
 REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_MAX_RETRIES=3
+REDIS_PASSWORD=$REDIS_PASSWORD
+REDIS_MAX_RETRIES=10
 REDIS_CONNECT_TIMEOUT=10000
 REDIS_COMMAND_TIMEOUT=10000
+
+# Admin API Key (protects /admin/queues and scheduler management endpoints)
+ADMIN_API_KEY=$ADMIN_API_KEY
 
 # URL Configuration
 URL_EXPIRATION_MS=900000
@@ -692,11 +712,15 @@ EOF
     log "Updating hms-backend.env with matching database password and JWT secret..."
     sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$MYSQL_DB_PASSWORD|g" hms-backend.env
     sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$JWT_SECRET|g" hms-backend.env
+    sed -i "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=$REDIS_PASSWORD|g" hms-backend.env
+    sed -i "s|^ADMIN_API_KEY=.*|ADMIN_API_KEY=$ADMIN_API_KEY|g" hms-backend.env
     sed -i "s|^BASE_SUBDOMAIN=.*|BASE_SUBDOMAIN=$BASE_SUBDOMAIN|g" hms-backend.env
     sed -i "s|^BASE_DOMAIN=.*|BASE_DOMAIN=$DOMAIN_OR_IP|g" hms-backend.env
     sed -i "s|^BASE_URL=.*|BASE_URL=https://$DOMAIN_OR_IP|g" hms-backend.env
     # Also update wildcard CORS to match the deployed domain
     sed -i "s|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=[\"https://$DOMAIN_OR_IP\",\"https://*.$DOMAIN_OR_IP\",\"http://localhost\",\"https://localhost\",\"*.localhost\",\"*.local\"]|g" hms-backend.env
+    # Inject Redis password into docker-compose (for the redis service command)
+    sed -i "s|REDIS_PASSWORD: \"\${REDIS_PASSWORD:-}\"|REDIS_PASSWORD: \"$REDIS_PASSWORD\"|g" docker-compose.yml
     
     log "✓ Docker Compose and backend environment updated with secure passwords"
     
@@ -731,6 +755,9 @@ Multi-Tenancy Configuration:
 MySQL Root Password: $MYSQL_ROOT_PASSWORD
 MySQL DB Password:   $MYSQL_DB_PASSWORD
 JWT Secret:          $JWT_SECRET
+Redis Password:      $REDIS_PASSWORD
+Admin API Key:       $ADMIN_API_KEY
+Patient Default Password: $PATIENT_DEFAULT_PASSWORD
 
 SSL Cert Email:      $SMTP_EMAIL (for SSL certificate notifications only)
 
@@ -885,8 +912,10 @@ deploy_application() {
             echo "⏳ MySQL initializing..."
         fi
         
-        # Exit early if MySQL is ready and has tables
-        if [ $mysql_ready -eq 1 ] && [ $i -gt 10 ]; then
+        # Seed the default tenant as soon as MySQL has a full schema.
+        # Do NOT wait for i > 10 — that 40-second delay lets api-hospital
+        # reach bootstrap before the tenant row exists, causing a failure.
+        if [ $mysql_ready -eq 1 ]; then
             DB_PASSWORD=$(grep "DB_PASSWORD=" hms-backend.env | cut -d'=' -f2)
             TABLE_COUNT=$(docker exec hospital-mysql mysql -u nxt_user -p"$DB_PASSWORD" nxt-hospital -se "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='nxt-hospital';" 2>/dev/null || echo "0")
             if [ "$TABLE_COUNT" -gt 50 ]; then
