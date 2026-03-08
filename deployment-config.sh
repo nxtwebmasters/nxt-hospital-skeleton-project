@@ -53,6 +53,13 @@ MYSQL_DB_PASSWORD=""
 # JWT Secret (auto-generated if empty)
 JWT_SECRET=""
 
+# Marketing Website Origin (for CORS whitelist)
+# The origin of the marketing site that calls /api-server/public/register and other public endpoints.
+# If left empty, deploy.sh will auto-derive it by stripping the first subdomain from DEPLOYMENT_DOMAIN.
+# e.g.  app.nxthealthsuite.com  →  derives https://nxthealthsuite.com automatically
+# Override here if your marketing site uses a different domain entirely.
+WEBSITE_ORIGIN=""
+
 # ============================================================================
 # INTEGRATION CONFIGURATION (optional - can configure later via UI)
 # ============================================================================

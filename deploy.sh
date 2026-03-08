@@ -567,6 +567,21 @@ configure_environment() {
         echo ""
     fi
 
+    # Derive marketing website origin for CORS whitelist if not explicitly set
+    if [ -z "$WEBSITE_ORIGIN" ]; then
+        PARENT_DOMAIN=$(echo "$DOMAIN_OR_IP" | sed 's/^[^.]*\.//')
+        if [ "$PARENT_DOMAIN" != "$DOMAIN_OR_IP" ] && [ -n "$PARENT_DOMAIN" ]; then
+            WEBSITE_ORIGIN="https://$PARENT_DOMAIN"
+            log "Auto-derived website origin: $WEBSITE_ORIGIN"
+        fi
+    fi
+
+    # Build ALLOWED_ORIGINS JSON (wildcard covers tenant subdomains; website origin covers marketing site)
+    ALLOWED_ORIGINS_JSON="[\"https://$DOMAIN_OR_IP\",\"https://*.$DOMAIN_OR_IP\"" 
+    [ -n "$WEBSITE_ORIGIN" ] && ALLOWED_ORIGINS_JSON="$ALLOWED_ORIGINS_JSON,\"$WEBSITE_ORIGIN\"" 
+    ALLOWED_ORIGINS_JSON="$ALLOWED_ORIGINS_JSON,\"http://localhost\",\"https://localhost\",\"*.localhost\",\"*.local\"]"
+    log "CORS ALLOWED_ORIGINS: $ALLOWED_ORIGINS_JSON"
+
     # Update hms-backend.env with all settings
     log "Updating hms-backend.env..."
     
@@ -631,8 +646,8 @@ CUSTOMER_PORTAL_URL=/assets/print
 BACKEND_URL=/api-server
 PATIENT_PORTAL_URL=/portal
 
-# CORS — wildcard covers all tenant subdomains (city.app.nxthealthsuite.com)
-ALLOWED_ORIGINS=["https://$DOMAIN_OR_IP","https://*.$DOMAIN_OR_IP","http://localhost","https://localhost","*.localhost","*.local"]
+# CORS — wildcard covers tenant subdomains; website origin covers marketing site signup form
+ALLOWED_ORIGINS=$ALLOWED_ORIGINS_JSON
 
 # ====================================================================================
 # DATABASE BACKUP CONFIGURATION REMOVED - NOW PER-TENANT FROM DATABASE
@@ -717,8 +732,8 @@ EOF
     sed -i "s|^BASE_SUBDOMAIN=.*|BASE_SUBDOMAIN=$BASE_SUBDOMAIN|g" hms-backend.env
     sed -i "s|^BASE_DOMAIN=.*|BASE_DOMAIN=$DOMAIN_OR_IP|g" hms-backend.env
     sed -i "s|^BASE_URL=.*|BASE_URL=https://$DOMAIN_OR_IP|g" hms-backend.env
-    # Also update wildcard CORS to match the deployed domain
-    sed -i "s|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=[\"https://$DOMAIN_OR_IP\",\"https://*.$DOMAIN_OR_IP\",\"http://localhost\",\"https://localhost\",\"*.localhost\",\"*.local\"]|g" hms-backend.env
+    # Also update wildcard CORS to match the deployed domain (ALLOWED_ORIGINS_JSON was built above)
+    sed -i "s|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=$ALLOWED_ORIGINS_JSON|g" hms-backend.env
     # Inject Redis password into docker-compose (for the redis service command)
     sed -i "s|REDIS_PASSWORD: \"\${REDIS_PASSWORD:-}\"|REDIS_PASSWORD: \"$REDIS_PASSWORD\"|g" docker-compose.yml
     
