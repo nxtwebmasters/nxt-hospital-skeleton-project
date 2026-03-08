@@ -101,10 +101,8 @@ server {
         proxy_set_header Upgrade    $http_upgrade;
         proxy_set_header Connection "upgrade";
 
-        # CORS preflight — handled by the backend; just forward it
-        if ($request_method = OPTIONS) {
-            return 204;
-        }
+        # CORS preflight — forwarded to backend which responds with correct headers
+        # Do NOT intercept OPTIONS here; Express cors() middleware handles it
     }
 
     # ── Patient portal (/portal/) ─────────────────────────────────────────────
