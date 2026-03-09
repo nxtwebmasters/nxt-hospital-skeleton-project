@@ -34,7 +34,7 @@ services:
       - internal-net
 
   hospital-apis:
-    image: pandanxt/hms-backend-apis:develop-374-fdb8346a
+    image: pandanxt/hms-backend-apis:develop-375-eb0033af
     container_name: api-hospital
     restart: always
     env_file:
